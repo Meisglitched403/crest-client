@@ -8,14 +8,16 @@ import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
 
 public class ZoomModule implements CrestModule {
-    private static final double ZOOM_FOV = 30.0;
-    private static final double SMOOTH_SPEED = 0.35;
+    public static final double ZOOM_FOV = 30.0;
+    public static final double SMOOTH_SPEED = 0.15;
 
-    private boolean wasKeyDown = false;
-    private double currentFov;
-    private double targetFov;
-    private double originalFov;
-    private boolean initialized;
+    // Static state read by GameRendererMixin every frame
+    public static double currentFov;
+    public static double targetFov;
+    public static double originalFov;
+    public static boolean initialized;
+
+    private boolean wasKeyDown;
 
     @Override
     public String getId() { return "zoom"; }
@@ -44,31 +46,17 @@ public class ZoomModule implements CrestModule {
             }
 
             boolean isDown = glfwGetKey(window, GLFW.GLFW_KEY_Z) == GLFW.GLFW_PRESS;
-
-            if (isDown && !wasKeyDown) {
-                targetFov = ZOOM_FOV;
-            } else if (!isDown && wasKeyDown) {
-                targetFov = originalFov;
-            }
+            if (isDown && !wasKeyDown) targetFov = ZOOM_FOV;
+            else if (!isDown && wasKeyDown) targetFov = originalFov;
             wasKeyDown = isDown;
-
-            if (Math.abs(currentFov - targetFov) > 0.01) {
-                currentFov += (targetFov - currentFov) * SMOOTH_SPEED;
-                client.options.fov().set((int) currentFov);
-            } else if (currentFov != targetFov) {
-                currentFov = targetFov;
-                client.options.fov().set((int) currentFov);
-            }
         });
     }
 
     @Override
     public void onDisable() {
         if (initialized) {
-            Minecraft mc = Minecraft.getInstance();
             currentFov = originalFov;
             targetFov = originalFov;
-            mc.options.fov().set((int) originalFov);
             wasKeyDown = false;
         }
     }

@@ -1,0 +1,11 @@
+{
+    "required": true,
+    "package": "com.crest.client.core.mixin",
+    "compatibilityLevel": "JAVA_25",
+    "client": [
+        "GameRendererMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}
