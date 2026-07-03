@@ -2,8 +2,10 @@ package com.crest.client.core;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
@@ -59,7 +61,12 @@ public class CrestClickGui extends Screen {
                 if (hovered) hoveredModule = i;
 
                 boolean enabled = CrestModules.isEnabled(mod.getId());
-                String label = (enabled ? "[ON]  " : "[OFF] ") + mod.getName();
+                String label;
+                if (mod instanceof FullbrightModule fb) {
+                    label = (enabled ? "[ON]  " : "[OFF] ") + "Gamma: " + fb.getGammaLevel() + "%";
+                } else {
+                    label = (enabled ? "[ON]  " : "[OFF] ") + mod.getName();
+                }
 
                 System.err.println("[Crest] module " + i + ": '" + label + "' at y=" + y);
 
@@ -106,11 +113,29 @@ public class CrestClickGui extends Screen {
     }
 
     @Override
-    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+    public boolean keyPressed(KeyEvent event) {
         if (event.key() == 256 || event.key() == 344) {
             onClose();
             return true;
         }
+
+        if (hoveredModule >= 0 && selectedCategory != null) {
+            List<CrestModule> mods = CrestModules.getByCategory(selectedCategory);
+            if (hoveredModule < mods.size()) {
+                CrestModule mod = mods.get(hoveredModule);
+                if (mod instanceof FullbrightModule fb) {
+                    if (event.key() == GLFW.GLFW_KEY_UP) {
+                        fb.adjustGamma(5);
+                        return true;
+                    }
+                    if (event.key() == GLFW.GLFW_KEY_DOWN) {
+                        fb.adjustGamma(-5);
+                        return true;
+                    }
+                }
+            }
+        }
+
         return super.keyPressed(event);
     }
 

@@ -3,7 +3,7 @@ package com.crest.client.core;
 import net.minecraft.client.Minecraft;
 
 public class FullbrightModule implements CrestModule {
-    private static final double MAX_GAMMA = 1.0;
+    private int gammaLevel = 100;
     private double previousGamma;
 
     @Override
@@ -20,11 +20,21 @@ public class FullbrightModule implements CrestModule {
     @Override
     public void onInitialize() {}
 
+    public int getGammaLevel() { return gammaLevel; }
+
+    public void adjustGamma(int delta) {
+        gammaLevel = Math.max(0, Math.min(100, gammaLevel + delta));
+        if (CrestModules.isEnabled("fullbright")) {
+            Minecraft mc = Minecraft.getInstance();
+            mc.options.gamma().set(gammaLevel / 100.0);
+        }
+    }
+
     @Override
     public void onEnable() {
         Minecraft mc = Minecraft.getInstance();
         previousGamma = mc.options.gamma().get();
-        mc.options.gamma().set(MAX_GAMMA);
+        mc.options.gamma().set(gammaLevel / 100.0);
     }
 
     @Override

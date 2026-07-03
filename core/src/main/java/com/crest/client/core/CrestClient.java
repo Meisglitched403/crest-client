@@ -44,9 +44,12 @@ public class CrestClient implements ClientModInitializer {
             if (bDown && !wasBDown) {
                 boolean newState = !CrestModules.isEnabled("fullbright");
                 CrestModules.setEnabled("fullbright", newState);
-                if (client.player != null) {
+                CrestModule fb = CrestModules.get("fullbright");
+                if (client.player != null && fb instanceof FullbrightModule fbm) {
                     client.player.sendOverlayMessage(
-                        Component.literal("Fullbright: " + (newState ? "ON" : "OFF"))
+                        Component.literal(newState
+                            ? "Gamma: " + fbm.getGammaLevel() + "%"
+                            : "Gamma: OFF")
                     );
                 }
             }
