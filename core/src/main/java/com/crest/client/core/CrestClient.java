@@ -15,7 +15,7 @@ import static org.lwjgl.glfw.GLFW.glfwGetKey;
 
 public class CrestClient implements ClientModInitializer {
     private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-core", "hud_renderer");
-    private static boolean wasRShiftDown = false;
+    private static boolean wasGraveDown = false;
 
     @Override
     public void onInitializeClient() {
@@ -28,15 +28,15 @@ public class CrestClient implements ClientModInitializer {
             long window = glfwGetCurrentContext();
             if (window == 0) return;
 
-            boolean isDown = glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
-            if (isDown && !wasRShiftDown) {
+            boolean isDown = glfwGetKey(window, GLFW.GLFW_KEY_GRAVE_ACCENT) == GLFW.GLFW_PRESS;
+            if (isDown && !wasGraveDown) {
                 if (client.screen instanceof CrestClickGui) {
                     client.screen.onClose();
                 } else if (client.screen == null) {
                     client.setScreen(new CrestClickGui());
                 }
             }
-            wasRShiftDown = isDown;
+            wasGraveDown = isDown;
         });
 
         HudElementRegistry.attachElementBefore(
