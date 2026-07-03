@@ -1,0 +1,17 @@
+{
+    "schemaVersion": 1,
+    "id": "crest-core",
+    "version": "${version}",
+    "name": "Crest Core",
+    "description": "Core module system for Crest Client",
+    "authors": ["Meisglitched403"],
+    "environment": "client",
+    "entrypoints": {
+        "client": ["com.crest.client.core.CrestClient"]
+    },
+    "depends": {
+        "fabricloader": ">=0.19.0",
+        "minecraft": ">=26.1",
+        "fabric-api": "*"
+    }
+}
