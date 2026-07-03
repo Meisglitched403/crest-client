@@ -1,5 +1,10 @@
 package com.crest.client.core;
 
+import com.crest.client.bongocat.BongoCatConfig;
+import com.crest.client.bongocat.BongoCatEditScreen;
+import com.crest.client.bongocat.BongoCatModule;
+import com.crest.client.music.MusicModule;
+import com.crest.client.music.MusicScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -15,9 +20,11 @@ import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
 
 public class CrestClient implements ClientModInitializer {
-    private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-core", "hud_renderer");
+    private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-client", "hud_renderer");
     private static boolean wasGraveDown = false;
     private static boolean wasBDown = false;
+    private static boolean wasMDown = false;
+    private static boolean wasAltDown = false;
 
     @Override
     public void onInitializeClient() {
@@ -25,6 +32,9 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ZoomModule());
         CrestModules.register(new CoordsModule());
         CrestModules.register(new FpsModule());
+        CrestModules.register(new BongoCatModule());
+
+        MusicModule.init();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             long window = glfwGetCurrentContext();
@@ -54,6 +64,27 @@ public class CrestClient implements ClientModInitializer {
                 }
             }
             wasBDown = bDown;
+
+            boolean mDown = glfwGetKey(window, GLFW.GLFW_KEY_M) == GLFW.GLFW_PRESS;
+            if (mDown && !wasMDown) {
+                if (client.screen instanceof MusicScreen) {
+                    client.screen.onClose();
+                } else if (client.screen == null) {
+                    client.setScreen(new MusicScreen(MusicModule.getPlayer()));
+                }
+            }
+            wasMDown = mDown;
+
+            boolean altDown = glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+            if (altDown && !wasAltDown) {
+                if (client.screen instanceof BongoCatEditScreen) {
+                    client.screen.onClose();
+                } else if (client.screen == null) {
+                    BongoCatConfig.reload();
+                    client.setScreen(new BongoCatEditScreen(null));
+                }
+            }
+            wasAltDown = altDown;
         });
 
         HudElementRegistry.attachElementBefore(

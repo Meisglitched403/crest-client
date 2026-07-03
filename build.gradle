@@ -1,24 +1,56 @@
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}" apply false
+    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+    id 'com.gradleup.shadow' version '9.4.3'
 }
 
-subprojects {
-	apply plugin: 'net.fabricmc.fabric-loom'
+version = mod_version
+group = maven_group
 
-	repositories {
-		mavenCentral()
-		maven { url = 'https://maven.fabricmc.net/' }
-	}
+base {
+    archivesName = 'crest-client'
+}
 
-	dependencies {
-		minecraft "com.mojang:minecraft:${minecraft_version}"
-	}
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://jitpack.io' }
+}
 
-	tasks.withType(JavaCompile).configureEach {
-		it.options.release = 25
-	}
+configurations {
+    shadow
+}
 
-	java {
-		withSourcesJar()
-	}
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    shadow 'dev.arbjerg:lavaplayer:2.2.6'
+    implementation 'dev.arbjerg:lavaplayer:2.2.6'
+}
+
+shadowJar {
+    archiveClassifier.set('')
+    configurations = [project.configurations.shadow]
+    dependencies {
+        exclude(dependency('org.slf4j:slf4j-api'))
+    }
+}
+
+jar {
+    archiveClassifier.set('slim')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+java {
+    withSourcesJar()
+}
+
+processResources {
+    inputs.property 'version', version
+    filesMatching('fabric.mod.json') { expand 'version': version }
 }

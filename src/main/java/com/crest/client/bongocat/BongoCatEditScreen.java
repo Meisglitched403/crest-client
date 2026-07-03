@@ -23,7 +23,7 @@ public class BongoCatEditScreen extends Screen {
     private int dragOffY;
     private boolean kbToggle;
 
-    protected BongoCatEditScreen(Screen parent) {
+    public BongoCatEditScreen(Screen parent) {
         super(Component.literal("Bongo Cat Editor"));
         this.parent = parent;
         this.config = BongoCatConfig.getInstance();
