@@ -12,7 +12,6 @@ public class CrestClickGui extends Screen {
     private static final int LEFT = 10;
 
     private String selectedCategory;
-    private int scrollOffset;
     private int hoveredModule = -1;
 
     protected CrestClickGui() {
@@ -23,11 +22,12 @@ public class CrestClickGui extends Screen {
     protected void init() {
         List<String> cats = CrestModules.getCategories();
         selectedCategory = cats.isEmpty() ? null : cats.get(0);
-        scrollOffset = 0;
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        System.err.println("[Crest] extractRenderState called, selectedCategory=" + selectedCategory + " cats=" + CrestModules.getCategories() + " mods=" + (selectedCategory != null ? CrestModules.getByCategory(selectedCategory).size() : -1));
+
         g.fill(0, 0, width, height, 0xCC000000);
 
         g.centeredText(font, getTitle(), width / 2, 8, 0xFFFFFFFF);
@@ -46,20 +46,25 @@ public class CrestClickGui extends Screen {
 
         if (selectedCategory != null) {
             List<CrestModule> mods = CrestModules.getByCategory(selectedCategory);
-            int x = LEFT + CAT_WIDTH + 10;
+            int x = LEFT + CAT_WIDTH + 4;
+            int modWidth = Math.max(width - x - 4, 100);
+
+            System.err.println("[Crest] rendering " + mods.size() + " modules at x=" + x + " w=" + modWidth);
 
             hoveredModule = -1;
             for (int i = 0; i < mods.size(); i++) {
                 CrestModule mod = mods.get(i);
                 int y = 30 + i * 22;
-                boolean hovered = mx >= x && mx <= x + 260 && my >= y && my <= y + 18;
+                boolean hovered = mx >= x && mx <= x + modWidth && my >= y && my <= y + 18;
                 if (hovered) hoveredModule = i;
 
                 boolean enabled = CrestModules.isEnabled(mod.getId());
                 String label = (enabled ? "[ON]  " : "[OFF] ") + mod.getName();
 
+                System.err.println("[Crest] module " + i + ": '" + label + "' at y=" + y);
+
                 int bg = hovered ? 0x44444444 : 0x33000000;
-                g.fill(x, y, x + 260, y + 18, bg);
+                g.fill(x, y, x + modWidth, y + 18, bg);
                 g.text(font, Component.literal(label), x + 4, y + 4, enabled ? 0x55FF55 : 0xFF5555);
             }
         }
@@ -78,17 +83,17 @@ public class CrestClickGui extends Screen {
             int y = 30 + i * 22;
             if (mx >= LEFT && mx <= LEFT + CAT_WIDTH && my >= y && my <= y + 18) {
                 selectedCategory = cats.get(i);
-                scrollOffset = 0;
                 return true;
             }
         }
 
         if (selectedCategory != null) {
             List<CrestModule> mods = CrestModules.getByCategory(selectedCategory);
-            int x = LEFT + CAT_WIDTH + 10;
+            int x = LEFT + CAT_WIDTH + 4;
+            int modWidth = Math.max(width - x - 4, 100);
             for (int i = 0; i < mods.size(); i++) {
                 int y = 30 + i * 22;
-                if (mx >= x && mx <= x + 260 && my >= y && my <= y + 18) {
+                if (mx >= x && mx <= x + modWidth && my >= y && my <= y + 18) {
                     CrestModule mod = mods.get(i);
                     boolean newState = !CrestModules.isEnabled(mod.getId());
                     CrestModules.setEnabled(mod.getId(), newState);

@@ -10,8 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Camera.class)
 public class CameraMixin {
-    @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    private void crest$modifyFov(CallbackInfoReturnable<Float> cir) {
+    @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true)
+    private void crest$modifyFov(float partialTicks, CallbackInfoReturnable<Float> cir) {
         if (!CrestModules.isEnabled("zoom") || !ZoomModule.initialized) return;
 
         double fov = ZoomModule.currentFov;

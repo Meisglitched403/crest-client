@@ -3,7 +3,7 @@ package com.crest.client.core;
 import net.minecraft.client.Minecraft;
 
 public class FullbrightModule implements CrestModule {
-    private static final double MAX_GAMMA = 10.0;
+    private static final double MAX_GAMMA = 1.0;
     private double previousGamma;
 
     @Override

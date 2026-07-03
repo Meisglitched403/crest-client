@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -16,6 +17,7 @@ import static org.lwjgl.glfw.GLFW.glfwGetKey;
 public class CrestClient implements ClientModInitializer {
     private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-core", "hud_renderer");
     private static boolean wasGraveDown = false;
+    private static boolean wasBDown = false;
 
     @Override
     public void onInitializeClient() {
@@ -37,6 +39,18 @@ public class CrestClient implements ClientModInitializer {
                 }
             }
             wasGraveDown = isDown;
+
+            boolean bDown = glfwGetKey(window, GLFW.GLFW_KEY_B) == GLFW.GLFW_PRESS;
+            if (bDown && !wasBDown) {
+                boolean newState = !CrestModules.isEnabled("fullbright");
+                CrestModules.setEnabled("fullbright", newState);
+                if (client.player != null) {
+                    client.player.sendOverlayMessage(
+                        Component.literal("Fullbright: " + (newState ? "ON" : "OFF"))
+                    );
+                }
+            }
+            wasBDown = bDown;
         });
 
         HudElementRegistry.attachElementBefore(
@@ -54,7 +68,11 @@ public class CrestClient implements ClientModInitializer {
         for (CrestModule mod : CrestModules.getAll().values()) {
             if (!CrestModules.isEnabled(mod.getId())) continue;
             if (mod instanceof RenderableModule renderable) {
-                renderable.render(g, mc, d);
+                try {
+                    renderable.render(g, mc, d);
+                } catch (Exception e) {
+                    System.err.println("[Crest] HUD render error in " + mod.getId() + ": " + e);
+                }
             }
         }
     }
