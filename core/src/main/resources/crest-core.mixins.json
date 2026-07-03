@@ -3,7 +3,7 @@
     "package": "com.crest.client.core.mixin",
     "compatibilityLevel": "JAVA_25",
     "client": [
-        "GameRendererMixin"
+        "CameraMixin"
     ],
     "injectors": {
         "defaultRequire": 1

@@ -3,16 +3,15 @@ package com.crest.client.core.mixin;
 import com.crest.client.core.CrestModules;
 import com.crest.client.core.ZoomModule;
 import net.minecraft.client.Camera;
-import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(GameRenderer.class)
-public class GameRendererMixin {
+@Mixin(Camera.class)
+public class CameraMixin {
     @Inject(method = "getFov", at = @At("RETURN"), cancellable = true)
-    private void crest$modifyFov(Camera camera, float tickDelta, boolean changingFov, CallbackInfoReturnable<Double> cir) {
+    private void crest$modifyFov(CallbackInfoReturnable<Float> cir) {
         if (!CrestModules.isEnabled("zoom") || !ZoomModule.initialized) return;
 
         double fov = ZoomModule.currentFov;
@@ -22,6 +21,6 @@ public class GameRendererMixin {
         } else if (fov != ZoomModule.targetFov) {
             ZoomModule.currentFov = ZoomModule.targetFov;
         }
-        cir.setReturnValue(fov);
+        cir.setReturnValue((float) fov);
     }
 }
