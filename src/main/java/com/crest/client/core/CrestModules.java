@@ -12,6 +12,12 @@ public class CrestModules {
     public static void register(CrestModule module) {
         modules.put(module.getId(), module);
         module.onInitialize();
+        if (module instanceof HudModule hud) {
+            var pos = HudSettings.getPosition(module.getId(), hud.getX(), hud.getY());
+            hud.setX(pos.x);
+            hud.setY(pos.y);
+            hud.loadSettings();
+        }
         if (!module.isEnabled()) {
             enabledOverrides.put(module.getId(), false);
         }

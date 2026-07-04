@@ -22,6 +22,8 @@ public abstract class HudModule implements CrestModule, RenderableModule {
     public void setX(int x) { this.x = x; }
     public void setY(int y) { this.y = y; }
 
+    public void loadSettings() {}
+
     @Override
     public String getCategory() { return "HUD"; }
 }

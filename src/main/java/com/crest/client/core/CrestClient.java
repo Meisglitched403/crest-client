@@ -32,6 +32,9 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ZoomModule());
         CrestModules.register(new CoordsModule());
         CrestModules.register(new FpsModule());
+        CrestModules.register(new ArmorHudModule());
+        CrestModules.register(new PotionHudModule());
+        CrestModules.register(new CrosshairModule());
         CrestModules.register(new BongoCatModule());
 
         MusicModule.init();

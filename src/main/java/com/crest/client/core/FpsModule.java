@@ -5,32 +5,42 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
-public class FpsModule implements CrestModule, RenderableModule {
+public class FpsModule extends HudModule {
+    public FpsModule() {
+        super(-1, 4);
+    }
+
     @Override
     public String getId() { return "fps"; }
     @Override
     public String getName() { return "FPS Display"; }
     @Override
-    public String getDescription() { return "Shows current FPS in top-right corner"; }
-    @Override
-    public String getCategory() { return "HUD"; }
+    public String getDescription() { return "Shows current FPS with color-coded value"; }
     @Override
     public boolean isEnabled() { return true; }
 
     @Override
-    public void onInitialize() {}
+    public int getWidth() {
+        String t = Minecraft.getInstance().getFps() + " FPS";
+        return Minecraft.getInstance().font.width(t) + 4;
+    }
+
+    @Override
+    public int getHeight() {
+        return Minecraft.getInstance().font.lineHeight + 4;
+    }
 
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         int fps = mc.getFps();
         String text = fps + " FPS";
         int color = getFpsColor(fps);
-        int width = mc.font.width(text);
-        int x = mc.getWindow().getGuiScaledWidth() - width - 4;
-        int y = 4;
+        int w = mc.font.width(text);
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 4 - 2 : x;
+        int ry = y;
 
-        g.fill(x - 2, y - 2, x + width + 2, y + mc.font.lineHeight + 2, 0x66000000);
-        g.text(mc.font, Component.literal(text), x, y, color);
+        g.fill(rx, ry, rx + w + 4, ry + mc.font.lineHeight + 4, 0x66000000);
+        g.text(mc.font, Component.literal(text), rx + 2, ry + 2, color);
     }
 
     private static int getFpsColor(int fps) {
