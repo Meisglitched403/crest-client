@@ -55,8 +55,11 @@ processResources {
     filesMatching('fabric.mod.json') { expand 'version': version }
 }
 
-tasks.named("runClient") {
-    if (project.hasProperty("mc_username")) {
-        programArgs("--username", project.property("mc_username"))
+loom {
+    runConfigs.client {
+        if (project.hasProperty("mc_username")) {
+            programArg("--username")
+            programArg(project.property("mc_username"))
+        }
     }
 }
