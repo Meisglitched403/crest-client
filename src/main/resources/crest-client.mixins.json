@@ -7,7 +7,8 @@
         "FogRendererMixin",
         "GameRendererMixin",
         "ScreenEffectRendererMixin",
-        "EntityRenderDispatcherMixin"
+        "EntityRenderDispatcherMixin",
+        "MouseHandlerMixin"
     ],
     "injectors": {
         "defaultRequire": 1
