@@ -1,5 +1,6 @@
 package com.crest.client.music;
 
+import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
@@ -13,6 +14,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import com.sedmelluq.discord.lavaplayer.format.AudioDataFormat;
 import com.sedmelluq.discord.lavaplayer.format.StandardAudioDataFormats;
 import java.io.OutputStream;
+import java.util.List;
 
 
 public class MusicPlayer {
@@ -40,6 +42,10 @@ public class MusicPlayer {
     }
     public interface OnError {
         void run(String msg);
+    }
+    public interface SearchCallback {
+        void onResults(List<AudioTrack> tracks);
+        void onError(String msg);
     }
 
     public MusicPlayer() {
@@ -120,10 +126,37 @@ public class MusicPlayer {
         audioBackend = null;
     }
 
+    public void search(String query, SearchCallback callback) {
+        if (query == null || query.isBlank()) return;
+        String sq = "scsearch:" + query;
+        System.out.println("[Crest Music] Searching: " + sq);
+        manager.loadItem(sq, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack track) {
+                callback.onResults(List.of(track));
+            }
+
+            @Override
+            public void playlistLoaded(AudioPlaylist playlist) {
+                callback.onResults(playlist.getTracks());
+            }
+
+            @Override
+            public void noMatches() {
+                callback.onError("No results found for \"" + query + "\"");
+            }
+
+            @Override
+            public void loadFailed(FriendlyException ex) {
+                callback.onError("Search failed: " + ex.getMessage());
+            }
+        });
+    }
+
     public void loadAndPlay(String url) {
         if (url == null || url.isBlank()) return;
         System.out.println("[Crest Music] Loading: " + url);
-        manager.loadItem(url, new com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler() {
+        manager.loadItem(url, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
                 System.out.println("[Crest Music] Track loaded: " + track.getInfo().title);
