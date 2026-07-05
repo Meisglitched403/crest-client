@@ -16,8 +16,8 @@ public class CrestModules {
             var pos = HudSettings.getPosition(module.getId(), hud.getX(), hud.getY());
             hud.setX(pos.x);
             hud.setY(pos.y);
-            hud.loadSettings();
         }
+        module.loadSettings();
         if (!module.isEnabled()) {
             enabledOverrides.put(module.getId(), false);
         }

@@ -12,5 +12,6 @@ public interface CrestModule {
     default void onInitialize() {}
     default void onEnable() {}
     default void onDisable() {}
+    default void loadSettings() {}
     default Screen createConfigScreen(Screen parent) { return null; }
 }

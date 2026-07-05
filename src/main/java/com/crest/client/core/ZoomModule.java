@@ -17,7 +17,7 @@ public class ZoomModule implements CrestModule {
     public static double originalFov;
     public static boolean initialized;
 
-    private boolean wasKeyDown;
+    private static boolean wasKeyDown;
 
     @Override
     public String getId() { return "zoom"; }
@@ -50,6 +50,10 @@ public class ZoomModule implements CrestModule {
             else if (!isDown && wasKeyDown) targetFov = originalFov;
             wasKeyDown = isDown;
         });
+    }
+
+    public static boolean isZooming() {
+        return wasKeyDown;
     }
 
     @Override
