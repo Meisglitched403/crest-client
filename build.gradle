@@ -54,3 +54,9 @@ processResources {
     inputs.property 'version', version
     filesMatching('fabric.mod.json') { expand 'version': version }
 }
+
+tasks.named("runClient") {
+    if (project.hasProperty("mc_username")) {
+        programArgs("--username", project.property("mc_username"))
+    }
+}
