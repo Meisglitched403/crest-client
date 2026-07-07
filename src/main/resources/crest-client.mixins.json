@@ -8,7 +8,11 @@
         "GameRendererMixin",
         "ScreenEffectRendererMixin",
         "EntityRenderDispatcherMixin",
-        "MouseHandlerMixin"
+        "MouseHandlerMixin",
+        "MotionBlurMixin",
+        "WorldTimeMixin",
+        "WeatherMixin",
+        "NoOverlayMixin"
     ],
     "injectors": {
         "defaultRequire": 1

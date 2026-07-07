@@ -1,9 +1,20 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.IntegerSetting;
+import com.crest.client.core.setting.KeybindSetting;
+import com.crest.client.core.setting.Setting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
 
 public class FullbrightModule implements CrestModule {
-    private int gammaLevel = 100;
+    private final IntegerSetting gammaLevel = new IntegerSetting(
+        "Gamma Level", 0, 100, 100
+    );
+    private final KeybindSetting toggleKey = new KeybindSetting(
+        "Toggle Key", org.lwjgl.glfw.GLFW.GLFW_KEY_B
+    );
     private double previousGamma;
 
     @Override
@@ -18,15 +29,17 @@ public class FullbrightModule implements CrestModule {
     public boolean isEnabled() { return false; }
 
     @Override
-    public void onInitialize() {}
+    public List<Setting<?>> getSettings() {
+        return List.of(gammaLevel, toggleKey);
+    }
 
-    public int getGammaLevel() { return gammaLevel; }
+    public int getGammaLevel() { return gammaLevel.get(); }
 
     public void adjustGamma(int delta) {
-        gammaLevel = Math.max(0, Math.min(100, gammaLevel + delta));
+        gammaLevel.set(Math.max(0, Math.min(100, gammaLevel.get() + delta)));
         if (CrestModules.isEnabled("fullbright")) {
             Minecraft mc = Minecraft.getInstance();
-            mc.options.gamma().set(gammaLevel / 100.0);
+            mc.options.gamma().set(gammaLevel.get() / 100.0);
         }
     }
 
@@ -34,12 +47,18 @@ public class FullbrightModule implements CrestModule {
     public void onEnable() {
         Minecraft mc = Minecraft.getInstance();
         previousGamma = mc.options.gamma().get();
-        mc.options.gamma().set(gammaLevel / 100.0);
+        mc.options.gamma().set(gammaLevel.get() / 100.0);
+        if (mc.player != null) {
+            mc.player.sendOverlayMessage(Component.literal("Gamma: " + gammaLevel.get() + "%"));
+        }
     }
 
     @Override
     public void onDisable() {
         Minecraft mc = Minecraft.getInstance();
         mc.options.gamma().set(previousGamma);
+        if (mc.player != null) {
+            mc.player.sendOverlayMessage(Component.literal("Gamma: OFF"));
+        }
     }
 }

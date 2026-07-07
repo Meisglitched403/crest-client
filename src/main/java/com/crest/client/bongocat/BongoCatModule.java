@@ -1,6 +1,7 @@
 package com.crest.client.bongocat;
 
 import com.crest.client.core.CrestModule;
+import com.crest.client.core.CrestModules;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.Minecraft;
@@ -27,6 +28,7 @@ public class BongoCatModule implements CrestModule {
     }
 
     private void render(GuiGraphicsExtractor g, DeltaTracker d) {
+        if (!CrestModules.isEnabled(getId())) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.getWindow() == null) return;
         if (mc.screen instanceof BongoCatEditScreen) return;

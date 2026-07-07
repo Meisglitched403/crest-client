@@ -1,5 +1,7 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.ModeSetting;
+import com.crest.client.core.setting.Setting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -7,6 +9,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+
+import java.util.List;
 
 public class ArmorHudModule extends HudModule {
     private static final int MARGIN = 2;
@@ -17,7 +21,9 @@ public class ArmorHudModule extends HudModule {
     private static final int LABEL_W = 80;
     private static final int BG = 0x66000000;
 
-    private int durabilityMode = 0;
+    private final ModeSetting durabilityMode = new ModeSetting(
+        "Durability Mode", new String[]{"Bar+%", "% only", "Num"}, 0
+    );
 
     public ArmorHudModule() {
         super(4, 50);
@@ -29,27 +35,18 @@ public class ArmorHudModule extends HudModule {
     @Override public boolean isEnabled() { return false; }
 
     @Override
-    public void loadSettings() {
-        int mode = HudSettings.getInt(getId(), "durabilityMode", 0);
-        if (mode != 0) setDurabilityMode(mode);
+    public List<Setting<?>> getSettings() {
+        return List.of(durabilityMode);
     }
 
-    public int getDurabilityMode() { return durabilityMode; }
-    public void setDurabilityMode(int mode) { this.durabilityMode = Math.max(0, Math.min(2, mode)); }
+    public int getDurabilityMode() { return durabilityMode.get(); }
+    public void setDurabilityMode(int mode) { durabilityMode.set(mode); }
     public void cycleDurabilityMode() {
-        durabilityMode = (durabilityMode + 1) % 3;
-        HudSettings.setInt("armor_hud", "durabilityMode", durabilityMode);
-        HudSettings.save();
+        durabilityMode.cycle();
+        CrestModules.getConfigManager().markDirty();
     }
 
-    public String getModeLabel() {
-        return switch (durabilityMode) {
-            case 0 -> "Bar+%";
-            case 1 -> "% only";
-            case 2 -> "Num";
-            default -> "";
-        };
-    }
+    public String getModeLabel() { return durabilityMode.getMode(); }
 
     @Override
     public int getWidth() {
@@ -95,7 +92,7 @@ public class ArmorHudModule extends HudModule {
         String display = "[" + cap(label) + "]: ";
 
         if (stack.isEmpty()) {
-            g.text(mc.font, Component.literal(display + "--"), textX, cy + 2, 0x888888);
+            g.text(mc.font, Component.literal(display + "--"), textX, cy + 2, 0xFF888888);
             g.fill(barX, cy + 4, barX + BAR_W, cy + 4 + BAR_H, 0x44000000);
             return;
         }
@@ -107,16 +104,16 @@ public class ArmorHudModule extends HudModule {
         int cur = maxDmg - dmg;
         int pct = maxDmg > 0 ? cur * 100 / maxDmg : 100;
 
-        switch (durabilityMode) {
+        switch (durabilityMode.get()) {
             case 0 -> {
-                g.text(mc.font, Component.literal(display + pct + "%"), textX, cy + 2, 0xFFFFFF);
+                g.text(mc.font, Component.literal(display + pct + "%"), textX, cy + 2, 0xFFFFFFFF);
                 int barColor = pct > 60 ? 0xFF55FF55 : pct > 30 ? 0xFFFFFF55 : 0xFFFF5555;
                 int fillW = cur * BAR_W / Math.max(maxDmg, 1);
                 g.fill(barX, cy + 4, barX + BAR_W, cy + 4 + BAR_H, 0x44000000);
                 if (fillW > 0) g.fill(barX, cy + 4, barX + fillW, cy + 4 + BAR_H, barColor);
             }
-            case 1 -> g.text(mc.font, Component.literal(display + pct + "%"), textX, cy + 2, 0xFFFFFF);
-            case 2 -> g.text(mc.font, Component.literal(display + cur + "/" + maxDmg), textX, cy + 2, 0xFFFFFF);
+            case 1 -> g.text(mc.font, Component.literal(display + pct + "%"), textX, cy + 2, 0xFFFFFFFF);
+            case 2 -> g.text(mc.font, Component.literal(display + cur + "/" + maxDmg), textX, cy + 2, 0xFFFFFFFF);
         }
     }
 }

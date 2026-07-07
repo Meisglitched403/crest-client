@@ -1,7 +1,14 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.IntegerSetting;
+import com.crest.client.core.setting.Setting;
+
+import java.util.List;
+
 public class EntityCullingModule implements CrestModule {
-    private static int maxDistance = 64;
+    private final IntegerSetting maxDistance = new IntegerSetting(
+        "Max Distance", 16, 256, 64
+    );
 
     @Override public String getId() { return "entity_culling"; }
     @Override public String getName() { return "Entity Culling"; }
@@ -10,17 +17,20 @@ public class EntityCullingModule implements CrestModule {
     @Override public boolean isEnabled() { return false; }
 
     @Override
-    public void loadSettings() {
-        maxDistance = HudSettings.getInt("entity_culling", "maxDistance", 64);
+    public List<Setting<?>> getSettings() {
+        return List.of(maxDistance);
     }
 
     public static int getMaxDistance() {
-        return maxDistance;
+        CrestModule m = CrestModules.get("entity_culling");
+        return m instanceof EntityCullingModule e ? e.maxDistance.get() : 64;
     }
 
     public static void setMaxDistance(int dist) {
-        maxDistance = Math.max(16, Math.min(256, dist));
-        HudSettings.setInt("entity_culling", "maxDistance", maxDistance);
-        HudSettings.save();
+        CrestModule m = CrestModules.get("entity_culling");
+        if (m instanceof EntityCullingModule e) {
+            e.maxDistance.set(dist);
+            CrestModules.getConfigManager().markDirty();
+        }
     }
 }

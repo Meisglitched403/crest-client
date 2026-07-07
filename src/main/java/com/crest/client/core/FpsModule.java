@@ -44,8 +44,8 @@ public class FpsModule extends HudModule {
     }
 
     private static int getFpsColor(int fps) {
-        if (fps >= 60) return 0x55FF55;
-        if (fps >= 30) return 0xFFFF55;
-        return 0xFF5555;
+        if (fps >= 60) return 0xFF55FF55;
+        if (fps >= 30) return 0xFFFFFF55;
+        return 0xFFFF5555;
     }
 }

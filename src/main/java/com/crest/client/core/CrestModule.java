@@ -1,6 +1,9 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.Setting;
 import net.minecraft.client.gui.screens.Screen;
+
+import java.util.List;
 
 public interface CrestModule {
     String getId();
@@ -14,4 +17,5 @@ public interface CrestModule {
     default void onDisable() {}
     default void loadSettings() {}
     default Screen createConfigScreen(Screen parent) { return null; }
+    default List<Setting<?>> getSettings() { return List.of(); }
 }

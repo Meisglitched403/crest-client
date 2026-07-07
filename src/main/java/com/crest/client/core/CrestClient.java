@@ -3,31 +3,27 @@ package com.crest.client.core;
 import com.crest.client.bongocat.BongoCatConfig;
 import com.crest.client.bongocat.BongoCatEditScreen;
 import com.crest.client.bongocat.BongoCatModule;
+import com.crest.client.core.event.TickEvent;
 import com.crest.client.music.MusicModule;
 import com.crest.client.music.MusicScreen;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
-import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
-import static org.lwjgl.glfw.GLFW.glfwGetKey;
-
 public class CrestClient implements ClientModInitializer {
     private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-client", "hud_renderer");
-    private static boolean wasGraveDown = false;
-    private static boolean wasBDown = false;
-    private static boolean wasMDown = false;
-    private static boolean wasAltDown = false;
 
     @Override
     public void onInitializeClient() {
+        CrestModules.init();
+
         CrestModules.register(new FullbrightModule());
         CrestModules.register(new ZoomModule());
         CrestModules.register(new CoordsModule());
@@ -40,59 +36,44 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new DynamicFovModule());
         CrestModules.register(new LowFireModule());
         CrestModules.register(new EntityCullingModule());
+        CrestModules.register(new MotionBlurModule());
         CrestModules.register(new BongoCatModule());
+        CrestModules.register(new TimeChangerModule());
+        CrestModules.register(new WeatherChangerModule());
+        CrestModules.register(new NoOverlayModule());
+        CrestModules.register(new ItemCounterModule());
+        CrestModules.register(new ServerAddressModule());
+        CrestModules.register(new ToggleNotificationsModule());
 
         MusicModule.init();
 
+        KeybindManager.registerAction(GLFW.GLFW_KEY_M, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof MusicScreen) {
+                mc.screen.onClose();
+            } else if (mc.screen == null) {
+                mc.setScreen(new MusicScreen(MusicModule.getPlayer()));
+            }
+        });
+
+        KeybindManager.registerAction(GLFW.GLFW_KEY_LEFT_ALT, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.screen instanceof BongoCatEditScreen) {
+                mc.screen.onClose();
+            } else if (mc.screen == null) {
+                BongoCatConfig.reload();
+                mc.setScreen(new BongoCatEditScreen(null));
+            }
+        });
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            long window = glfwGetCurrentContext();
-            if (window == 0) return;
+            CrestModules.getEventBus().post(new TickEvent(client));
+            KeybindManager.processTick();
+        });
 
-            boolean isDown = glfwGetKey(window, GLFW.GLFW_KEY_GRAVE_ACCENT) == GLFW.GLFW_PRESS;
-            if (isDown && !wasGraveDown) {
-                if (client.screen instanceof CrestClickGui) {
-                    client.screen.onClose();
-                } else if (client.screen == null) {
-                    client.setScreen(new CrestClickGui());
-                }
-            }
-            wasGraveDown = isDown;
-
-            boolean bDown = glfwGetKey(window, GLFW.GLFW_KEY_B) == GLFW.GLFW_PRESS;
-            if (bDown && !wasBDown) {
-                boolean newState = !CrestModules.isEnabled("fullbright");
-                CrestModules.setEnabled("fullbright", newState);
-                CrestModule fb = CrestModules.get("fullbright");
-                if (client.player != null && fb instanceof FullbrightModule fbm) {
-                    client.player.sendOverlayMessage(
-                        Component.literal(newState
-                            ? "Gamma: " + fbm.getGammaLevel() + "%"
-                            : "Gamma: OFF")
-                    );
-                }
-            }
-            wasBDown = bDown;
-
-            boolean mDown = glfwGetKey(window, GLFW.GLFW_KEY_M) == GLFW.GLFW_PRESS;
-            if (mDown && !wasMDown) {
-                if (client.screen instanceof MusicScreen) {
-                    client.screen.onClose();
-                } else if (client.screen == null) {
-                    client.setScreen(new MusicScreen(MusicModule.getPlayer()));
-                }
-            }
-            wasMDown = mDown;
-
-            boolean altDown = glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
-            if (altDown && !wasAltDown) {
-                if (client.screen instanceof BongoCatEditScreen) {
-                    client.screen.onClose();
-                } else if (client.screen == null) {
-                    BongoCatConfig.reload();
-                    client.setScreen(new BongoCatEditScreen(null));
-                }
-            }
-            wasAltDown = altDown;
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            CrestModules.getConfigManager().save();
+            HudSettings.save();
         });
 
         HudElementRegistry.attachElementBefore(
@@ -106,6 +87,7 @@ public class CrestClient implements ClientModInitializer {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getWindow() == null) return;
         if (mc.screen instanceof CrestClickGui) return;
+        System.out.println("[CrestHud] renderHud called, modules: " + CrestModules.getAll().size());
 
         for (CrestModule mod : CrestModules.getAll().values()) {
             if (!CrestModules.isEnabled(mod.getId())) continue;

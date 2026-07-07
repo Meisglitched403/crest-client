@@ -52,9 +52,9 @@ public class CoordsModule extends HudModule {
         Component biomeComp = Component.literal("Biome: " + biome);
 
         g.fill(x, y, x + getWidth(), y + getHeight(), BG_COLOR);
-        g.text(mc.font, xyz, x + PADDING, y + PADDING, 0xFFFFFF);
-        g.text(mc.font, dirComp, x + PADDING, y + PADDING + LINE_HEIGHT, 0xFFFFFF);
-        g.text(mc.font, biomeComp, x + PADDING, y + PADDING + LINE_HEIGHT * 2, 0xFFFFFF);
+        g.text(mc.font, xyz, x + PADDING, y + PADDING, 0xFFFFFFFF);
+        g.text(mc.font, dirComp, x + PADDING, y + PADDING + LINE_HEIGHT, 0xFFFFFFFF);
+        g.text(mc.font, biomeComp, x + PADDING, y + PADDING + LINE_HEIGHT * 2, 0xFFFFFFFF);
     }
 
     private static String getFacing(Player player) {

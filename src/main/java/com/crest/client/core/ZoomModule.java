@@ -1,9 +1,14 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.FloatSetting;
+import com.crest.client.core.setting.KeybindSetting;
+import com.crest.client.core.setting.Setting;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWScrollCallbackI;
+
+import java.util.List;
 
 import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
@@ -22,6 +27,13 @@ public class ZoomModule implements CrestModule {
     private static long cachedWindow;
     private static GLFWScrollCallbackI prevScrollCallback;
 
+    private final FloatSetting multiplierSetting = new FloatSetting(
+        "Zoom Multiplier", 0.05f, 1.0f, (float) DEFAULT_ZOOM_MULTIPLIER
+    );
+    private final KeybindSetting zoomKeySetting = new KeybindSetting(
+        "Zoom Key", GLFW.GLFW_KEY_Z
+    );
+
     @Override
     public String getId() { return "zoom"; }
     @Override
@@ -34,6 +46,11 @@ public class ZoomModule implements CrestModule {
     public boolean isEnabled() { return true; }
 
     @Override
+    public List<Setting<?>> getSettings() {
+        return List.of(multiplierSetting, zoomKeySetting);
+    }
+
+    @Override
     public void onInitialize() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!CrestModules.isEnabled("zoom")) return;
@@ -43,7 +60,7 @@ public class ZoomModule implements CrestModule {
 
             if (!initialized) {
                 originalFov = client.options.fov().get();
-                zoomMultiplier = HudSettings.getInt("zoom", "multiplier", (int) (DEFAULT_ZOOM_MULTIPLIER * 100)) / 100.0;
+                zoomMultiplier = multiplierSetting.get();
                 currentFov = originalFov;
                 targetFov = originalFov;
                 cachedWindow = window;
@@ -53,7 +70,8 @@ public class ZoomModule implements CrestModule {
                     if (CrestModules.isEnabled("zoom") && wasKeyDown) {
                         zoomMultiplier = Math.max(0.05, Math.min(1.0, zoomMultiplier - yOffset * 0.05));
                         targetFov = Math.max(1.0, originalFov * zoomMultiplier);
-                        HudSettings.setInt("zoom", "multiplier", (int) (zoomMultiplier * 100));
+                        multiplierSetting.set((float) zoomMultiplier);
+                        CrestModules.getConfigManager().markDirty();
                     }
                     if (prevScrollCallback != null) {
                         prevScrollCallback.invoke(w, xOffset, yOffset);
@@ -61,7 +79,8 @@ public class ZoomModule implements CrestModule {
                 });
             }
 
-            boolean isDown = glfwGetKey(window, GLFW.GLFW_KEY_Z) == GLFW.GLFW_PRESS;
+            int zoomKey = zoomKeySetting.get();
+            boolean isDown = glfwGetKey(window, zoomKey) == GLFW.GLFW_PRESS;
             if (isDown && !wasKeyDown) targetFov = Math.max(1.0, originalFov * zoomMultiplier);
             else if (!isDown && wasKeyDown) targetFov = originalFov;
             wasKeyDown = isDown;

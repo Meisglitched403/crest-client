@@ -47,7 +47,7 @@ public class PotionHudModule extends HudModule {
         Collection<MobEffectInstance> effects = mc.player.getActiveEffects();
         if (effects.isEmpty()) {
             g.fill(rx, y, rx + getWidth(), y + getHeight(), BG);
-            g.text(mc.font, Component.literal("No effects"), rx + PAD, y + PAD, 0x888888);
+            g.text(mc.font, Component.literal("No effects"), rx + PAD, y + PAD, 0xFF888888);
             return;
         }
 
@@ -57,7 +57,7 @@ public class PotionHudModule extends HudModule {
             Holder<MobEffect> holder = effect.getEffect();
             MobEffect type = holder.value();
             int color = type.getColor();
-            if (color == 0) color = 0x888888;
+            if (color == 0) color = 0xFF888888;
             int argb = 0xFF000000 | (color & 0x00FFFFFF);
 
             g.fill(rx, cy, rx + BAR_W, cy + LINE_H, argb);
@@ -72,7 +72,7 @@ public class PotionHudModule extends HudModule {
                 : String.format("%d:%02d", secs / 60, secs % 60);
             String label = amp > 1 ? name + " " + toRoman(amp) + " " + time : name + " " + time;
 
-            g.text(mc.font, Component.literal(label), rx + BAR_W + PAD, cy + PAD, 0xFFFFFF);
+            g.text(mc.font, Component.literal(label), rx + BAR_W + PAD, cy + PAD, 0xFFFFFFFF);
             i++;
         }
     }

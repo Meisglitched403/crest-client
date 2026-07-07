@@ -43,7 +43,7 @@ jar {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 25
+    it.options.release = 26
 }
 
 java {
@@ -55,11 +55,8 @@ processResources {
     filesMatching('fabric.mod.json') { expand 'version': version }
 }
 
-loom {
-    runConfigs.client {
-        if (project.hasProperty("mc_username")) {
-            programArg("--username")
-            programArg(project.property("mc_username"))
-        }
+tasks.named("runClient", JavaExec).configure {
+    if (project.hasProperty("mc_username")) {
+        args "--username", project.getProperty("mc_username")
     }
 }
