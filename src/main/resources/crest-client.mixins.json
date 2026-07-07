@@ -17,7 +17,8 @@
         "NameTagsMixin",
         "NameTagsAlwaysVisibleMixin",
         "FreelookMixin",
-        "FreelookCameraMixin"
+        "FreelookCameraMixin",
+        "RenderSystemMixin"
     ],
     "injectors": {
         "defaultRequire": 1
