@@ -12,7 +12,12 @@
         "MotionBlurMixin",
         "WorldTimeMixin",
         "WeatherMixin",
-        "NoOverlayMixin"
+        "NoOverlayMixin",
+        "BlockOutlineMixin",
+        "NameTagsMixin",
+        "NameTagsAlwaysVisibleMixin",
+        "FreelookMixin",
+        "FreelookCameraMixin"
     ],
     "injectors": {
         "defaultRequire": 1

@@ -33,7 +33,11 @@ public class CrestModules {
             hud.setY(pos.y);
         }
         module.loadSettings();
-        if (!module.isEnabled()) {
+        if (configManager.has(module.getId(), "_enabled")) {
+            if (!configManager.getBoolean(module.getId(), "_enabled")) {
+                enabledOverrides.put(module.getId(), false);
+            }
+        } else if (!module.isEnabled()) {
             enabledOverrides.put(module.getId(), false);
         }
     }
@@ -55,6 +59,7 @@ public class CrestModules {
 
     public static void setEnabled(String id, boolean enabled) {
         enabledOverrides.put(id, enabled);
+        configManager.set(id, "_enabled", enabled);
         CrestModule m = modules.get(id);
         if (m != null) {
             if (enabled) m.onEnable();
