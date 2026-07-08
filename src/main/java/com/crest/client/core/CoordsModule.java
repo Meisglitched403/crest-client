@@ -37,6 +37,9 @@ public class CoordsModule extends HudModule {
         return LINE_HEIGHT * 3 + PADDING * 2;
     }
 
+    private String biomeCache = "Unknown";
+    private int biomeCacheTick;
+
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         Player player = mc.player;
@@ -44,12 +47,17 @@ public class CoordsModule extends HudModule {
 
         BlockPos pos = player.blockPosition();
         String dir = getFacing(player);
-        String biome = getBiomeName(player);
+
+        int tick = mc.gui.getGuiTicks();
+        if (tick - biomeCacheTick >= 10) {
+            biomeCache = getBiomeName(player);
+            biomeCacheTick = tick;
+        }
 
         Component xyz = Component.literal(
             String.format("XYZ: %d / %d / %d", pos.getX(), pos.getY(), pos.getZ()));
         Component dirComp = Component.literal("Facing: " + dir);
-        Component biomeComp = Component.literal("Biome: " + biome);
+        Component biomeComp = Component.literal("Biome: " + biomeCache);
 
         g.fill(x, y, x + getWidth(), y + getHeight(), BG_COLOR);
         g.text(mc.font, xyz, x + PADDING, y + PADDING, 0xFFFFFFFF);

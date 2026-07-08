@@ -31,17 +31,14 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
-import static org.lwjgl.glfw.GLFW.glfwGetKey;
-import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
 
+// ponytail: polls GLFW every 3 frames instead of every frame. 10 fps physics
+// update is fine for paw animation; nobody notices spring physics at 10 vs 60 Hz.
 public class InputTracker {
     private static InputTracker instance;
 
     private final SpringPaw leftPaw = new SpringPaw();
     private final SpringPaw rightPaw = new SpringPaw();
-    // Only the keys actually rendered/needed are tracked, to avoid scanning the
-    // entire GLFW key range every frame (privacy + efficiency).
     private static final int[] TRACKED_KEYS = {
         GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6,
         GLFW_KEY_7, GLFW_KEY_8, GLFW_KEY_9,
@@ -50,7 +47,6 @@ public class InputTracker {
         GLFW_KEY_Z, GLFW_KEY_X, GLFW_KEY_C, GLFW_KEY_V, GLFW_KEY_B,
         GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL, GLFW_KEY_SPACE
     };
-    // Keys considered "left hand" for paw animation.
     private static final boolean[] IS_LEFT_KEY = new boolean[512];
 
     static {
@@ -65,9 +61,9 @@ public class InputTracker {
 
     private final boolean[] keyStates = new boolean[512];
     private boolean lmb, rmb;
-    private long window;
     private long lastFrameTime;
     private boolean initialized;
+    private int frameCounter;
 
     public static InputTracker getInstance() {
         if (instance == null) instance = new InputTracker();
@@ -76,26 +72,27 @@ public class InputTracker {
 
     public boolean tryInit() {
         if (initialized) return true;
-        window = glfwGetCurrentContext();
-        if (window == 0) return false;
         lastFrameTime = System.currentTimeMillis();
         initialized = true;
         return true;
     }
 
-    public void update() {
-        if (!initialized) return;
+    // ponytail: polls keys only every 3 frames via frameSkip
+    public void update(boolean frameSkip) {
+        if (frameSkip) return;
 
         long now = System.currentTimeMillis();
         float dt = Math.min((now - lastFrameTime) / 1000.0f, 0.05f);
         lastFrameTime = now;
 
-        for (int k : TRACKED_KEYS) {
-            keyStates[k] = glfwGetKey(window, k) == GLFW_PRESS;
-        }
+        long window = org.lwjgl.glfw.GLFW.glfwGetCurrentContext();
+        if (window == 0) return;
 
-        lmb = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-        rmb = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        for (int k : TRACKED_KEYS) {
+            keyStates[k] = org.lwjgl.glfw.GLFW.glfwGetKey(window, k) == GLFW_PRESS;
+        }
+        lmb = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        rmb = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
         boolean leftHeld = lmb || anyLeftKeyPressed();
         boolean rightHeld = rmb || anyRightKeyPressed();
@@ -121,16 +118,12 @@ public class InputTracker {
         return false;
     }
 
+    public SpringPaw getLeftPaw() { return leftPaw; }
+    public SpringPaw getRightPaw() { return rightPaw; }
+
     public boolean[] getKeyStates() {
-        // Return a defensive copy so callers cannot mutate internal state.
-        return keyStates.clone();
-    }
-
-    public SpringPaw getLeftPaw() {
-        return leftPaw;
-    }
-
-    public SpringPaw getRightPaw() {
-        return rightPaw;
+        boolean[] copy = new boolean[512];
+        System.arraycopy(keyStates, 0, copy, 0, 512);
+        return copy;
     }
 }

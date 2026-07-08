@@ -36,7 +36,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new DynamicFovModule());
         CrestModules.register(new LowFireModule());
         CrestModules.register(new EntityCullingModule());
-        CrestModules.register(new MotionBlurModule());
+        
         CrestModules.register(new BongoCatModule());
         CrestModules.register(new TimeChangerModule());
         CrestModules.register(new WeatherChangerModule());
@@ -99,14 +99,11 @@ public class CrestClient implements ClientModInitializer {
         if (mc.getWindow() == null) return;
         if (mc.screen instanceof CrestClickGui) return;
 
-        for (CrestModule mod : CrestModules.getAll().values()) {
-            if (!CrestModules.isEnabled(mod.getId())) continue;
-            if (mod instanceof RenderableModule renderable) {
-                try {
-                    renderable.render(g, mc, d);
-                } catch (Exception e) {
-                    System.err.println("[Crest] HUD render error in " + mod.getId() + ": " + e);
-                }
+        for (RenderableModule renderable : CrestModules.getRenderableModules()) {
+            try {
+                renderable.render(g, mc, d);
+            } catch (Exception e) {
+                System.err.println("[Crest] HUD render error: " + e);
             }
         }
     }

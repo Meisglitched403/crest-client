@@ -4,6 +4,7 @@ import com.crest.client.core.event.EventBus;
 import com.crest.client.core.event.ModuleToggleEvent;
 import com.crest.client.core.setting.Setting;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,10 @@ public class CrestModules {
     private static final Map<String, Boolean> enabledOverrides = new java.util.HashMap<>();
     private static final EventBus eventBus = new EventBus();
     private static final ConfigManager configManager = new ConfigManager();
+
+    // Cached HUD renderables — rebuilt when module enable state changes.
+    private static List<RenderableModule> renderableCache = new ArrayList<>();
+    private static boolean renderCacheDirty = true;
 
     public static void init() {
         configManager.load();
@@ -41,6 +46,21 @@ public class CrestModules {
         } else if (!module.isEnabled()) {
             enabledOverrides.put(module.getId(), false);
         }
+        renderCacheDirty = true;
+        KeybindManager.markDirty();
+    }
+
+    public static List<RenderableModule> getRenderableModules() {
+        if (renderCacheDirty) {
+            renderableCache.clear();
+            for (CrestModule mod : modules.values()) {
+                if (isEnabled(mod.getId()) && mod instanceof RenderableModule r) {
+                    renderableCache.add(r);
+                }
+            }
+            renderCacheDirty = false;
+        }
+        return renderableCache;
     }
 
     public static EventBus getEventBus() { return eventBus; }
@@ -67,6 +87,7 @@ public class CrestModules {
             else m.onDisable();
             eventBus.post(new ModuleToggleEvent(m, enabled));
         }
+        renderCacheDirty = true;
     }
 
     public static void toggle(String id) {

@@ -27,6 +27,7 @@ public class BongoCatModule implements CrestModule {
         );
     }
 
+    private int frameSkip;
     private void render(GuiGraphicsExtractor g, DeltaTracker d) {
         if (!CrestModules.isEnabled(getId())) return;
         Minecraft mc = Minecraft.getInstance();
@@ -36,7 +37,8 @@ public class BongoCatModule implements CrestModule {
         InputTracker input = InputTracker.getInstance();
         if (!input.tryInit()) return;
 
-        input.update();
+        frameSkip = (frameSkip + 1) % 3;
+        input.update(frameSkip != 0);
 
         BongoCatOverlay.render(g, mc, input, BongoCatConfig.getInstance());
     }

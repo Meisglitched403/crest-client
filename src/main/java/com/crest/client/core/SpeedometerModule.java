@@ -8,7 +8,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -25,7 +24,9 @@ public class SpeedometerModule extends HudModule {
         "Smoothing", 1, 20, 5
     );
 
-    private final LinkedList<Double> speedHistory = new LinkedList<>();
+    private final float[] speedRing = new float[20];
+    private int ringPos;
+    private int ringSize;
     private double currentSpeed;
     private double prevX;
     private double prevZ;
@@ -68,14 +69,17 @@ public class SpeedometerModule extends HudModule {
             double dx = x - prevX;
             double dz = z - prevZ;
             double dist = Math.sqrt(dx * dx + dz * dz);
-            double speed = dist * 20.0;
+            speedRing[ringPos] = (float)(dist * 20.0);
+            ringPos = (ringPos + 1) % speedRing.length;
+            if (ringSize < speedRing.length) ringSize++;
 
-            speedHistory.addLast(speed);
-            while (speedHistory.size() > smoothing.get()) {
-                speedHistory.removeFirst();
+            int limit = Math.min(ringSize, smoothing.get());
+            double sum = 0;
+            for (int i = 0; i < limit; i++) {
+                int idx = (ringPos - 1 - i + speedRing.length) % speedRing.length;
+                sum += speedRing[idx];
             }
-
-            currentSpeed = speedHistory.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            currentSpeed = sum / limit;
         }
 
         prevX = x;
