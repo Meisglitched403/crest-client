@@ -13,3 +13,4 @@ bin/
 *.iws
 out/
 run/
+.aider*

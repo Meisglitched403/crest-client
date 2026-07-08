@@ -24,6 +24,7 @@ public class CrestModules {
         module.onInitialize();
 
         for (Setting<?> setting : module.getSettings()) {
+            setting.bindModule(module.getId());
             setting.load(configManager, module.getId());
         }
 

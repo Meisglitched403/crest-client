@@ -1,0 +1,164 @@
+================================================================================
+CREST-CLIENT  —  HYBRID RECORDER PROJECT STATUS
+================================================================================
+Project: crest-client (Minecraft 26.1.2 / Fabric mod)
+Goal:    Record gameplay as a HYBRID — gameplay captured as re-simulated STATE
+         (packets + ticks + inputs, tiny/lossless), GUI/HUD captured as PIXELS
+         (menus can't be replayed). Single .crest timeline, seamless playback.
+
+Session: "holaaaa amigosss"  (opencode session slug: witty-otter)
+
+================================================================================
+WHAT WE HAVE DONE
+================================================================================
+
+PHASE 0 — Diagnostics & plan
+  - Located the original opencode session in ~/.local/share/opencode/opencode.db
+    (session id ses_0bed33601ffeadSaCF1FAmhnRs, title "holaaaa amigosss").
+  - Read the full conversation: the session was mid-work on crest-client's
+    .crest recording feature (glassmorphic UI, recording/preview player).
+  - Last bugs reported: .crest preview distorted, recording length mismatch
+    (8s shown as 3s), backtick crash, recording crashes.
+  - Agreed plan: pursue the HYBRID approach (state-replay + pixel capture for
+    GUI), fixing the two pixel bugs along the way. User chose BOTH singleplayer
+    and multiplayer; fallback = "go all-in on hybrid".
+
+PHASE 1 — Pixel half: fixed distortion, duration, smoothness  [DONE]
+  Files: Recorder.java, RecorderPlayer.java, RecorderExporter.java
+  - DISTORTION: capture now reads the framebuffer the same way Minecraft's own
+    Screenshot does (native ints, vertical flip, force alpha) and stores
+    v3 frames; playback decodes via NativeImage.setPixelABGR + texture.upload().
+    Verified end-to-end against MC source (writeToTexture does no Y-flip; blit
+    maps texture-top -> screen-top) -> provably upright.
+  - DURATION: playback advances by real per-frame TIMESTAMPS (frameTimestamps[])
+    instead of an assumed fps; on-screen timer (fmt) also uses timestamps, so a
+    25s clip shows 0:25 not 0:04.
+  - SMOOTHNESS: root cause of ~10fps was ~24MB per-frame allocations on the
+    RENDER thread (GC thrash). Fixed by:
+      * capture does only mapBuffer + pooled memcpy on render thread (ZERO
+        per-frame allocation there),
+      * vertical-flip + deflate moved entirely to the writer thread,
+      * raw GPU buffers pooled and reused.
+  - Container version bumped 2 -> 3 (old broken files not mis-decoded).
+  - RecorderExporter updated: skips the vflip filter for v3 (capture already
+    flips) so MP4 export isn't double-flipped.
+
+PHASE 2 — State half (recording): packets + ticks + meta  [DONE, compiles/builds]
+  Files: StateRecorder.java (new), ConnectionMixin.java (new),
+         ClientTickMixin.java (new), Recorder.java (wired),
+         crest-client.mixins.json (registered)
+  - Records gameplay as STATE into a sidecar file "<name>.crest.state"
+    (magic "CRS1"), as timestamped records:
+      * META   — seed(placeholder 0), dimension, player UUID, spawn, w/h
+      * PKT_IN / PKT_OUT — every gameplay packet, encoded via
+        GameProtocols.CLIENTBOUND_TEMPLATE / SERVERBOUND_TEMPLATE codecs,
+        using the LIVE RegistryAccess so entity/block/registry packets serialize.
+      * TICK   — one marker per client tick.
+  - Mixins: Connection.channelRead0 (inbound) + Connection.send (outbound),
+    gated to in-world PLAY phase; Minecraft.tick() for tick markers + first-tick
+    META.
+  - Fully defensive: every interception wrapped in try/catch and gated on
+    level!=null && player!=null. A packet that fails to encode is skipped — it
+    can NEVER crash the game or disturb the pixel recorder.
+  - Wired into Recorder.start()/stop() so state + pixel recording run together.
+  - Full `./gradlew build` (compile + remap + package) SUCCEEDS.
+
+API research done (MC 26.1.2 specifics):
+  - ResourceLocation renamed to Identifier (net.minecraft.resources.Identifier).
+  - SimpleUnboundProtocol (clientbound) vs UnboundProtocol<_,_,Context>
+    (serverbound) — different template types, handled separately.
+  - Level has no getSeed() on client -> placeholder 0 (read from live world in
+    Phase 3).
+  - ConnectionProtocol enums have no direct codec accessor; use
+    GameProtocols.CLIENTBOUND_TEMPLATE / SERVERBOUND_TEMPLATE.bind(...).
+  - ClientPacketListener.registryAccess() for live registry during encode.
+
+================================================================================
+PROGRESS
+================================================================================
+  [DONE] Phase 0  : diagnostics + hybrid plan
+  [DONE] Phase 1  : pixel recorder fixed (upright, timestamp-accurate, smooth)
+  [DONE] Phase 2  : state RECORDING (packets+ticks+meta) -> .crest.state sidecar
+  [DONE] Phase 3  : state PLAYBACK (re-simulation) + input capture
+  [TODO] Phase 4  : unify segments into one seamless .crest timeline + player
+  [TODO] Phase 5  : MP4 export from re-simulated frames; MP fidelity hardening
+
+================================================================================
+WHAT IS LEFT TO DO
+================================================================================
+
+PHASE 3 — Playback re-simulation + input capture  [DONE, compiles/builds]
+   Files: StatePlayer.java (new), ReplayTickMixin.java (new),
+          ConnectionBlockMixin.java (new), MouseHandlerAccessor.java (new),
+          StatePlayerHolder.java (new), MouseInputMixin.java (new),
+          KeyboardHandlerMixin.java (new), StateRecorder.java (extended),
+          crest-client.mixins.json (updated)
+   - INPUT capture: KeyboardHandlerMixin records keyPress(win,key,scancode,action,mods)
+     as TYPE_KEY records. MouseInputMixin records onPress → TYPE_MOUSE_BTN,
+     onScroll → TYPE_MOUSE_SCROLL, turnPlayer → TYPE_MOUSE_MOVE.
+     All gated to in-world (level!=null, screen==null), wrapped in try/catch.
+   - StateRecorder extended with 4 new record types (KEY, MOUSE_BTN, MOUSE_SCROLL,
+     MOUSE_MOVE) and build/send helpers using FriendlyByteBuf encoding.
+   - StatePlayer: reads .crest.state (magic "CRS1"), parses all records into typed
+     list (Meta, PKT_IN, PKT_OUT, TICK, KEY, MOUSE_BTN, MOUSE_SCROLL, MOUSE_MOVE),
+     provides pollUpTo(timeUs) for replay, and decodes packets via the same
+     GameProtocols codecs used for encoding.
+   - ReplayTickMixin: injects at Minecraft.tick HEAD. When StatePlayerHolder.active
+     is set, it polls due records up to elapsed replay time. PKT_IN decoded and
+     fed into ClientPacketListener via raw-cast handle(). MOUSE_MOVE sets
+     accumulatedDX/DY via MouseHandlerAccessor then calls handleAccumulatedMovement().
+     KEY replay uses lambda$setup$4 reflection trampoline.
+   - ConnectionBlockMixin: suppresses Connection.tick() during replay to prevent
+     double-feeding (real connection packets + injected replay packets).
+   - MouseHandlerAccessor: exposes accumulatedDX/accumulatedDY for replay rotation.
+   - StatePlayerHolder: singleton bridge (active, startTimeMs, elapsedUs/durationUs).
+   - Full `./gradlew build` SUCCEEDS.
+   NOTES:
+     - KEY replay uses reflection trampoline (lambda$setup$4); may need refinement
+       if the lambda signature differs across MC versions.
+     - MOUSE_MOVE sets both accumulatedDX + accumulatedDY in one call then processes
+       both via handleAccumulatedMovement(). Verified against MC 26.1.2 decompiled
+       MouseHandler API (accumulatedDX/DY are private double fields, turnPlayer(double)
+       is single-arg, handleAccumulatedMovement() is public).
+     - PKT_IN injection uses unchecked Packet<PacketListener> cast matching
+       Connection.genericsFtw pattern (same cast the real Connection does).
+     - Minecraft.getConnection() returns ClientPacketListener (not Connection!) in
+       MC 26.1.2. Adjusted all code to use this API.
+   KNOWN LIMITATIONS (MVP):
+     - Re-simulation does NOT yet create a synthetic world — you must replay while
+       connected to a world (existing singleplayer/multiplayer). The mixin feeds
+       recorded packets into the live connection; world state updates accordingly.
+       Full world-from-scratch replay is Phase 4 stretch.
+     - MOUSE_BTN/MOUSE_SCROLL are recorded but not replayed (player movement via
+       MOUSE_MOVE is sufficient for rotational fidelity).
+     - Multiplayer replay fidelity (other players, chunk hashing, RNG) still stretch.
+
+PHASE 4 — Unified hybrid timeline
+  - Single .crest container with interleaved STATE segments (gameplay) and
+    PIXEL segments (GUI-open periods, tagged by [t_start,t_end]).
+  - Player switches per period: re-simulate gameplay, blit pixel frames for GUI.
+  - Add the previously-requested FILE-SYSTEM BROWSER to the preview player
+    (earlier request: "need a file system there").
+
+PHASE 5 — Export & hardening
+  - RecorderExporter: render off re-simulated frames (or pixel frames for GUI
+    spans).
+  - Multiplayer state-replay fidelity hardening (stretch).
+
+ALSO STILL OPEN (from original session, not yet addressed)
+  - Backtick crash ("game crashed as soon as I pressed backtick").
+  - General recording-crash stability ("it crashed ... Process finished with
+    non-zero exit value 25").
+  - These should be investigated once the hybrid pipeline is validated.
+
+================================================================================
+VERIFICATION STATUS
+================================================================================
+  Verified : code compiles, full build + remap + jar packaging succeeds.
+  Verified : orientation math proven correct against MC Screenshot pipeline.
+  NOT yet  : in-game runtime testing (no display in this environment).
+             User must confirm: (1) pixel playback upright + smooth + correct
+             timer, (2) .crest.state sidecar is created and grows on record,
+             (3) no crashes / smooth gameplay while recording.
+
+================================================================================

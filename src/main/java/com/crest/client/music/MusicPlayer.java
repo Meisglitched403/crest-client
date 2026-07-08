@@ -32,6 +32,8 @@ public class MusicPlayer {
     private Process audioProcess;
     private OutputStream audioOutput;
     private String audioBackend;
+    private String audioBackendPath;
+    private final Object outputLock = new Object();
 
     private volatile OnStateChange onTrackStart;
     private volatile OnStateChange onTrackEnd;
@@ -109,13 +111,30 @@ public class MusicPlayer {
             {"aplay", "-f", "S16_LE", "-r", "48000", "-c", "2"},
             {"ffplay", "-f", "s16le", "-ar", "48000", "-ac", "2", "-nodisp", "-autoexit", "-"}
         };
+        String[] candidates = {
+            "/usr/bin/paplay", "/bin/paplay",
+            "/usr/bin/pw-play", "/bin/pw-play",
+            "/usr/bin/aplay", "/bin/aplay",
+            "/usr/bin/ffplay", "/bin/ffplay"
+        };
         for (int i = 0; i < backends.length; i++) {
             try {
-                Process p = new ProcessBuilder(args[i]).start();
+                // Only run binaries from known absolute system locations to avoid
+                // executing attacker-controlled binaries from the ambient PATH.
+                String resolved = null;
+                for (String c : candidates) {
+                    if (c.endsWith("/" + backends[i]) && new java.io.File(c).canExecute()) {
+                        resolved = c;
+                        break;
+                    }
+                }
+                if (resolved == null) continue;
+                Process p = new ProcessBuilder(resolved, args[i][1], args[i][2], args[i][3], args[i][4], args[i][5]).start();
                 if (p.isAlive()) {
                     p.destroy();
                     audioBackend = backends[i];
-                    System.out.println("[Crest Music] Using audio backend: " + audioBackend);
+                    audioBackendPath = resolved;
+                    System.out.println("[Crest Music] Using audio backend: " + audioBackend + " (" + resolved + ")");
                     return;
                 }
             } catch (Exception e) {
@@ -124,6 +143,37 @@ public class MusicPlayer {
         }
         System.err.println("[Crest Music] No audio backend found!");
         audioBackend = null;
+        audioBackendPath = null;
+    }
+
+    public static boolean isUrlAllowed(String url) {
+        if (url == null || url.isBlank()) return false;
+        String trimmed = url.trim();
+        // Only allow http/https remote URLs. Block file:, ftp:, and private/loopback hosts
+        // to avoid local file disclosure and SSRF against internal services.
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return false;
+        try {
+            java.net.URI uri = new java.net.URI(trimmed);
+            String host = uri.getHost();
+            if (host == null) return false;
+            host = host.toLowerCase();
+            if (host.equals("localhost") || host.endsWith(".localhost") || host.endsWith(".local")) return false;
+            if (host.equals("0.0.0.0") || host.endsWith(".0.0.0.0")) return false;
+            // Reject IPv4 private/loopback/link-local ranges.
+            if (host.matches("\\d+(\\.\\d+){3}")) {
+                String[] parts = host.split("\\.");
+                int a = Integer.parseInt(parts[0]);
+                int b = Integer.parseInt(parts[1]);
+                if (a == 10) return false;
+                if (a == 127) return false;
+                if (a == 169 && b == 254) return false;
+                if (a == 172 && b >= 16 && b <= 31) return false;
+                if (a == 192 && b == 168) return false;
+            }
+        } catch (java.net.URISyntaxException e) {
+            return false;
+        }
+        return true;
     }
 
     public void search(String query, SearchCallback callback) {
@@ -155,6 +205,11 @@ public class MusicPlayer {
 
     public void loadAndPlay(String url) {
         if (url == null || url.isBlank()) return;
+        if (!url.contains("://") || !isUrlAllowed(url)) {
+            System.err.println("[Crest Music] Refused to load disallowed URL: " + url);
+            if (onError != null) onError.run("URL not allowed: " + url);
+            return;
+        }
         System.out.println("[Crest Music] Loading: " + url);
         manager.loadItem(url, new AudioLoadResultHandler() {
             @Override
@@ -284,70 +339,79 @@ public class MusicPlayer {
     }
 
     private void stopPlaybackThread() {
-        if (playbackThread != null) {
-            playbackThread.interrupt();
-            playbackThread = null;
+        Thread old = playbackThread;
+        playbackThread = null;
+        if (old != null) {
+            old.interrupt();
+            try { old.join(3000); } catch (InterruptedException ignored) {}
         }
         closeOutput();
     }
 
     private boolean openOutput() {
-        closeOutput();
-        if (audioBackend == null) {
-            System.err.println("[Crest Music] No audio backend available");
-            return false;
-        }
-        try {
-            String[][] cmds = {
-                {"paplay", "--raw", "--rate=48000", "--channels=2", "--format=s16le"},
-                {"pw-play", "--raw", "--rate=48000", "--channels=2", "--format=s16le"},
-                {"aplay", "-f", "S16_LE", "-r", "48000", "-c", "2"},
-                {"ffplay", "-f", "s16le", "-ar", "48000", "-ac", "2", "-nodisp", "-autoexit", "-"}
-            };
-            int idx = switch (audioBackend) {
-                case "paplay" -> 0;
-                case "pw-play" -> 1;
-                case "aplay" -> 2;
-                case "ffplay" -> 3;
-                default -> -1;
-            };
-            if (idx < 0) return false;
-            ProcessBuilder pb = new ProcessBuilder(cmds[idx]);
-            pb.redirectErrorStream(false);
-            audioProcess = pb.start();
-            audioOutput = audioProcess.getOutputStream();
-            System.out.println("[Crest Music] Audio output opened via " + audioBackend);
-            return true;
-        } catch (Exception e) {
-            System.err.println("[Crest Music] Failed to open audio output: " + e);
-            return false;
+        synchronized (outputLock) {
+            closeOutput();
+            if (audioBackendPath == null) {
+                System.err.println("[Crest Music] No audio backend available");
+                return false;
+            }
+            try {
+                String[][] cmds = {
+                    {"--raw", "--rate=48000", "--channels=2", "--format=s16le"},
+                    {"--raw", "--rate=48000", "--channels=2", "--format=s16le"},
+                    {"-f", "S16_LE", "-r", "48000", "-c", "2"},
+                    {"-f", "s16le", "-ar", "48000", "-ac", "2", "-nodisp", "-autoexit", "-"}
+                };
+                int idx = switch (audioBackend) {
+                    case "paplay" -> 0;
+                    case "pw-play" -> 1;
+                    case "aplay" -> 2;
+                    case "ffplay" -> 3;
+                    default -> -1;
+                };
+                if (idx < 0) return false;
+                String[] base = {audioBackendPath, cmds[idx][0], cmds[idx][1], cmds[idx][2], cmds[idx][3]};
+                ProcessBuilder pb = new ProcessBuilder(base);
+                pb.redirectErrorStream(false);
+                audioProcess = pb.start();
+                audioOutput = audioProcess.getOutputStream();
+                System.out.println("[Crest Music] Audio output opened via " + audioBackend);
+                return true;
+            } catch (Exception e) {
+                System.err.println("[Crest Music] Failed to open audio output: " + e);
+                return false;
+            }
         }
     }
 
     private void writeOutput(byte[] data) {
-        OutputStream out = audioOutput;
-        if (out != null && data != null) {
-            try {
-                out.write(data);
-            } catch (Exception e) {
-                if (!Thread.interrupted()) {
-                    System.err.println("[Crest Music] Write error: " + e);
+        synchronized (outputLock) {
+            OutputStream out = audioOutput;
+            if (out != null && data != null) {
+                try {
+                    out.write(data);
+                } catch (Exception e) {
+                    if (!Thread.interrupted()) {
+                        System.err.println("[Crest Music] Write error: " + e);
+                    }
                 }
             }
         }
     }
 
     private void closeOutput() {
-        try {
-            if (audioOutput != null) {
-                audioOutput.flush();
-                audioOutput.close();
+        synchronized (outputLock) {
+            try {
+                if (audioOutput != null) {
+                    audioOutput.flush();
+                    audioOutput.close();
+                }
+            } catch (Exception e) { }
+            audioOutput = null;
+            if (audioProcess != null) {
+                try { audioProcess.destroy(); } catch (Exception e) { }
+                audioProcess = null;
             }
-        } catch (Exception e) { }
-        audioOutput = null;
-        if (audioProcess != null) {
-            try { audioProcess.destroy(); } catch (Exception e) { }
-            audioProcess = null;
         }
     }
 

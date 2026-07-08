@@ -1,6 +1,5 @@
 package com.crest.client.bongocat;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_0;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_1;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_2;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_3;
@@ -17,29 +16,18 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_E;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_G;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_H;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_I;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_J;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_K;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_L;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LAST;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_M;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_N;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_O;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_P;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_Q;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_S;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_T;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_U;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_V;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_X;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_Y;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_1;
-import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_2;
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
@@ -52,27 +40,34 @@ public class InputTracker {
 
     private final SpringPaw leftPaw = new SpringPaw();
     private final SpringPaw rightPaw = new SpringPaw();
-    private final boolean[] keyStates = new boolean[GLFW_KEY_LAST];
+    // Only the keys actually rendered/needed are tracked, to avoid scanning the
+    // entire GLFW key range every frame (privacy + efficiency).
+    private static final int[] TRACKED_KEYS = {
+        GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6,
+        GLFW_KEY_7, GLFW_KEY_8, GLFW_KEY_9,
+        GLFW_KEY_Q, GLFW_KEY_W, GLFW_KEY_E, GLFW_KEY_R, GLFW_KEY_T,
+        GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_F, GLFW_KEY_G,
+        GLFW_KEY_Z, GLFW_KEY_X, GLFW_KEY_C, GLFW_KEY_V, GLFW_KEY_B,
+        GLFW_KEY_LEFT_SHIFT, GLFW_KEY_RIGHT_SHIFT, GLFW_KEY_LEFT_CONTROL, GLFW_KEY_SPACE
+    };
+    // Keys considered "left hand" for paw animation.
+    private static final boolean[] IS_LEFT_KEY = new boolean[512];
+
+    static {
+        int[] left = {
+            GLFW_KEY_1, GLFW_KEY_2, GLFW_KEY_3, GLFW_KEY_4, GLFW_KEY_5, GLFW_KEY_6,
+            GLFW_KEY_Q, GLFW_KEY_W, GLFW_KEY_E, GLFW_KEY_R, GLFW_KEY_T,
+            GLFW_KEY_A, GLFW_KEY_S, GLFW_KEY_D, GLFW_KEY_F, GLFW_KEY_G,
+            GLFW_KEY_Z, GLFW_KEY_X, GLFW_KEY_C, GLFW_KEY_V, GLFW_KEY_B
+        };
+        for (int k : left) IS_LEFT_KEY[k] = true;
+    }
+
+    private final boolean[] keyStates = new boolean[512];
+    private boolean lmb, rmb;
     private long window;
     private long lastFrameTime;
     private boolean initialized;
-
-    private static final boolean[] IS_LEFT_KEY = new boolean[GLFW_KEY_LAST];
-
-    static {
-        IS_LEFT_KEY[GLFW_KEY_1] = true;  IS_LEFT_KEY[GLFW_KEY_2] = true;
-        IS_LEFT_KEY[GLFW_KEY_3] = true;  IS_LEFT_KEY[GLFW_KEY_4] = true;
-        IS_LEFT_KEY[GLFW_KEY_5] = true;  IS_LEFT_KEY[GLFW_KEY_6] = true;
-        IS_LEFT_KEY[GLFW_KEY_Q] = true;  IS_LEFT_KEY[GLFW_KEY_W] = true;
-        IS_LEFT_KEY[GLFW_KEY_E] = true;  IS_LEFT_KEY[GLFW_KEY_R] = true;
-        IS_LEFT_KEY[GLFW_KEY_T] = true;
-        IS_LEFT_KEY[GLFW_KEY_A] = true;  IS_LEFT_KEY[GLFW_KEY_S] = true;
-        IS_LEFT_KEY[GLFW_KEY_D] = true;  IS_LEFT_KEY[GLFW_KEY_F] = true;
-        IS_LEFT_KEY[GLFW_KEY_G] = true;
-        IS_LEFT_KEY[GLFW_KEY_Z] = true;  IS_LEFT_KEY[GLFW_KEY_X] = true;
-        IS_LEFT_KEY[GLFW_KEY_C] = true;  IS_LEFT_KEY[GLFW_KEY_V] = true;
-        IS_LEFT_KEY[GLFW_KEY_B] = true;
-    }
 
     public static InputTracker getInstance() {
         if (instance == null) instance = new InputTracker();
@@ -95,12 +90,12 @@ public class InputTracker {
         float dt = Math.min((now - lastFrameTime) / 1000.0f, 0.05f);
         lastFrameTime = now;
 
-        for (int i = 0; i < GLFW_KEY_LAST; i++) {
-            keyStates[i] = glfwGetKey(window, i) == GLFW_PRESS;
+        for (int k : TRACKED_KEYS) {
+            keyStates[k] = glfwGetKey(window, k) == GLFW_PRESS;
         }
 
-        boolean lmb = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
-        boolean rmb = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        lmb = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        rmb = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
         boolean leftHeld = lmb || anyLeftKeyPressed();
         boolean rightHeld = rmb || anyRightKeyPressed();
@@ -113,21 +108,22 @@ public class InputTracker {
     }
 
     private boolean anyLeftKeyPressed() {
-        for (int i = 0; i < GLFW_KEY_LAST; i++) {
-            if (keyStates[i] && i != GLFW_KEY_RIGHT_SHIFT && IS_LEFT_KEY[i]) return true;
+        for (int k : TRACKED_KEYS) {
+            if (keyStates[k] && IS_LEFT_KEY[k]) return true;
         }
         return false;
     }
 
     private boolean anyRightKeyPressed() {
-        for (int i = 0; i < GLFW_KEY_LAST; i++) {
-            if (keyStates[i] && i != GLFW_KEY_RIGHT_SHIFT && !IS_LEFT_KEY[i]) return true;
+        for (int k : TRACKED_KEYS) {
+            if (keyStates[k] && !IS_LEFT_KEY[k]) return true;
         }
         return false;
     }
 
     public boolean[] getKeyStates() {
-        return keyStates;
+        // Return a defensive copy so callers cannot mutate internal state.
+        return keyStates.clone();
     }
 
     public SpringPaw getLeftPaw() {

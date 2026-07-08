@@ -31,7 +31,7 @@ public class BlockOutlineModule implements CrestModule {
     @Override
     public String getCategory() { return "Visual"; }
     @Override
-    public boolean isEnabled() { return false; }
+    public boolean isEnabled() { return CrestModules.isEnabled(getId()); }
 
     @Override
     public List<Setting<?>> getSettings() {

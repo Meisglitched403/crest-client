@@ -1,6 +1,7 @@
 package com.crest.client.core.setting;
 
 import com.crest.client.core.ConfigManager;
+import com.crest.client.core.CrestModules;
 
 public abstract class Setting<T> {
     private final String name;
@@ -8,6 +9,7 @@ public abstract class Setting<T> {
     private final T defaultValue;
     private T value;
     private boolean visible = true;
+    private String moduleId;
 
     public Setting(String name, T defaultValue) {
         this(name, "", defaultValue);
@@ -25,6 +27,10 @@ public abstract class Setting<T> {
     public T get() { return value; }
     public T getDefault() { return defaultValue; }
 
+    public void bindModule(String moduleId) {
+        this.moduleId = moduleId;
+    }
+
     public void set(T value) {
         this.value = value;
         onChange();
@@ -37,5 +43,9 @@ public abstract class Setting<T> {
     public abstract void load(ConfigManager config, String moduleId);
     public abstract void save(ConfigManager config, String moduleId);
 
-    protected void onChange() {}
+    protected void onChange() {
+        if (moduleId != null) {
+            CrestModules.getConfigManager().set(moduleId, getName(), get());
+        }
+    }
 }

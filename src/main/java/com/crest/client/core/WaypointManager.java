@@ -19,7 +19,14 @@ public class WaypointManager {
 
     public static void init() {
         Minecraft mc = Minecraft.getInstance();
-        configFile = new File(mc.gameDirectory, "config/crest-waypoints.json");
+        try {
+            java.io.File gameDir = mc.gameDirectory.getCanonicalFile();
+            java.io.File configDir = new java.io.File(gameDir, "config");
+            configDir.mkdirs();
+            configFile = new java.io.File(configDir, "crest-waypoints.json").getCanonicalFile();
+        } catch (java.io.IOException e) {
+            configFile = new java.io.File(mc.gameDirectory, "config/crest-waypoints.json").getAbsoluteFile();
+        }
         load();
     }
 
