@@ -8,6 +8,9 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
+import com.crest.client.ui.ColorUtil;
+import com.crest.client.ui.Theme;
+
 public class BongoCatEditScreen extends Screen {
     private static final int OVERLAY_COLOR = 0x80000000;
     private static final int BORDER_COLOR = 0xFFFFFFFF;
@@ -42,6 +45,8 @@ public class BongoCatEditScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float delta) {
+        Theme.tick(delta);
+        int accent = Theme.getAnimatedAccent();
         g.fill(0, 0, width, height, OVERLAY_COLOR);
 
         config.keyboardVisible = kbToggle;
@@ -55,7 +60,7 @@ public class BongoCatEditScreen extends Screen {
         int totalW = catW + 4 + kbW;
         int totalH = Math.max(catH, VirtualKeyboard.getHeight(scale));
 
-        g.fill(config.x - 1, config.y - 1, config.x + totalW + 2, config.y + totalH + 2, BORDER_COLOR);
+        g.fill(config.x - 1, config.y - 1, config.x + totalW + 2, config.y + totalH + 2, accent);
         g.fill(config.x, config.y, config.x + totalW + 1, config.y + totalH + 1, 0x00000000);
 
         Component hint = Component.literal("Drag to move | Scroll to resize | Esc to save & close");

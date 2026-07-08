@@ -1,5 +1,8 @@
 package com.crest.client.core;
 
+import com.crest.client.ui.ColorUtil;
+import com.crest.client.ui.Panel;
+import com.crest.client.ui.Theme;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -29,6 +32,8 @@ public class HudEditScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        Theme.tick(delta);
+        int accent = Theme.getAnimatedAccent();
         g.fill(0, 0, width, height, OVERLAY);
 
         Minecraft mc = Minecraft.getInstance();
@@ -41,7 +46,7 @@ public class HudEditScreen extends Screen {
             int rx = mod.getX() < 0 ? width - mod.getWidth() : mod.getX();
             int ry = mod.getY();
             boolean selected = mod.getId().equals(selectedId);
-            int borderCol = selected ? SELECTED : BORDER;
+            int borderCol = selected ? accent : BORDER;
 
             g.fill(rx - 2, ry - 2, rx + mod.getWidth() + 2, ry - 1, borderCol);
             g.fill(rx - 2, ry + mod.getHeight() + 1, rx + mod.getWidth() + 2, ry + mod.getHeight() + 2, borderCol);
@@ -53,7 +58,7 @@ public class HudEditScreen extends Screen {
             Component label = Component.literal(modLabel);
             int lw = font.width(label);
             int labelY = Math.max(0, ry - 11);
-            g.fill(rx, labelY, rx + lw + 4, labelY + 10, LABEL_BG);
+            g.fill(rx, labelY, rx + lw + 4, labelY + 10, selected ? ColorUtil.withAlpha(accent, 200) : LABEL_BG);
             g.text(font, label, rx + 2, labelY + 1, 0xFFFFFFFF);
         }
 

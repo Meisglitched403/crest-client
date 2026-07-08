@@ -18,7 +18,9 @@
         "NameTagsAlwaysVisibleMixin",
         "FreelookMixin",
         "FreelookCameraMixin",
-        "RenderSystemMixin"
+        "RenderSystemMixin",
+        "gui/ScreenBackgroundMixin",
+        "gui/ContainerPanelMixin"
     ],
     "injectors": {
         "defaultRequire": 1

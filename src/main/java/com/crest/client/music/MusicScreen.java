@@ -13,6 +13,10 @@ import org.lwjgl.glfw.GLFW;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import java.util.List;
 
+import com.crest.client.ui.ColorUtil;
+import com.crest.client.ui.Panel;
+import com.crest.client.ui.Theme;
+
 import static org.lwjgl.glfw.GLFW.glfwGetClipboardString;
 
 public class MusicScreen extends Screen {
@@ -20,7 +24,6 @@ public class MusicScreen extends Screen {
     private static final int FG = 0xFFFFFFFF;
     private static final int DIM = 0xFF888888;
     private static final int LABEL = 0xFFAAAAAA;
-    private static final int ACCENT = 0xFF55AAFF;
     private static final int GREEN = 0xFF55FF55;
     private static final int BG_SURFACE = 0xCC111122;
     private static final int BG_INPUT = 0xAA333344;
@@ -32,6 +35,7 @@ public class MusicScreen extends Screen {
     private static final int BG_PROGRESS = 0xFF444444;
 
     private final MusicPlayer player;
+    private int accent = 0xFF55AAFF;
 
     private StringBuilder urlText = new StringBuilder();
     private int urlCursor;
@@ -101,6 +105,8 @@ public class MusicScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        Theme.tick(delta);
+        accent = Theme.getAnimatedAccent();
         int m = margin();
         int fh = fieldH();
         int bw = btnW();
@@ -138,7 +144,7 @@ public class MusicScreen extends Screen {
 
         if (searchPending) {
             String dots = ".".repeat((int) ((System.currentTimeMillis() / 400) % 4));
-            g.text(font, Component.literal("Searching" + dots), m, bottomStatusY, ACCENT);
+            g.text(font, Component.literal("Searching" + dots), m, bottomStatusY, accent);
         }
 
         if (hasResults()) {
@@ -146,7 +152,7 @@ public class MusicScreen extends Screen {
             int rh = resultsAreaH();
 
             String header = "Results (" + searchResults.size() + ")";
-            g.text(font, Component.literal(header), m, ry, ACCENT);
+            g.text(font, Component.literal(header), m, ry, accent);
 
             g.fill(m, ry + 14, m + availW, ry + 14 + 1, 0x33FFFFFF);
 
@@ -170,14 +176,14 @@ public class MusicScreen extends Screen {
                 }
 
                 if (ho) {
-                    g.text(font, Component.literal("\u25B6"), m + 4, rowY + 3, ACCENT);
+                    g.text(font, Component.literal("\u25B6"), m + 4, rowY + 3, accent);
                 } else {
                     g.text(font, Component.literal("\u25B6"), m + 4, rowY + 3, DIM);
                 }
 
-                String text = track.getInfo().title;
+                String text = sanitizeMeta(track.getInfo().title);
                 if (track.getInfo().author != null && !track.getInfo().author.equals("Unknown")) {
-                    text += " - " + track.getInfo().author;
+                    text += " - " + sanitizeMeta(track.getInfo().author);
                 }
                 if (font.width(text) > maxTextW) {
                     text = font.plainSubstrByWidth(text, maxTextW - 4) + "...";
@@ -205,8 +211,8 @@ public class MusicScreen extends Screen {
         y = trackInfoY();
         if (player.hasTrack()) {
             var info = player.getCurrentTrack().getInfo();
-            String title = info.title != null ? info.title : "Unknown";
-            String author = info.author != null ? info.author : "Unknown";
+            String title = info.title != null ? sanitizeMeta(info.title) : "Unknown";
+            String author = info.author != null ? sanitizeMeta(info.author) : "Unknown";
             String label = title + " \u2014 " + author;
             if (font.width(label) > availW) {
                 label = font.plainSubstrByWidth(label, availW - 6) + "...";
@@ -224,7 +230,7 @@ public class MusicScreen extends Screen {
             g.fill(m, by, m + availW, by + barH(), BG_PROGRESS);
             int fillW = (int) (availW * progress);
             if (fillW > 0) {
-                g.fill(m, by, m + fillW, by + barH(), hp ? ACCENT : GREEN);
+                g.fill(m, by, m + fillW, by + barH(), hp ? accent : GREEN);
             }
 
             g.text(font, Component.literal(formatTime(pos) + " / " + formatTime(dur)), m, timeY(), DIM);
@@ -248,7 +254,7 @@ public class MusicScreen extends Screen {
 
             if (searchPending) {
                 String dots = ".".repeat((int) ((System.currentTimeMillis() / 400) % 4));
-                g.text(font, Component.literal("Searching" + dots), m, y + 16, ACCENT);
+                g.text(font, Component.literal("Searching" + dots), m, y + 16, accent);
             }
         }
 
@@ -284,7 +290,7 @@ public class MusicScreen extends Screen {
 
         g.fill(vx, sy, vx + vlw, sy + 6, BG_PROGRESS);
         if (vf > 0) {
-            g.fill(vx, sy, vx + vf, sy + 6, hoverVol ? 0xFF77CCFF : ACCENT);
+            g.fill(vx, sy, vx + vf, sy + 6, hoverVol ? 0xFF77CCFF : accent);
         }
 
         String pct = (int) vol + "%";
@@ -307,6 +313,28 @@ public class MusicScreen extends Screen {
             return true;
         }
         return false;
+    }
+
+    private static String sanitizeInput(String s) {
+        if (s == null) return "";
+        var sb = new StringBuilder(Math.min(s.length(), 4096));
+        for (int i = 0; i < s.length() && sb.length() < 4096; i++) {
+            char c = s.charAt(i);
+            if (c == '\t' || c == ' ') sb.append(c);
+            else if (c >= 32 && c < 127) sb.append(c);
+        }
+        return sb.toString().trim();
+    }
+
+    private static String sanitizeMeta(String s) {
+        if (s == null) return "";
+        var sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 32 && c != '\t' && c != '\n' && c != '\r') continue;
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     @Override
@@ -349,8 +377,11 @@ public class MusicScreen extends Screen {
             if (key == GLFW.GLFW_KEY_V && (event.modifiers() & 2) != 0) {
                 String clip = glfwGetClipboardString(minecraft.getWindow().handle());
                 if (clip != null) {
-                    urlText.insert(urlCursor, clip);
-                    urlCursor += clip.length();
+                    clip = sanitizeInput(clip);
+                    if (!clip.isEmpty()) {
+                        urlText.insert(urlCursor, clip);
+                        urlCursor += clip.length();
+                    }
                 }
                 return true;
             }

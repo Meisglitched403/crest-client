@@ -50,8 +50,11 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new FreelookModule());
         CrestModules.register(new WaypointsModule());
         CrestModules.register(new AntiAfkModule());
+        CrestModules.register(new CrestThemeModule());
         CrestModules.register(new RecorderModule());
         CrestModules.register(new RecorderIndicator());
+        CrestModules.register(new StreamerModule());
+        CrestModules.register(new StreamerIndicator());
 
         MusicModule.init();
 
@@ -95,7 +98,6 @@ public class CrestClient implements ClientModInitializer {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getWindow() == null) return;
         if (mc.screen instanceof CrestClickGui) return;
-        System.out.println("[CrestHud] renderHud called, modules: " + CrestModules.getAll().size());
 
         for (CrestModule mod : CrestModules.getAll().values()) {
             if (!CrestModules.isEnabled(mod.getId())) continue;

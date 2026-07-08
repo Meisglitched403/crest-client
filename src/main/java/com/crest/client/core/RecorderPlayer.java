@@ -11,6 +11,8 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
+import com.crest.client.ui.Theme;
+
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -53,16 +55,20 @@ public class RecorderPlayer extends Screen {
 
     private void buildFrameIndex() {
         try {
+            int pixSize = width * height * 4;
+            int maxCompSize = pixSize + 4096;
             java.util.ArrayList<Long> offsets = new java.util.ArrayList<>();
             long pos = 20;
             while (pos < file.length()) {
                 offsets.add(pos);
                 channel.position(pos + 8);
                 ByteBuffer meta = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN);
-                if (channel.read(meta) < 5) break;
+                int r = channel.read(meta);
+                if (r < 5) break;
                 meta.flip();
                 meta.get();
                 int compSize = meta.getInt();
+                if (compSize <= 0 || compSize > maxCompSize) break;
                 pos += 8 + 1 + 4 + compSize;
             }
             frameOffsets = new long[offsets.size()];
@@ -110,14 +116,17 @@ public class RecorderPlayer extends Screen {
                 long offset = frameOffsets[safe] + 8;
                 channel.position(offset);
                 ByteBuffer meta = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN);
-                channel.read(meta);
+                if (channel.read(meta) < 5) return;
                 meta.flip();
                 byte flags = meta.get();
                 int compSize = meta.getInt();
+                int pixSize = width * height * 4;
+                if (compSize <= 0 || compSize > pixSize + 4096) return;
                 byte[] compressed = new byte[compSize];
-                channel.read(ByteBuffer.wrap(compressed));
+                if (channel.read(ByteBuffer.wrap(compressed)) < compSize) return;
                 boolean keyframe = (flags & 1) != 0;
-                pixels = CrestCodec.decompress(compressed, width * height * 4, keyframe ? null : previousFrame);
+                pixels = CrestCodec.decompress(compressed, pixSize, keyframe ? null : previousFrame);
+                if (pixels == null) return;
             } else {
                 long offset = 20 + (long) safe * frameStride + 8;
                 channel.position(offset);
@@ -162,6 +171,8 @@ public class RecorderPlayer extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        Theme.tick(delta);
+        int accent = Theme.getAnimatedAccent();
         super.extractRenderState(g, mx, my, delta);
         g.fill(0, 0, g.guiWidth(), g.guiHeight(), 0xFF000000);
 
@@ -184,7 +195,7 @@ public class RecorderPlayer extends Screen {
 
             g.fill(barX, barY, barX + barW, barY + 4, 0xFF333333);
             int fill = frameCount > 0 ? currentFrame * barW / frameCount : 0;
-            g.fill(barX, barY, barX + fill, barY + 4, 0xFF5555FF);
+            g.fill(barX, barY, barX + fill, barY + 4, accent);
 
             String time = fmt(currentFrame) + " / " + fmt(frameCount - 1);
             String info = time + "  " + width + "x" + height + "  " + fps + " fps  [" + frameCount + " frames]";

@@ -7,6 +7,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 
+import com.crest.client.ui.ColorUtil;
+import com.crest.client.ui.Panel;
+import com.crest.client.ui.Theme;
+
 import java.util.List;
 
 public class WaypointScreen extends Screen {
@@ -41,7 +45,10 @@ public class WaypointScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        Theme.tick(delta);
+        int accent = Theme.getAnimatedAccent();
         extractBackground(g, mx, my, delta);
+        Panel.drawGlass(g, 4, 40, width - 8, height - 84, ColorUtil.withAlpha(Theme.BG_PANEL, 200), accent);
         super.extractRenderState(g, mx, my, delta);
 
         g.text(font, Component.literal("Waypoints"), width / 2 - font.width("Waypoints") / 2, 35, 0xFFFFFF);
@@ -58,10 +65,10 @@ public class WaypointScreen extends Screen {
     private void renderWaypointRow(GuiGraphicsExtractor g, Waypoint wp, int y, int mx, int my) {
         int dotColor = wp.getColor() | 0xFF000000;
 
-        g.fill(4, y, width - 4, y + 20, 0x44000000);
-        g.fill(6, y + 5, 12, y + 15, dotColor);
-        g.text(font, Component.literal(wp.getName()), 16, y + 3, 0xFFFFFF);
-        g.text(font, Component.literal(String.format("%.0f, %.0f, %.0f", wp.getX(), wp.getY(), wp.getZ())), 16, y + 12, 0x888888);
+        g.fill(8, y, width - 8, y + 20, ColorUtil.withAlpha(Theme.BG_BASE, 200));
+        g.fill(10, y + 5, 16, y + 15, dotColor);
+        g.text(font, Component.literal(wp.getName()), 20, y + 3, 0xFFFFFF);
+        g.text(font, Component.literal(String.format("%.0f, %.0f, %.0f", wp.getX(), wp.getY(), wp.getZ())), 20, y + 12, 0x888888);
 
         int bx = width - 22;
         boolean hovered = mx >= bx && mx <= bx + 14 && my >= y + 4 && my <= y + 16;
