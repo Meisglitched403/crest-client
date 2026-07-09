@@ -5,13 +5,11 @@ import net.minecraft.client.Minecraft;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Recorder {
     private static final AtomicBoolean recording = new AtomicBoolean(false);
     private static long startTimeMs;
-    private static Process wfProcess;
     private static volatile String currentFilePath;
 
     public static boolean isRecording() { return recording.get(); }
@@ -38,21 +36,12 @@ public class Recorder {
             currentFilePath = outFile.getAbsolutePath();
         }
 
-        ProcessBuilder pb = new ProcessBuilder(
-            "wf-recorder",
-            "-f", currentFilePath,
-            "-g", w + "x" + h + "+0+0",
-            "--codec", "libx264",
-            "--framerate", String.valueOf(fps),
-            "--audio", "default"
-        );
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        pb.inheritIO();
         try {
-            wfProcess = pb.start();
+            FifoStreamer.startRecording(currentFilePath, fps, w, h);
         } catch (Exception e) {
             e.printStackTrace();
             recording.set(false);
+            return;
         }
 
         startTimeMs = System.currentTimeMillis();
@@ -62,11 +51,6 @@ public class Recorder {
     public static void stop() {
         recording.set(false);
         StateRecorder.stop();
-        if (wfProcess != null && wfProcess.isAlive()) {
-            wfProcess.destroy();
-            try { wfProcess.waitFor(3, TimeUnit.SECONDS); } catch (InterruptedException ignored) {}
-            if (wfProcess.isAlive()) wfProcess.destroyForcibly();
-        }
-        wfProcess = null;
+        FifoStreamer.stop();
     }
 }

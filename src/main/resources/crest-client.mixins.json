@@ -26,7 +26,8 @@
         "input/KeyboardHandlerMixin",
         "input/MouseInputMixin",
         "gui/ScreenBackgroundMixin",
-        "gui/ContainerPanelMixin"
+        "gui/ContainerPanelMixin",
+        "FrameCaptureMixin"
     ],
     "injectors": {
         "defaultRequire": 1

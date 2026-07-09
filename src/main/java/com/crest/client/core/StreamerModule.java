@@ -41,6 +41,9 @@ return List.of(rtmpUrl, bitrate, streamKey);
         }
     }
 
+    public String getStreamUrl() { return rtmpUrl.get(); }
+    public void setStreamUrl(String url) { rtmpUrl.set(url); }
+
     public void toggleStreaming() {
         if (Streamer.isStreaming()) {
             Streamer.stop();

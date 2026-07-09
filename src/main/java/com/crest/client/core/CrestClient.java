@@ -6,7 +6,10 @@ import com.crest.client.bongocat.BongoCatModule;
 import com.crest.client.core.event.TickEvent;
 import com.crest.client.music.MusicModule;
 import com.crest.client.music.MusicScreen;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -92,6 +95,34 @@ public class CrestClient implements ClientModInitializer {
             HUD_LAYER,
             (GuiGraphicsExtractor g, DeltaTracker d) -> renderHud(g, d)
         );
+
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, cmdCtx) -> {
+            dispatcher.register(ClientCommands.literal("streamurl")
+                .then(ClientCommands.argument("url", StringArgumentType.greedyString())
+                    .executes(c -> {
+                        String url = StringArgumentType.getString(c, "url");
+                        if (!Streamer.isUrlAllowed(url)) {
+                            c.getSource().sendError(net.minecraft.network.chat.Component.literal("Invalid RTMP URL"));
+                            return 0;
+                        }
+                        var mod = CrestModules.get("streamer");
+                        if (mod instanceof StreamerModule sm) {
+                            sm.setStreamUrl(url);
+                            c.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Stream URL set"));
+                        }
+                        return 1;
+                    })
+                )
+                .executes(c -> {
+                    var mod = CrestModules.get("streamer");
+                    if (mod instanceof StreamerModule sm) {
+                        String url = sm.getStreamUrl();
+                        c.getSource().sendFeedback(net.minecraft.network.chat.Component.literal("Current URL: " + url));
+                    }
+                    return 1;
+                })
+            );
+        });
     }
 
     private static void renderHud(GuiGraphicsExtractor g, DeltaTracker d) {
