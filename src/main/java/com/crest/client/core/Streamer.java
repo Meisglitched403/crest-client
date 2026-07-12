@@ -31,12 +31,12 @@ public class Streamer {
         return true;
     }
 
-    public static void start(String url, int targetFps, int w, int h) {
+    public static void start(String url, int targetFps, int w, int h, int bitrate) {
         if (streaming.getAndSet(true)) return;
         lastError = null;
 
         try {
-            FifoStreamer.startStream(url, targetFps, w, h, 3500);
+            FifoStreamer.startStream(url, targetFps, w, h, bitrate);
         } catch (Exception e) {
             lastError = e.getMessage();
             streaming.set(false);

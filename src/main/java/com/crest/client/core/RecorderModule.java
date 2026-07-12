@@ -10,13 +10,14 @@ import java.util.List;
 public class RecorderModule implements CrestModule {
     private final IntegerSetting fps = new IntegerSetting("FPS", 15, 120, 30);
     private final KeybindSetting recordKey = new KeybindSetting("Record Key", GLFW.GLFW_KEY_F6);
+    private final BooleanSetting audioEnabled = new BooleanSetting("Record Audio", true);
 
     @Override
     public String getId() { return "recorder"; }
     @Override
     public String getName() { return "Screen Recorder"; }
     @Override
-    public String getDescription() { return "Record gameplay to .mkv"; }
+    public String getDescription() { return "Record gameplay via gpu-screen-recorder"; }
     @Override
     public String getCategory() { return "Misc"; }
     @Override
@@ -24,7 +25,7 @@ public class RecorderModule implements CrestModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(fps, recordKey);
+        return List.of(fps, audioEnabled, recordKey);
     }
 
     @Override
@@ -45,6 +46,7 @@ public class RecorderModule implements CrestModule {
         if (Recorder.isRecording()) {
             Recorder.stop();
         } else {
+            Recorder.setRecordAudio(audioEnabled.get());
             Recorder.start(fps.get());
         }
     }

@@ -30,6 +30,7 @@ public abstract class Setting<T> {
     public void bindModule(String moduleId) {
         this.moduleId = moduleId;
     }
+    public String getModuleId() { return moduleId; }
 
     public void set(T value) {
         this.value = value;

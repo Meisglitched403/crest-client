@@ -112,10 +112,9 @@ public class FifoStreamer {
         cmd.add("-i"); cmd.add(VIDEO_FIFO.toString());
         cmd.add("-f"); cmd.add("lavfi");
         cmd.add("-i"); cmd.add("anullsrc=r=44100:cl=stereo");
-        cmd.add("-c:v"); cmd.add("libx264");
-        cmd.add("-preset"); cmd.add("ultrafast");
-        cmd.add("-pix_fmt"); cmd.add("yuv420p");
-        cmd.add("-vf"); cmd.add("vflip");
+        cmd.add("-c:v"); cmd.add("h264_qsv");
+        cmd.add("-preset"); cmd.add("veryfast");
+        cmd.add("-vf"); cmd.add("vflip,format=nv12");
         cmd.add("-g"); cmd.add(String.valueOf(fps * 2));
         if (streaming) {
             cmd.add("-b:v"); cmd.add(bitrate + "k");

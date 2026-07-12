@@ -1,0 +1,25 @@
+{
+    "providers": [
+        {
+            "type": "reference",
+            "id": "minecraft:include/space"
+        },
+        {
+            "type": "ttf",
+            "file": "crest-client:font/Inter-Light.ttf",
+            "size": 11.0,
+            "oversample": 2.0
+        },
+        {
+            "type": "reference",
+            "id": "minecraft:include/default",
+            "filter": {
+                "uniform": false
+            }
+        },
+        {
+            "type": "reference",
+            "id": "minecraft:include/unifont"
+        }
+    ]
+}

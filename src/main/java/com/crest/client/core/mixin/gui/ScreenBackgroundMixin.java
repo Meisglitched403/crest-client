@@ -1,6 +1,7 @@
 package com.crest.client.core.mixin.gui;
 
 import com.crest.client.core.CrestModules;
+import com.crest.client.core.NotificationToast;
 import com.crest.client.ui.ColorUtil;
 import com.crest.client.ui.Panel;
 import com.crest.client.ui.Theme;
@@ -34,5 +35,12 @@ public abstract class ScreenBackgroundMixin {
         Theme.tick(0.016f);
         g.fill(0, 0, w, h, ColorUtil.withAlpha(Theme.OVERLAY, 160));
         Panel.drawGlass(g, 0, 0, w, h, ColorUtil.withAlpha(Theme.OVERLAY, 160), Theme.getAnimatedAccent());
+    }
+
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void crest$renderToasts(GuiGraphicsExtractor g, int mx, int my, float delta, CallbackInfo ci) {
+        int w = g.guiWidth();
+        int h = g.guiHeight();
+        NotificationToast.render(g, w, h);
     }
 }

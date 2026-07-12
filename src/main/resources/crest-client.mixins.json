@@ -13,10 +13,12 @@
         "WeatherMixin",
         "NoOverlayMixin",
         "BlockOutlineMixin",
-        "NameTagsMixin",
-        "NameTagsAlwaysVisibleMixin",
         "FreelookMixin",
         "FreelookCameraMixin",
+        "SkinLayersPlayerMixin",
+        "SkinLayersPlayerModelMixin",
+        "SkinLayersModelPartMixin",
+        "SkinLayersPlayerRendererMixin",
         "ConnectionBlockMixin",
         "ReplayTickMixin",
         "ClientTickMixin",
@@ -27,7 +29,16 @@
         "input/MouseInputMixin",
         "gui/ScreenBackgroundMixin",
         "gui/ContainerPanelMixin",
-        "FrameCaptureMixin"
+        "gui/TitleScreenMixin",
+        "FrameCaptureMixin",
+        "WhoamiMixin",
+        "ChatComponentAnimationMixin",
+        "ChatComponentHeadMixin",
+        "ChatScreenAnimationMixin",
+        "AppleSkinMixin",
+        "FoodDataAccessor",
+        "ChatHeadsMixin",
+        "PlayerGlyph3DMixin"
     ],
     "injectors": {
         "defaultRequire": 1

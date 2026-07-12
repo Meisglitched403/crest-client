@@ -1,12 +1,9 @@
 package com.crest.client.core;
 
-import com.crest.client.core.setting.FloatSetting;
-import com.crest.client.core.setting.KeybindSetting;
-import com.crest.client.core.setting.Setting;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import com.crest.client.core.event.TickEvent;
+import com.crest.client.core.setting.*;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWScrollCallbackI;
 
 import java.util.List;
 
@@ -14,32 +11,34 @@ import static org.lwjgl.glfw.GLFW.glfwGetCurrentContext;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
 
 public class ZoomModule implements CrestModule {
-    public static final double SMOOTH_SPEED = 0.15;
-    public static final double DEFAULT_ZOOM_MULTIPLIER = 0.25;
-
+    public static double prevFov;
     public static double currentFov;
-    public static double targetFov;
     public static double originalFov;
-    public static boolean initialized;
 
-    private static boolean wasKeyDown;
-    private static double zoomMultiplier = DEFAULT_ZOOM_MULTIPLIER;
-    private static long cachedWindow;
-    private static GLFWScrollCallbackI prevScrollCallback;
+    private static float progress;
+    private static int scrollTier;
+    private static boolean active;
+    private static boolean initialized;
 
-    private final FloatSetting multiplierSetting = new FloatSetting(
-        "Zoom Multiplier", 0.05f, 1.0f, (float) DEFAULT_ZOOM_MULTIPLIER
-    );
-    private final KeybindSetting zoomKeySetting = new KeybindSetting(
-        "Zoom Key", GLFW.GLFW_KEY_Z
-    );
+    private final FloatSetting initialZoom = new FloatSetting("Zoom Amount", 1.1f, 50f, 4f);
+    private final FloatSetting zoomInTime = new FloatSetting("Zoom In Time", 0f, 1f, 0.3f);
+    private final FloatSetting zoomOutTime = new FloatSetting("Zoom Out Time", 0f, 1f, 0.2f);
+    private final ModeSetting transition = new ModeSetting("Transition", new String[]{"Cubic", "Sine", "Quad", "Quart", "Expo", "Linear"}, 0);
+    private final ModeSetting transitionMode = new ModeSetting("Transition Mode", new String[]{"Out", "In", "In/Out"}, 0);
+    private final BooleanSetting holdMode = new BooleanSetting("Hold Mode", true);
+    private final BooleanSetting scrollZoom = new BooleanSetting("Scroll Zoom", true);
+    private final FloatSetting zoomPerStep = new FloatSetting("Zoom Per Scroll", 0.5f, 10f, 2f);
+    private final FloatSetting sensitivity = new FloatSetting("Sensitivity", 0f, 100f, 50f);
+
+    private static final int ZOOM_KEY = GLFW.GLFW_KEY_Z;
+    private static final String[] STYLES = {"cubic", "sine", "quad", "quart", "expo", "linear"};
 
     @Override
     public String getId() { return "zoom"; }
     @Override
     public String getName() { return "Zoom"; }
     @Override
-    public String getDescription() { return "Smooth zoom on Z key; scroll to adjust"; }
+    public String getDescription() { return "Customizable zoom with smooth transitions"; }
     @Override
     public String getCategory() { return "Visual"; }
     @Override
@@ -47,60 +46,76 @@ public class ZoomModule implements CrestModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(multiplierSetting, zoomKeySetting);
+        return List.of(initialZoom, zoomInTime, zoomOutTime, transition, transitionMode, holdMode, scrollZoom, zoomPerStep, sensitivity);
     }
 
     @Override
     public void onInitialize() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!CrestModules.isEnabled("zoom")) return;
-
-            long window = glfwGetCurrentContext();
-            if (window == 0) return;
-
-            if (!initialized) {
-                originalFov = client.options.fov().get();
-                zoomMultiplier = multiplierSetting.get();
-                currentFov = originalFov;
-                targetFov = originalFov;
-                cachedWindow = window;
-                initialized = true;
-
-                prevScrollCallback = GLFW.glfwSetScrollCallback(window, (w, xOffset, yOffset) -> {
-                    if (CrestModules.isEnabled("zoom") && wasKeyDown) {
-                        zoomMultiplier = Math.max(0.05, Math.min(1.0, zoomMultiplier - yOffset * 0.05));
-                        targetFov = Math.max(1.0, originalFov * zoomMultiplier);
-                        multiplierSetting.set((float) zoomMultiplier);
-                        CrestModules.getConfigManager().markDirty();
-                    }
-                    if (prevScrollCallback != null) {
-                        prevScrollCallback.invoke(w, xOffset, yOffset);
-                    }
-                });
-            }
-
-            int zoomKey = zoomKeySetting.get();
-            boolean isDown = glfwGetKey(window, zoomKey) == GLFW.GLFW_PRESS;
-            if (isDown && !wasKeyDown) targetFov = Math.max(1.0, originalFov * zoomMultiplier);
-            else if (!isDown && wasKeyDown) targetFov = originalFov;
-            wasKeyDown = isDown;
-        });
+        CrestModules.getEventBus().subscribe(TickEvent.class, this::onTick);
     }
 
-    public static boolean isZooming() {
-        return wasKeyDown;
+    private void onTick(TickEvent event) {
+        Minecraft mc = event.getClient();
+        if (mc.player == null) return;
+
+        if (!initialized) {
+            originalFov = mc.options.fov().get();
+            prevFov = originalFov;
+            currentFov = originalFov;
+            initialized = true;
+        }
+
+        long window = glfwGetCurrentContext();
+        if (window == 0) return;
+
+        boolean isDown = glfwGetKey(window, ZOOM_KEY) == GLFW.GLFW_PRESS;
+
+        if (holdMode.get()) {
+            if (active && !isDown) scrollTier = 0;
+            active = isDown;
+        }
+
+        prevFov = currentFov;
+
+        float targetDivider = active ? (initialZoom.get() + scrollTier * zoomPerStep.get()) : 1f;
+
+        float speed = active ? zoomInTime.get() : zoomOutTime.get();
+        if (speed > 0.001f) {
+            float step = 1f / (speed * 20f);
+            if (active) progress = Math.min(1, progress + step);
+            else progress = Math.max(0, progress - step);
+        } else {
+            progress = active ? 1 : 0;
+        }
+
+        String style = STYLES[transition.get()];
+        Easing.Mode mode = Easing.Mode.values()[transitionMode.get()];
+        float eased = style.equals("linear") ? progress : Easing.apply(style, mode, progress);
+
+        currentFov = originalFov / (1f + (targetDivider - 1f) * eased);
+    }
+
+    public static boolean isActive() { return active; }
+    public static boolean isInitialized() { return initialized; }
+    public static float getSensitivity() {
+        CrestModule m = CrestModules.get("zoom");
+        return m instanceof ZoomModule z ? z.sensitivity.get() / 100f : 0.5f;
+    }
+    public static boolean isScrollZoomEnabled() {
+        CrestModule m = CrestModules.get("zoom");
+        return m instanceof ZoomModule z ? z.scrollZoom.get() : true;
+    }
+    public static void addScrollTier(int delta) {
+        scrollTier = Math.max(0, Math.min(100, scrollTier + delta));
     }
 
     @Override
+    public void onEnable() { if (!holdMode.get()) active = true; }
+    @Override
     public void onDisable() {
-        if (initialized) {
-            currentFov = originalFov;
-            targetFov = originalFov;
-            wasKeyDown = false;
-            if (cachedWindow != 0 && prevScrollCallback != null) {
-                GLFW.glfwSetScrollCallback(cachedWindow, prevScrollCallback);
-                prevScrollCallback = null;
-            }
+        if (!holdMode.get()) {
+            active = false;
+            scrollTier = 0;
         }
     }
 }

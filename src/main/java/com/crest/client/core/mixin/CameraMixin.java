@@ -15,22 +15,15 @@ public class CameraMixin {
     private void crest$modifyFov(float partialTicks, CallbackInfoReturnable<Float> cir) {
         float fov = cir.getReturnValue();
 
-        if (CrestModules.isEnabled("dynamic_fov") && !ZoomModule.isZooming()) {
+        if (CrestModules.isEnabled("dynamic_fov") && !ZoomModule.isActive()) {
             fov = Minecraft.getInstance().options.fov().get().floatValue();
         }
 
-        if (!CrestModules.isEnabled("zoom") || !ZoomModule.initialized) {
-            cir.setReturnValue(fov);
-            return;
+        if (ZoomModule.isActive() && CrestModules.isEnabled("zoom") && ZoomModule.isInitialized()) {
+            float interp = (float) (ZoomModule.prevFov + (ZoomModule.currentFov - ZoomModule.prevFov) * partialTicks);
+            fov = interp;
         }
 
-        double zfov = ZoomModule.currentFov;
-        if (Math.abs(zfov - ZoomModule.targetFov) > 0.01) {
-            zfov += (ZoomModule.targetFov - zfov) * ZoomModule.SMOOTH_SPEED;
-            ZoomModule.currentFov = zfov;
-        } else if (zfov != ZoomModule.targetFov) {
-            ZoomModule.currentFov = ZoomModule.targetFov;
-        }
-        cir.setReturnValue((float) zfov);
+        cir.setReturnValue(fov);
     }
 }

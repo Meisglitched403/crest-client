@@ -9,13 +9,11 @@ import net.minecraft.client.Minecraft;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FrameCapture {
     private static volatile boolean capturing;
     private static int targetFps;
     private static long lastCaptureNanos;
-    private static final AtomicBoolean copyInProgress = new AtomicBoolean(false);
 
     private static final ArrayBlockingQueue<ByteBuffer> freePool = new ArrayBlockingQueue<>(4);
     private static final ArrayBlockingQueue<ByteBuffer> filledQueue = new ArrayBlockingQueue<>(4);
@@ -23,7 +21,6 @@ public class FrameCapture {
     public static void start(int fps, int width, int height) {
         targetFps = fps;
         lastCaptureNanos = 0;
-        copyInProgress.set(false);
         int bufSize = width * height * 4;
 
         freePool.clear();
@@ -45,20 +42,13 @@ public class FrameCapture {
 
     public static void onRenderEnd() {
         if (!capturing) return;
-        if (copyInProgress.getAndSet(true)) return;
 
         long now = System.nanoTime();
-        if (now - lastCaptureNanos < 1_000_000_000L / targetFps) {
-            copyInProgress.set(false);
-            return;
-        }
+        if (now - lastCaptureNanos < 1_000_000_000L / targetFps) return;
         lastCaptureNanos = now;
 
         ByteBuffer dst = freePool.poll();
-        if (dst == null) {
-            copyInProgress.set(false);
-            return;
-        }
+        if (dst == null) return;
         dst.clear();
 
         try {
@@ -67,7 +57,6 @@ public class FrameCapture {
             GpuTexture texture = target.getColorTexture();
             if (texture == null) {
                 freePool.offer(dst);
-                copyInProgress.set(false);
                 return;
             }
 
@@ -89,12 +78,10 @@ public class FrameCapture {
                     freePool.offer(dst);
                 } finally {
                     staging.close();
-                    copyInProgress.set(false);
                 }
             }, 0);
         } catch (Exception e) {
             freePool.offer(dst);
-            copyInProgress.set(false);
         }
     }
 }

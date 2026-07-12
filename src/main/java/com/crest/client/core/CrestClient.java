@@ -27,7 +27,6 @@ public class CrestClient implements ClientModInitializer {
     public void onInitializeClient() {
         CrestModules.init();
 
-        CrestModules.register(new FullbrightModule());
         CrestModules.register(new ZoomModule());
         CrestModules.register(new CoordsModule());
         CrestModules.register(new FpsModule());
@@ -49,7 +48,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ToggleNotificationsModule());
         CrestModules.register(new SpeedometerModule());
         CrestModules.register(new BlockOutlineModule());
-        CrestModules.register(new NameTagsModule());
+
         CrestModules.register(new FreelookModule());
         CrestModules.register(new WaypointsModule());
         CrestModules.register(new AntiAfkModule());
@@ -58,6 +57,11 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new RecorderIndicator());
         CrestModules.register(new StreamerModule());
         CrestModules.register(new StreamerIndicator());
+        CrestModules.register(new WhoamiModule());
+        CrestModules.register(new ChatAnimationModule());
+        CrestModules.register(new AppleSkinModule());
+        CrestModules.register(new ChatHeadsModule());
+        CrestModules.register(new SkinLayers3dModule());
 
         MusicModule.init();
 
@@ -128,7 +132,7 @@ public class CrestClient implements ClientModInitializer {
     private static void renderHud(GuiGraphicsExtractor g, DeltaTracker d) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getWindow() == null) return;
-        if (mc.screen instanceof CrestClickGui) return;
+        if (mc.screen instanceof CrestMenu) return;
 
         for (RenderableModule renderable : CrestModules.getRenderableModules()) {
             try {

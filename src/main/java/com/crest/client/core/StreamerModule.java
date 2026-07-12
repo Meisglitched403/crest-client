@@ -11,7 +11,7 @@ public class StreamerModule implements CrestModule {
 private final StringSetting rtmpUrl = new StringSetting("RTMP URL",
 "Twitch: rtmp://live.twitch.tv/app/STREAM_KEY YouTube: rtmp://a.rtmp.youtube.com/live2/STREAM_KEY",
 "rtmp://live.twitch.tv/app/");
-    private final IntegerSetting bitrate = new IntegerSetting("Bitrate (kbps)", 500, 20000, 3500);
+    private final IntegerSetting bitrate = new IntegerSetting("Bitrate (kbps)", 500, 50000, 12000);
     private final KeybindSetting streamKey = new KeybindSetting("Stream Toggle", GLFW.GLFW_KEY_F8);
 
     @Override
@@ -43,6 +43,8 @@ return List.of(rtmpUrl, bitrate, streamKey);
 
     public String getStreamUrl() { return rtmpUrl.get(); }
     public void setStreamUrl(String url) { rtmpUrl.set(url); }
+    public int getBitrate() { return bitrate.get(); }
+    public void setBitrate(int value) { bitrate.set(value); }
 
     public void toggleStreaming() {
         if (Streamer.isStreaming()) {
@@ -55,7 +57,7 @@ return List.of(rtmpUrl, bitrate, streamKey);
             String url = rtmpUrl.get();
             if (url == null || url.isEmpty() || url.equals("rtmp://live.twitch.tv/app/")) return;
             if (!Streamer.isUrlAllowed(url)) return;
-            Streamer.start(url, 30, w, h);
+            Streamer.start(url, 60, w, h, bitrate.get());
         }
     }
 

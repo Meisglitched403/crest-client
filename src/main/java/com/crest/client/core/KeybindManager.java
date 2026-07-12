@@ -51,10 +51,10 @@ public class KeybindManager {
 
         checkKey(clickGuiKey, () -> {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof CrestClickGui) {
+            if (mc.screen instanceof CrestMenu) {
                 mc.screen.onClose();
             } else if (mc.screen == null) {
-                mc.setScreen(new CrestClickGui());
+                mc.setScreen(new CrestMenu());
             }
         });
 
