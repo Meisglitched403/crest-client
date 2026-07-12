@@ -62,6 +62,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new AppleSkinModule());
         CrestModules.register(new ChatHeadsModule());
         CrestModules.register(new SkinLayers3dModule());
+        CrestModules.register(new CrestNametagModule());
 
         MusicModule.init();
 

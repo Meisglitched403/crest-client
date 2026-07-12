@@ -38,7 +38,8 @@
         "AppleSkinMixin",
         "FoodDataAccessor",
         "ChatHeadsMixin",
-        "PlayerGlyph3DMixin"
+        "PlayerGlyph3DMixin",
+        "CrestNametagMixin"
     ],
     "injectors": {
         "defaultRequire": 1

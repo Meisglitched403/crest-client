@@ -2,6 +2,10 @@
     "providers": [
         {
             "type": "reference",
+            "id": "crest-client:logo"
+        },
+        {
+            "type": "reference",
             "id": "minecraft:include/space"
         },
         {
