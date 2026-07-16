@@ -158,9 +158,7 @@ public class CrestMenu extends Screen {
 
         g.enableScissor(contentX, gridY, contentX + contentW, gridY + gridH);
 
-        int startRow = (int) Math.floor(scrollOffset);
-        float frac = scrollOffset - startRow;
-        int baseY = gridY - (int) (frac * (CARD_H + CARD_GAP));
+        int baseY = gridY - (int) (scrollOffset * (CARD_H + CARD_GAP));
 
         hoveredIndex = -1;
         for (int i = 0; i < total; i++) {
@@ -379,9 +377,7 @@ public class CrestMenu extends Screen {
         if (selectedCategory != null) {
             List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
             int cardW = (contentW - (cols - 1) * CARD_GAP) / cols;
-            int startRow = (int) Math.floor(scrollOffset);
-            float frac = scrollOffset - startRow;
-            int baseY = gridY - (int) (frac * (CARD_H + CARD_GAP));
+            int baseY = gridY - (int) (scrollOffset * (CARD_H + CARD_GAP));
 
             for (int i = 0; i < mods.size(); i++) {
                 int r = i / cols;
