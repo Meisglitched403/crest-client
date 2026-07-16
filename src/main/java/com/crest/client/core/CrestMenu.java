@@ -26,6 +26,7 @@ public class CrestMenu extends Screen {
     private int hoveredIndex = -1;
     private float scrollOffset = 0;
     private float scrollTarget = 0;
+    private int maxScroll = 0;
     private String scrollFilter = "";
 
     private int pX, pY, pW, pH;
@@ -146,7 +147,12 @@ public class CrestMenu extends Screen {
         int cardW = (contentW - (cols - 1) * CARD_GAP) / cols;
         int gridRows = (total + cols - 1) / cols;
         int maxVis = Math.max(1, gridH / (CARD_H + CARD_GAP));
-        scrollTarget = Anim.clamp(scrollTarget, 0, Math.max(0, gridRows - maxVis));
+        int frameMaxScroll = Math.max(0, gridRows - maxVis);
+        if (frameMaxScroll != maxScroll) {
+            maxScroll = frameMaxScroll;
+            scrollTarget = Anim.clamp(scrollTarget, 0, maxScroll);
+            scrollOffset = Anim.clamp(scrollOffset, 0, maxScroll);
+        }
         scrollOffset += (scrollTarget - scrollOffset) * 0.35f;
         if (Math.abs(scrollOffset - scrollTarget) < 0.01f) scrollOffset = scrollTarget;
 
@@ -168,9 +174,9 @@ public class CrestMenu extends Screen {
         }
         g.disableScissor();
 
-        if (gridRows > maxVis) {
+        if (maxScroll > 0) {
             float thumbH = (float) maxVis / gridRows * gridH;
-            float thumbY = (scrollOffset / Math.max(1, gridRows - maxVis)) * (gridH - thumbH);
+            float thumbY = (scrollOffset / Math.max(1, maxScroll)) * (gridH - thumbH);
             g.fill(contentX + contentW - 5, gridY + (int) thumbY,
                    contentX + contentW - 3, gridY + (int) (thumbY + thumbH), Theme.getAnimatedAccent());
         }
@@ -308,12 +314,10 @@ public class CrestMenu extends Screen {
                 }
             }
             hoveredIndex = Math.min(row * cols + col, total - 1);
-            int gridRows = (total + cols - 1) / cols;
-            int maxVis = Math.max(1, gridH / (CARD_H + CARD_GAP));
             int hrow = hoveredIndex / cols;
             if (hrow < scrollTarget) scrollTarget = hrow;
-            else if (hrow >= scrollTarget + maxVis) scrollTarget = hrow - maxVis + 1;
-            scrollTarget = Anim.clamp(scrollTarget, 0, Math.max(0, gridRows - maxVis));
+            else if (hrow >= scrollTarget + Math.max(1, gridH / (CARD_H + CARD_GAP))) scrollTarget = hrow - Math.max(1, gridH / (CARD_H + CARD_GAP)) + 1;
+            scrollTarget = Anim.clamp(scrollTarget, 0, maxScroll);
             return true;
         }
         if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
@@ -405,11 +409,12 @@ public class CrestMenu extends Screen {
         if (selectedCategory == null) return false;
         List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
         int total = mods.size();
-        if (total == 0) return true;
+        if (total == 0) { maxScroll = 0; return true; }
         int gridRows = (total + cols - 1) / cols;
         int maxVis = Math.max(1, gridH / (CARD_H + CARD_GAP));
-        if (gridRows <= maxVis) return true;
-        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY, 0, gridRows - maxVis);
+        maxScroll = Math.max(0, gridRows - maxVis);
+        if (maxScroll == 0) return true;
+        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY, 0, maxScroll);
         return true;
     }
 
