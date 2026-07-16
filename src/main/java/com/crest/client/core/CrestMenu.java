@@ -147,8 +147,8 @@ public class CrestMenu extends Screen {
         int gridRows = (total + cols - 1) / cols;
         int maxVis = Math.max(1, gridH / (CARD_H + CARD_GAP));
         scrollTarget = Anim.clamp(scrollTarget, 0, Math.max(0, gridRows - maxVis));
-        scrollOffset += (scrollTarget - scrollOffset) * Anim.smooth(delta, 18f);
-        if (Math.abs(scrollOffset - scrollTarget) < 0.001f) scrollOffset = scrollTarget;
+        scrollOffset += (scrollTarget - scrollOffset) * 0.35f;
+        if (Math.abs(scrollOffset - scrollTarget) < 0.01f) scrollOffset = scrollTarget;
 
         g.enableScissor(contentX, gridY, contentX + contentW, gridY + gridH);
 
@@ -409,7 +409,7 @@ public class CrestMenu extends Screen {
         int gridRows = (total + cols - 1) / cols;
         int maxVis = Math.max(1, gridH / (CARD_H + CARD_GAP));
         if (gridRows <= maxVis) return true;
-        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY * 2, 0, gridRows - maxVis);
+        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY, 0, gridRows - maxVis);
         return true;
     }
 
