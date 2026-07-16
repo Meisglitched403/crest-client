@@ -17,9 +17,9 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 @Mixin(ChatComponent.class)
 public class ChatComponentHeadMixin {
     @ModifyArg(
-        method = "addMessage",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/chat/GuiMessage;<init>(ILnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V"),
-        index = 1
+        method = "addPlayerMessage",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/ChatComponent;addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V"),
+        index = 0
     )
     private Component crest$prependHead(Component message) {
         if (!CrestModules.isEnabled("chat_heads")) return message;

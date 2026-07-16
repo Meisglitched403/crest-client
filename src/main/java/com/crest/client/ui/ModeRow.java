@@ -24,11 +24,11 @@ public class ModeRow implements Widget {
         int modeX = x + w - modeW - 4;
 
         boolean hover = mx >= modeX && mx <= modeX + modeW && my >= y && my <= y + H;
-        int bg = ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.BG_SURFACE, 220);
+        int bg = ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220);
         g.fill(modeX, y + 2, modeX + modeW, y + H - 2, bg);
-        g.centeredText(font, Component.literal(mode), modeX + modeW / 2, y + 4, hover ? Theme.TEXT : Theme.TEXT_DIM);
+        g.centeredText(font, Component.literal(mode), modeX + modeW / 2, y + 4, hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.TEXT_DIM);
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
     }
 
     @Override

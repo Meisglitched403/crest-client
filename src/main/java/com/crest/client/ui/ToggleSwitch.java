@@ -8,18 +8,33 @@ public final class ToggleSwitch {
 
     public static void render(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
         int bgColor = on
-            ? ColorUtil.lerpARGB(0xFF333355, Theme.getAnimatedAccent(), anim)
-            : ColorUtil.lerpARGB(0xFF333355, 0xFF555577, anim);
+            ? ColorUtil.lerpARGB(0xFF333366, Theme.getAnimatedAccent(), anim)
+            : ColorUtil.lerpARGB(0xFF333366, 0xFF555588, anim);
         int bw = (int) (W * 0.8f + W * 0.2f * anim);
         int bx = x + (W - bw) / 2;
-        g.fill(bx, y, bx + bw, y + H, bgColor);
-
+        // Pill background
+        int r = H / 2;
+        g.fill(bx + r, y, bx + bw - r, y + H, bgColor);
+        g.fill(bx, y + 1, bx + r, y + H - 1, bgColor);
+        g.fill(bx + 1, y, bx + r - 1, y + 1, bgColor);
+        g.fill(bx + 1, y + H - 1, bx + r - 1, y + H, bgColor);
+        g.fill(bx + bw - r, y + 1, bx + bw, y + H - 1, bgColor);
+        g.fill(bx + bw - r + 1, y, bx + bw - 1, y + 1, bgColor);
+        g.fill(bx + bw - r + 1, y + H - 1, bx + bw - 1, y + H, bgColor);
+        // Knob
         int knobSize = H - 4;
-        int knobX = on
-            ? bx + bw - knobSize - 2
-            : bx + 2;
+        int knobX = on ? bx + bw - knobSize - 2 : bx + 2;
+        int knobY = y + 2;
+        int knobR = knobSize / 2;
         int knobColor = ColorUtil.lerpARGB(0xFF888899, 0xFFFFFFFF, anim);
-        g.fill(knobX, y + 2, knobX + knobSize, y + 2 + knobSize, knobColor);
+        // Rounded knob
+        g.fill(knobX + knobR, knobY, knobX + knobSize - knobR, knobY + knobSize, knobColor);
+        g.fill(knobX, knobY + 1, knobX + knobR, knobY + knobSize - 1, knobColor);
+        g.fill(knobX + 1, knobY, knobX + knobR - 1, knobY + 1, knobColor);
+        g.fill(knobX + 1, knobY + knobSize - 1, knobX + knobR - 1, knobY + knobSize, knobColor);
+        g.fill(knobX + knobSize - knobR, knobY + 1, knobX + knobSize, knobY + knobSize - 1, knobColor);
+        g.fill(knobX + knobSize - knobR + 1, knobY, knobX + knobSize - 1, knobY + 1, knobColor);
+        g.fill(knobX + knobSize - knobR + 1, knobY + knobSize - 1, knobX + knobSize - 1, knobY + knobSize, knobColor);
     }
 
     public static boolean hit(double mx, double my, int x, int y) {

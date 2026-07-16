@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  */
 public final class Panel {
     private static final int TEX = 32;
-    private static final int R = 8;
+    private static final int R = Theme.RADIUS;
     private static final Identifier ID = Identifier.fromNamespaceAndPath("crest-client", "gui/panel");
     private static boolean registered = false;
 
@@ -79,9 +79,58 @@ public final class Panel {
     /** Draw a panel with a subtle top accent line and a faint header gradient. */
     public static void drawGlass(GuiGraphicsExtractor g, int x, int y, int w, int h, int tint, int accent) {
         draw(g, x, y, w, h, tint);
-        // soft top highlight
         g.fill(x + 3, y + 2, x + w - 3, y + 3, ColorUtil.withAlpha(0xFFFFFFFF, 18));
-        // accent strip at top
         g.fill(x + 4, y + 1, x + w - 4, y + 2, ColorUtil.withAlpha(accent, 160));
+    }
+
+    /** Draw an elevated card with MD-style drop shadow. elevation in pixels (use Theme.ELEVATION_*). */
+    public static void drawElevated(GuiGraphicsExtractor g, int x, int y, int w, int h, int tint, int elevation) {
+        if (elevation > 0) drawShadow(g, x, y, w, h, elevation);
+        draw(g, x, y, w, h, tint);
+    }
+
+    /** Draw an elevated card with glass style + accent top strip. */
+    public static void drawGlassElevated(GuiGraphicsExtractor g, int x, int y, int w, int h, int tint, int accent, int elevation) {
+        drawElevated(g, x, y, w, h, tint, elevation);
+        g.fill(x + 3, y + 2, x + w - 3, y + 3, ColorUtil.withAlpha(0xFFFFFFFF, 18));
+        g.fill(x + 4, y + 1, x + w - 4, y + 2, ColorUtil.withAlpha(accent, 160));
+    }
+
+    /** Glass card with gradient fill and hollow border. Hover brightens. */
+    public static void drawGlassCard(GuiGraphicsExtractor g, int x, int y, int w, int h, boolean hover) {
+        int topAlpha = hover ? 32 : 21;
+        int botAlpha = hover ? 5 : 2;
+        int top = ColorUtil.withAlpha(0xFFFFFFFF, topAlpha);
+        int bot = ColorUtil.withAlpha(0xFFFFFFFF, botAlpha);
+        g.fillGradient(x, y, x + w, y + h, top, bot);
+        drawHollowRect(g, x, y, w, h, Theme.BORDER_LIGHT);
+    }
+
+    /** 1px hollow border rectangle. */
+    public static void drawHollowRect(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
+        g.fill(x, y, x + w, y + 1, color);
+        g.fill(x, y + h - 1, x + w, y + h, color);
+        g.fill(x, y, x + 1, y + h, color);
+        g.fill(x + w - 1, y, x + w, y + h, color);
+    }
+
+    /** Layered drop shadow — opaque near the panel edge, fading outward. elevation in pixels. */
+    private static void drawShadow(GuiGraphicsExtractor g, int x, int y, int w, int h, int elevation) {
+        for (int i = 1; i <= elevation; i++) {
+            float t = 1f - (i - 1f) / elevation;
+            int alpha = (int) (40 * t * t);
+            if (alpha <= 0) continue;
+            g.fill(x + i, y + h, x + w + i, y + h + 1, ColorUtil.withAlpha(0x000000, alpha));
+            g.fill(x + w, y + i, x + w + 1, y + h + i, ColorUtil.withAlpha(0x000000, alpha));
+        }
+        // corner shadow
+        for (int i = 1; i <= elevation; i++) {
+            for (int j = 1; j <= elevation; j++) {
+                float t = 1f - (Math.max(i, j) - 1f) / elevation;
+                int alpha = (int) (20 * t * t);
+                if (alpha <= 0) continue;
+                g.fill(x + w + j - 1, y + h + i - 1, x + w + j, y + h + i, ColorUtil.withAlpha(0x000000, alpha));
+            }
+        }
     }
 }

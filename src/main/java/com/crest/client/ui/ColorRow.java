@@ -31,9 +31,9 @@ public class ColorRow implements Widget {
 
         String hex = String.format("#%06X", setting.getRGB());
         int hexX = swatchX - font.width(hex) - 6;
-        g.text(font, Component.literal(hex), hexX, y + 5, Theme.TEXT_DIM);
+        g.text(font, Component.literal(hex), hexX, y + 5, Theme.ON_SURFACE_VARIANT);
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.TEXT_DIM);
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
     }
 
     @Override

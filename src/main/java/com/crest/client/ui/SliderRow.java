@@ -10,15 +10,24 @@ import net.minecraft.network.chat.Component;
 
 public class SliderRow implements Widget {
     private final Setting<?> setting;
-    private final float min, max;
-    private int lastBarX, lastBarW;
-    public boolean dragging;
+    private final Slider slider;
+    private int labelW;
 
     public SliderRow(Setting<?> setting) {
         this.setting = setting;
+        float min, max;
         if (setting instanceof IntegerSetting is) { min = is.getMin(); max = is.getMax(); }
         else if (setting instanceof FloatSetting fs) { min = fs.getMin(); max = fs.getMax(); }
         else { min = 0; max = 1; }
+        float val = (setting instanceof IntegerSetting is) ? is.get()
+            : (setting instanceof FloatSetting fs) ? fs.get() : 0;
+        slider = new Slider(min, max, val, this::onChange);
+    }
+
+    private void onChange(float v) {
+        if (setting instanceof IntegerSetting is) is.set(Math.round(v));
+        else if (setting instanceof FloatSetting fs) fs.set(v);
+        CrestModules.getConfigManager().markDirty();
     }
 
     @Override
@@ -26,59 +35,32 @@ public class SliderRow implements Widget {
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
-        int labelW = font.width(setting.getName()) + 4;
-        lastBarX = x + labelW + 4;
+        slider.setValue((setting instanceof IntegerSetting is) ? is.get()
+            : (setting instanceof FloatSetting fs) ? fs.get() : 0);
+        labelW = font.width(setting.getName()) + 4;
+        int barX = x + labelW + 4;
         int barMaxW = w - labelW - 8;
-        lastBarW = Math.min(barMaxW - 34, 110);
-        if (lastBarW < 20) lastBarW = 20;
+        int barW = Math.min(barMaxW - 34, 110);
+        if (barW < 20) barW = 20;
 
-        float val = getVal();
-        float frac = (max > min) ? (val - min) / (max - min) : 0f;
-        frac = Anim.clamp(frac, 0, 1);
+        String valLabel = (setting instanceof FloatSetting)
+            ? String.format("%.1f", slider.getValue())
+            : String.valueOf(Math.round(slider.getValue()));
 
-        if (dragging) {
-            int barY = y + 7;
-            g.fill(lastBarX, barY, lastBarX + lastBarW, barY + 4, ColorUtil.withAlpha(Theme.BG_BASE, 220));
-            int fillW = (int) (frac * lastBarW);
-            g.fill(lastBarX, barY, lastBarX + fillW, barY + 4, Theme.getAnimatedAccent());
-            g.fill(lastBarX + fillW - 2, barY - 2, lastBarX + fillW + 2, barY + 6, 0xFFFFFFFF);
-        }
-
-        String label = (setting instanceof FloatSetting) ? String.format("%.1f", val) : String.valueOf((int) val);
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.TEXT_DIM);
-        g.text(font, Component.literal(label), lastBarX + lastBarW + 6, y + 3, Theme.TEXT);
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        slider.render(g, font, barX, y, barW, mx, my, delta);
+        g.text(font, Component.literal(valLabel), barX + barW + 6, y + 3, Theme.ON_SURFACE);
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (button != 0) return false;
-        dragging = true;
-        updateValue(mx);
+        slider.dragging = true;
+        slider.mouseClicked(mx, my, button);
         return true;
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my) {
-        if (!dragging) return false;
-        updateValue(mx);
-        return true;
-    }
+    public boolean mouseDragged(double mx, double my) { return slider.mouseDragged(mx, my); }
 
-    public void stopDrag() { dragging = false; }
-
-    private void updateValue(double mx) {
-        if (max <= min || lastBarW <= 0) return;
-        float rel = (float) ((mx - lastBarX) / lastBarW);
-        rel = Anim.clamp(rel, 0, 1);
-        float val = min + rel * (max - min);
-        if (setting instanceof IntegerSetting is) is.set((int) Math.round(val));
-        else if (setting instanceof FloatSetting fs) fs.set(val);
-        CrestModules.getConfigManager().markDirty();
-    }
-
-    private float getVal() {
-        if (setting instanceof IntegerSetting is) return is.get();
-        if (setting instanceof FloatSetting fs) return fs.get();
-        return 0;
-    }
+    public void stopDrag() { slider.stopDrag(); }
 }

@@ -14,17 +14,21 @@ import org.lwjgl.glfw.GLFW;
 import java.util.*;
 
 public class ModuleDetailScreen extends Screen {
-    private static final int HEADER_H = 40;
-    private static final int PAD = 12;
-    private static final int ROW_H = 20;
+    private static final int HEADER_H = 48;
+    private static final int ROW_H = Spacing.S5;
+    private static final int PANEL_MIN_W = 320;
+    private static final int PANEL_MAX_W = 420;
 
     private final CrestModule module;
     private final Screen parent;
     private final List<Setting<?>> settings;
 
+    private int panelX, panelY, panelW, panelH;
+
     private final Map<Setting<?>, Widget> widgetCache = new HashMap<>();
     private final Map<String, Animated> toggleAnim = new HashMap<>();
     private Widget activeWidget;
+    private final ScrollContainer scroll = new ScrollContainer();
 
     // keybind capture
     private boolean keybindCapture;
@@ -33,10 +37,6 @@ public class ModuleDetailScreen extends Screen {
     // color picker
     private ColorPickerState colorPicker;
     private final Animated colorPickerAnim = new Animated(0f, 12f);
-
-    // scroll
-    private float scrollOffset, scrollTarget;
-    private int contentH;
 
     // animations
     private final Animated openAnim = new Animated(0f, 10f);
@@ -48,6 +48,14 @@ public class ModuleDetailScreen extends Screen {
         this.settings = module.getSettings();
         openAnim.setImmediate(0f);
         openAnim.set(1f);
+    }
+
+    @Override
+    protected void init() {
+        panelW = Math.max(PANEL_MIN_W, Math.min(width - Spacing.S10, PANEL_MAX_W));
+        panelX = (width - panelW) / 2;
+        panelY = HEADER_H + Spacing.S2;
+        panelH = height - panelY - Spacing.S2;
     }
 
     private Animated toggleFor(String id) {
@@ -74,6 +82,14 @@ public class ModuleDetailScreen extends Screen {
         });
     }
 
+    private List<Widget> getVisibleWidgets() {
+        List<Widget> list = new ArrayList<>();
+        for (Setting<?> s : settings) {
+            if (s.isVisible()) list.add(getWidget(s));
+        }
+        return list;
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         Theme.tick(delta);
@@ -81,8 +97,7 @@ public class ModuleDetailScreen extends Screen {
         colorPickerAnim.tick(delta);
         float open = openAnim.get();
 
-        int bgAlpha = (int) (Math.round(Theme.OVERLAY * 1.0) & 0xFF);
-        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.OVERLAY, (int) (bgAlpha * open)));
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (220 * open)));
 
         int wy = (int) ((1 - open) * 24);
         g.pose().pushMatrix();
@@ -91,7 +106,6 @@ public class ModuleDetailScreen extends Screen {
         renderHeader(g, mx, my);
         renderBody(g, mx, my, delta);
 
-        // color picker overlay
         if (colorPicker != null) {
             colorPickerAnim.set(1f);
             renderColorPicker(g, mx, my);
@@ -108,71 +122,49 @@ public class ModuleDetailScreen extends Screen {
         ta.set(enabled ? 1f : 0f);
         ta.tick(0.016f);
 
-        Panel.drawGlass(g, 0, 0, width, HEADER_H, ColorUtil.withAlpha(Theme.BG_PANEL, 235), Theme.getAnimatedAccent());
+        g.fillGradient(0, 0, width, HEADER_H, 0x80141218, 0x40141218);
+        Panel.drawHollowRect(g, 0, 0, width, HEADER_H, Theme.BORDER_LIGHT);
 
-        // back button
         String back = "\u2190";
-        boolean backHover = mx >= PAD && mx <= PAD + font.width(back) + 8 && my >= 6 && my <= HEADER_H - 6;
-        g.text(font, Component.literal(back), PAD, (HEADER_H - font.lineHeight) / 2,
-            backHover ? Theme.getAnimatedAccent() : Theme.TEXT);
+        boolean backHover = mx >= Spacing.S3 && mx <= Spacing.S3 + font.width(back) + Spacing.S2 && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2;
+        g.text(font, Component.literal(back), Spacing.S3, (HEADER_H - font.lineHeight) / 2,
+            backHover ? Theme.getAnimatedAccent() : Theme.FOREGROUND);
 
-        // module name
-        int nameX = PAD + font.width(back) + 16;
-        g.text(font, Component.literal(module.getName()), nameX, (HEADER_H - font.lineHeight) / 2, Theme.TEXT);
+        int nameX = Spacing.S3 + font.width(back) + Spacing.S4;
+        g.text(font, Component.literal(module.getName()), nameX, (HEADER_H - font.lineHeight) / 2, Theme.FOREGROUND);
 
-        // toggle
-        int toggleX = width - PAD - PAD - ToggleSwitch.W;
-        ToggleSwitch.render(g, toggleX, (HEADER_H - ToggleSwitch.H) / 2, enabled, ta.get());
+        int toggleX = width - Spacing.S3 - Spacing.S3 - 44;
+        drawToggle(g, toggleX, (HEADER_H - 24) / 2, enabled);
 
-        // description
         String desc = module.getDescription();
         if (!desc.isEmpty()) {
-            g.text(font, Component.literal(desc), PAD + font.width(back) + 16, (HEADER_H - font.lineHeight) / 2 + font.lineHeight + 1,
-                Theme.TEXT_DIM);
+            g.text(font, Component.literal(desc), Spacing.S3 + font.width(back) + Spacing.S4, (HEADER_H - font.lineHeight) / 2 + font.lineHeight + 1,
+                Theme.MUTED_FOREGROUND);
         }
     }
 
+    private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on) {
+        int w = 44, h = 24;
+        int trackColor = on
+            ? ColorUtil.lerpARGB(0x1AFFFFFF, Theme.getAnimatedAccent(), 1f)
+            : 0x1AFFFFFF;
+        g.fillGradient(x, y, x + w, y + h, trackColor, ColorUtil.withAlpha(trackColor, 80));
+        Panel.drawHollowRect(g, x, y, w, h, Theme.BORDER_LIGHT);
+        int knobX = on ? x + w - 19 : x + 3;
+        int knobColor = on ? Theme.PRIMARY : Theme.MUTED_FOREGROUND;
+        g.fill(knobX, y + 3, knobX + 16, y + h - 3, knobColor);
+    }
+
     private void renderBody(GuiGraphicsExtractor g, int mx, int my, float delta) {
-        int listTop = HEADER_H + 8;
-        int visibleSettings = (int) settings.stream().filter(Setting::isVisible).count();
-        contentH = visibleSettings * ROW_H + 8;
-        int maxH = Math.max(0, contentH - (height - listTop));
-        scrollTarget = Anim.clamp(scrollTarget, 0, maxH);
-        scrollOffset += (scrollTarget - scrollOffset) * Anim.smooth(delta, 18f);
+        List<Widget> widgets = getVisibleWidgets();
+        int contentH = widgets.size() * ROW_H + Spacing.S4;
 
-        g.enableScissor(PAD, listTop, width - PAD, height);
+        int bh = Math.min(panelH, contentH + Spacing.S2);
+        Panel.drawGlassCard(g, panelX, panelY, panelW, bh, false);
 
-        int sy = listTop - (int) scrollOffset;
-        int idx = 0;
-        for (Setting<?> setting : settings) {
-            if (!setting.isVisible()) continue;
-            int cy = sy + idx * ROW_H;
-
-            boolean hover = mx >= PAD && mx <= width - PAD && my >= cy && my <= cy + ROW_H - 2;
-            if (hover) {
-                g.fill(PAD, cy, width - PAD, cy + ROW_H - 2, ColorUtil.withAlpha(Theme.BG_HOVER, 100));
-            }
-
-            Widget widget = getWidget(setting);
-            if (widget instanceof KeybindRow kr && setting instanceof KeybindSetting ks) {
-                kr.setCapturing(keybindCapture && keybindCaptureModule != null && keybindCaptureModule.equals(ks.getModuleId()));
-            }
-            if (widget != null) {
-                widget.render(g, font, PAD, cy, width - PAD * 2, mx, my, delta);
-            }
-            idx++;
-        }
-
-        g.disableScissor();
-
-        // scrollbar
-        if (maxH > 0) {
-            int trackX = width - 6;
-            float thumbH = (float) (height - listTop) / contentH * (height - listTop);
-            float thumbY = scrollOffset / contentH * (height - listTop);
-            g.fill(trackX, listTop, trackX + 3, height, ColorUtil.withAlpha(Theme.BG_BASE, 200));
-            g.fill(trackX, listTop + (int) thumbY, trackX + 3, listTop + (int) (thumbY + thumbH), Theme.getAnimatedAccent());
-        }
+        scroll.set(panelX + Spacing.S3, panelY + Spacing.S2, panelW - Spacing.S3 * 2, bh - Spacing.S4, ROW_H, widgets);
+        scroll.hoverColor = ColorUtil.withAlpha(Theme.MUTED, 100);
+        scroll.render(g, font, mx, my, delta);
     }
 
     // --- Input ---
@@ -224,36 +216,30 @@ public class ModuleDetailScreen extends Screen {
         }
 
         // back button
-        if (btn == 0 && mx >= PAD && mx <= PAD + font.width("\u2190") + 8 && my >= 6 && my <= HEADER_H - 6) {
+        if (btn == 0 && mx >= Spacing.S3 && mx <= Spacing.S3 + font.width("\u2190") + Spacing.S2 && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2) {
             onClose();
             return true;
         }
 
         // toggle in header
         if (btn == 0) {
-            int toggleX = width - PAD - PAD - ToggleSwitch.W;
-            if (mx >= toggleX && mx <= toggleX + ToggleSwitch.W && my >= (HEADER_H - ToggleSwitch.H) / 2 && my <= (HEADER_H + ToggleSwitch.H) / 2) {
+            int toggleX = width - Spacing.S3 - Spacing.S3 - 44;
+            if (mx >= toggleX && mx <= toggleX + 44 && my >= (HEADER_H - 24) / 2 && my <= (HEADER_H + 24) / 2) {
                 CrestModules.setEnabled(module.getId(), !CrestModules.isEnabled(module.getId()));
                 return true;
             }
         }
 
-        // settings
-        if (mx >= PAD && mx <= width - PAD) {
-            int listTop = HEADER_H + 8;
-            int idx = 0;
-            for (Setting<?> setting : settings) {
-                if (!setting.isVisible()) continue;
-                int cy = listTop + idx * ROW_H - (int) scrollOffset;
-                if (my >= cy && my <= cy + ROW_H - 2) {
-                    Widget widget = getWidget(setting);
-                    if (widget != null && widget.mouseClicked(mx, my, btn)) {
-                        activeWidget = widget;
-                    }
-                    return true;
+        // settings inside panel
+        if (scroll.mouseClicked(mx, my, btn)) {
+            Widget child = scroll.childAt(my);
+            if (child != null) {
+                activeWidget = child;
+                if (child instanceof KeybindRow kr) {
+                    kr.setCapturing(keybindCapture && keybindCaptureModule != null);
                 }
-                idx++;
             }
+            return true;
         }
 
         if (activeWidget instanceof TextRow && btn == 0) activeWidget = null;
@@ -265,31 +251,20 @@ public class ModuleDetailScreen extends Screen {
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         double mx = event.x(), my = event.y();
         if (colorPicker != null) { handleColorPickerClick(mx, my); return true; }
-        if (activeWidget instanceof SliderRow sr && sr.dragging) {
+
+        if (activeWidget instanceof SliderRow sr) {
             sr.mouseDragged(mx, my);
             return true;
         }
-        // find slider under cursor
-        if (mx >= PAD && mx <= width - PAD) {
-            int listTop = HEADER_H + 8;
-            int idx = 0;
-            for (Setting<?> setting : settings) {
-                if (!setting.isVisible()) continue;
-                int cy = listTop + idx * ROW_H - (int) scrollOffset;
-                if (my >= cy && my <= cy + ROW_H - 2 && (setting instanceof IntegerSetting || setting instanceof FloatSetting)) {
-                    Widget w = getWidget(setting);
-                    if (w instanceof SliderRow sr) { sr.mouseClicked(mx, my, 0); activeWidget = sr; return true; }
-                }
-                idx++;
-            }
-        }
+
+        if (scroll.mouseDragged(mx, my)) return true;
+
         return super.mouseDragged(event, dx, dy);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
-        int maxH = Math.max(0, contentH - (height - (HEADER_H + 8)));
-        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY * 3, 0, maxH);
+        scroll.mouseScrolled(deltaY);
         return true;
     }
 
@@ -298,31 +273,16 @@ public class ModuleDetailScreen extends Screen {
         minecraft.setScreen(parent);
     }
 
-    // --- Color picker ---
-
-    private static final class ColorPickerState {
-        final ColorSetting setting;
-        int h, s = 100, v = 100;
-        int _sx, _sy, _sq, _hx, _hy, _hh;
-        ColorPickerState(ColorSetting cs) {
-            this.setting = cs;
-            int rgb = cs.getRGB();
-            float[] hsv = rgbToHsv((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
-            h = (int) (hsv[0] * 360);
-            s = (int) (hsv[1] * 100);
-            v = (int) (hsv[2] * 100);
-        }
-    }
-
     private void renderColorPicker(GuiGraphicsExtractor g, int mx, int my) {
         int pw = 200, ph = 200;
-        int px = Math.min(width / 2 - pw / 2, width - pw - 8);
-        int py = HEADER_H + 10;
+        int px = Math.min(width / 2 - pw / 2, width - pw - Spacing.S2);
+        int py = HEADER_H + Spacing.S3;
         int a = (int) (255 * colorPickerAnim.get());
-        Panel.drawGlass(g, px, py, pw, ph, ColorUtil.withAlpha(Theme.BG_PANEL, a), Theme.getAnimatedAccent());
+        g.fillGradient(px, py, px + pw, py + ph, ColorUtil.withAlpha(0x141218, a), ColorUtil.withAlpha(0x141218, a / 2));
+        Panel.drawHollowRect(g, px, py, pw, ph, ColorUtil.withAlpha(Theme.BORDER_LIGHT, a));
 
-        int sq = 130, sx = px + 12, sy = py + 30;
-        int hueBarX = sx + sq + 12, hueBarW = 14, hueBarH = sq;
+        int sq = 130, sx = px + Spacing.S3, sy = py + Spacing.S8;
+        int hueBarX = sx + sq + Spacing.S3, hueBarW = 14, hueBarH = sq;
 
         for (int yy = 0; yy < sq; yy += 2) {
             for (int xx = 0; xx < sq; xx += 2) {
@@ -343,8 +303,8 @@ public class ModuleDetailScreen extends Screen {
         int hueY = sy + (int) ((1 - colorPicker.h / 360f) * hueBarH) - 2;
         g.fill(hueBarX - 2, hueY, hueBarX + hueBarW + 2, hueY + 4, 0xFFFFFFFF);
 
-        g.text(font, Component.literal("Pick a color"), px + 12, py + 10, Theme.TEXT);
-        g.text(font, Component.literal("[Done]"), px + pw - 44, py + ph - 16, Theme.getAnimatedAccent());
+        g.text(font, Component.literal("Pick a color"), px + Spacing.S3, py + Spacing.S3, Theme.FOREGROUND);
+        g.text(font, Component.literal("[Done]"), px + pw - Spacing.S4, py + ph - Spacing.S4, Theme.getAnimatedAccent());
 
         colorPicker._sx = sx; colorPicker._sy = sy; colorPicker._sq = sq;
         colorPicker._hx = hueBarX; colorPicker._hy = sy; colorPicker._hh = hueBarH;
@@ -353,9 +313,9 @@ public class ModuleDetailScreen extends Screen {
     private boolean handleColorPickerClick(double mx, double my) {
         ColorPickerState st = colorPicker;
         int pw = 200, ph = 200;
-        int px = Math.min(width / 2 - pw / 2, width - pw - 8);
-        int py = HEADER_H + 10;
-        if (mx >= px + pw - 44 && mx <= px + pw - 6 && my >= py + ph - 18 && my <= py + ph - 6) { closeColorPicker(); return true; }
+        int px = Math.min(width / 2 - pw / 2, width - pw - Spacing.S2);
+        int py = HEADER_H + Spacing.S3;
+        if (mx >= px + pw - Spacing.S4 && mx <= px + pw - Spacing.S2 && my >= py + ph - Spacing.S5 && my <= py + ph - Spacing.S2) { closeColorPicker(); return true; }
         if (mx >= st._hx && mx <= st._hx + 14 && my >= st._hy && my <= st._hy + st._hh) {
             st.h = (int) ((1 - (my - st._hy) / (float) st._hh) * 360); applyColor(); return true;
         }
@@ -375,6 +335,20 @@ public class ModuleDetailScreen extends Screen {
     }
 
     private void closeColorPicker() { colorPicker = null; CrestModules.getConfigManager().save(); }
+
+    private static final class ColorPickerState {
+        final ColorSetting setting;
+        int h, s = 100, v = 100;
+        int _sx, _sy, _sq, _hx, _hy, _hh;
+        ColorPickerState(ColorSetting cs) {
+            this.setting = cs;
+            int rgb = cs.getRGB();
+            float[] hsv = rgbToHsv((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+            h = (int) (hsv[0] * 360);
+            s = (int) (hsv[1] * 100);
+            v = (int) (hsv[2] * 100);
+        }
+    }
 
     private static float[] rgbToHsv(int r, int g, int b) {
         float rf = r / 255f, gf = g / 255f, bf = b / 255f;

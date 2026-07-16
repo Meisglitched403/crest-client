@@ -1,5 +1,6 @@
 package com.crest.client.core.mixin;
 
+import com.crest.client.core.SkinLayers3dModule;
 import com.crest.client.core.skinlayers3d.Layers3d;
 import com.crest.client.core.skinlayers3d.ModelPartInjector;
 import com.crest.client.core.skinlayers3d.OffsetProvider;
@@ -35,6 +36,7 @@ public abstract class SkinLayersPlayerRendererMixin extends LivingEntityRenderer
     @Inject(method = "renderHand", at = @At("HEAD"))
     private void onRenderHand(PoseStack poseStack, SubmitNodeCollector collector, int light,
                               Identifier texture, ModelPart arm, boolean bl, CallbackInfo ci) {
+        SkinLayers3dModule.syncConfig();
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
         PlayerModel model = getModel();

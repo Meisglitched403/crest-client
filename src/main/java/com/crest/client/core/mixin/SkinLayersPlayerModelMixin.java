@@ -1,5 +1,6 @@
 package com.crest.client.core.mixin;
 
+import com.crest.client.core.SkinLayers3dModule;
 import com.crest.client.core.skinlayers3d.Layers3d;
 import com.crest.client.core.skinlayers3d.ModelPartInjector;
 import com.crest.client.core.skinlayers3d.OffsetProvider;
@@ -44,6 +45,7 @@ public abstract class SkinLayersPlayerModelMixin extends HumanoidModel<AvatarRen
 
     @Inject(method = "setupAnim", at = @At("TAIL"))
     private void onSetupAnim(AvatarRenderState state, CallbackInfo ci) {
+        SkinLayers3dModule.syncConfig();
         if (ignored) return;
         Avatar entity = Layers3d.currentRenderedEntity;
         if (entity == null) return;
@@ -66,7 +68,7 @@ public abstract class SkinLayersPlayerModelMixin extends HumanoidModel<AvatarRen
         SkinLayersConfig cfg = Layers3d.getConfig();
         ItemStack headItem = entity.getItemBySlot(EquipmentSlot.HEAD);
 
-        if (cfg.enableHat && (headItem == null || !headItem.isEmpty())) {
+        if (cfg.enableHat && (headItem == null || headItem.isEmpty())) {
             ((ModelPartInjector)(Object) hat).setInjectedMesh(settings.getHeadMesh(), OffsetProvider.HEAD);
         }
         if (cfg.enableJacket) {

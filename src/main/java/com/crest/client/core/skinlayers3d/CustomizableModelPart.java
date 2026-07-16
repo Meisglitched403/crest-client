@@ -49,6 +49,7 @@ public class CustomizableModelPart extends CustomModelPart implements Mesh {
     public void render(ModelPart vanillaModel, PoseStack poseStack, VertexConsumer consumer, int light, int overlay, int color) {
         if (!visible) return;
         poseStack.pushPose();
+        if (vanillaModel != null) copyFrom(vanillaModel);
         translateAndRotate(poseStack);
         try {
             compile(vanillaModel, poseStack.last(), consumer, light, overlay, color);

@@ -39,7 +39,7 @@
         "FoodDataAccessor",
         "ChatHeadsMixin",
         "PlayerGlyph3DMixin",
-        "CrestNametagMixin"
+        "RightClickDelayAccessor"
     ],
     "injectors": {
         "defaultRequire": 1

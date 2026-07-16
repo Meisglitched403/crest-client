@@ -3,7 +3,6 @@ package com.crest.client.core;
 import com.crest.client.ui.ColorUtil;
 import com.crest.client.ui.Panel;
 import com.crest.client.ui.Theme;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -15,10 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class HudEditScreen extends Screen {
-    private static final int OVERLAY = 0x60000000;
-    private static final int BORDER = 0x88FFFFFF;
-    private static final int SELECTED = 0xCC5555FF;
-    private static final int LABEL_BG = 0xCC222244;
 
     private String selectedId;
     private boolean dragging;
@@ -30,13 +25,16 @@ public class HudEditScreen extends Screen {
         super(Component.literal("Edit HUD"));
     }
 
+    public static void open() {
+        Minecraft.getInstance().setScreen(new HudEditScreen());
+    }
+
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         Theme.tick(delta);
         int accent = Theme.getAnimatedAccent();
-        g.fill(0, 0, width, height, OVERLAY);
+        g.fill(0, 0, width, height, Theme.GLASS_BG);
 
-        Minecraft mc = Minecraft.getInstance();
         List<HudModule> modules = getHudModules();
         boolean hasEnabled = false;
 
@@ -46,29 +44,28 @@ public class HudEditScreen extends Screen {
             int rx = mod.getX() < 0 ? width - mod.getWidth() : mod.getX();
             int ry = mod.getY();
             boolean selected = mod.getId().equals(selectedId);
-            int borderCol = selected ? accent : BORDER;
+            int borderCol = selected ? accent : Theme.BORDER_LIGHT;
 
-            g.fill(rx - 2, ry - 2, rx + mod.getWidth() + 2, ry - 1, borderCol);
-            g.fill(rx - 2, ry + mod.getHeight() + 1, rx + mod.getWidth() + 2, ry + mod.getHeight() + 2, borderCol);
-            g.fill(rx - 2, ry - 2, rx - 1, ry + mod.getHeight() + 2, borderCol);
-            g.fill(rx + mod.getWidth() + 1, ry - 2, rx + mod.getWidth() + 2, ry + mod.getHeight() + 2, borderCol);
+            Panel.drawHollowRect(g, rx - 2, ry - 2, mod.getWidth() + 4, mod.getHeight() + 4, borderCol);
 
             String modeSuffix = mod instanceof ArmorHudModule a ? " [" + a.getModeLabel() + "]" : "";
             String modLabel = "[" + mod.getName() + "]" + modeSuffix;
             Component label = Component.literal(modLabel);
             int lw = font.width(label);
             int labelY = Math.max(0, ry - 11);
-            g.fill(rx, labelY, rx + lw + 4, labelY + 10, selected ? ColorUtil.withAlpha(accent, 200) : LABEL_BG);
-            g.text(font, label, rx + 2, labelY + 1, 0xFFFFFFFF);
+            int labelBg = selected ? ColorUtil.withAlpha(accent, 200) : ColorUtil.withAlpha(Theme.GLASS_BG, 220);
+            g.fillGradient(rx, labelY, rx + lw + 4, labelY + 10, labelBg, ColorUtil.withAlpha(labelBg, 120));
+            Panel.drawHollowRect(g, rx, labelY, lw + 4, 10, Theme.BORDER_LIGHT);
+            g.text(font, label, rx + 2, labelY + 1, Theme.FOREGROUND);
         }
 
         if (!hasEnabled) {
             Component msg = Component.literal("No HUD modules enabled — enable them in the ClickGUI");
-            g.centeredText(font, msg, width / 2, height / 2 - 10, 0xFF888888);
+            g.centeredText(font, msg, width / 2, height / 2 - 10, Theme.ON_SURFACE_VARIANT);
         }
 
         Component hint = Component.literal("Click + drag to move  |  ESC to save & close");
-        g.text(font, hint, (width - font.width(hint)) / 2, height - 16, 0xFFAAAAAA);
+        g.text(font, hint, (width - font.width(hint)) / 2, height - 16, Theme.TEXT_FAINT);
     }
 
     @Override

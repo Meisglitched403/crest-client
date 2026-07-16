@@ -46,40 +46,40 @@ public class TitleScreenMixin {
         int glowH = h / 3;
         for (int i = 0; i < glowH; i++) {
             int a = (int) (18 * (1 - (float) i / glowH));
-            g.fill(0, i, w, i + 1, (a << 24) | 0x4444FF);
+            int r = (a << 24) | (ColorUtil.getR(Theme.PRIMARY) & 0xFF) << 16
+                | (ColorUtil.getG(Theme.PRIMARY) & 0xFF) << 8
+                | (ColorUtil.getB(Theme.PRIMARY) & 0xFF);
+            g.fill(0, i, w, i + 1, r);
         }
 
         // sidebar
-        g.fill(0, 0, SIDEBAR_W, h, 0xCC141428);
-        g.fill(SIDEBAR_W, 0, SIDEBAR_W + 1, h, 0x332A2A55);
+        g.fill(0, 0, SIDEBAR_W, h, Theme.SURFACE);
+        g.fill(SIDEBAR_W, 0, SIDEBAR_W + 1, h, ColorUtil.withAlpha(Theme.OUTLINE, 40));
 
         // sidebar buttons
-        String[] sideIcons = {"☰", "▶", "⚙"};
-        String[] sideTips = {"Mods", "Streamer", "Theme"};
+        String[] sideIcons = {"☰", "▶", "\u2699"};
         int sideY = h / 2 - 50;
         for (int i = 0; i < sideIcons.length; i++) {
             int bx = (SIDEBAR_W - 28) / 2;
             int by = sideY + i * 40;
             boolean hover = mx >= bx && mx <= bx + 28 && my >= by && my <= by + 28;
             if (hover) crest$hoveredSide = i;
-            int bg = hover ? Theme.BG_HOVER : 0x00000000;
-            g.fill(bx, by, bx + 28, by + 28, bg);
-            g.centeredText(mc.font, Component.literal(sideIcons[i]), bx + 14, by + 6, hover ? Theme.TEXT : Theme.TEXT_DIM);
+            if (hover) {
+                Panel.draw(g, bx, by, 28, 28, ColorUtil.withAlpha(Theme.BG_HOVER, 220));
+            }
+            g.centeredText(mc.font, Component.literal(sideIcons[i]), bx + 14, by + 6, hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
         }
 
         // title
         String title = "Crest Client";
         int titleY = h / 4 - 20;
         int titleX = SIDEBAR_W + (w - SIDEBAR_W) / 2;
-        // shadow
         g.centeredText(mc.font, Component.literal(title), titleX + 1, titleY + 1, 0x55000000);
         g.centeredText(mc.font, Component.literal(title), titleX, titleY, Theme.getAnimatedAccent());
 
-        // subtitle
         String sub = "Minecraft Enhancement Client";
-        g.centeredText(mc.font, Component.literal(sub), titleX, titleY + 14, Theme.TEXT_DIM);
+        g.centeredText(mc.font, Component.literal(sub), titleX, titleY + 14, Theme.ON_SURFACE_VARIANT);
 
-        // version
         String ver = "v1.0.0";
         g.text(mc.font, Component.literal(ver), w - 36 - mc.font.width(ver), h - 14, Theme.TEXT_FAINT);
 
@@ -96,14 +96,14 @@ public class TitleScreenMixin {
 
             int tint = hover
                 ? ColorUtil.withAlpha(Theme.BG_HOVER, 220)
-                : ColorUtil.withAlpha(Theme.BG_PANEL, 200);
+                : ColorUtil.withAlpha(Theme.SURFACE, 200);
             Panel.draw(g, btnAreaX, by, BTN_W, BTN_H, tint);
 
             if (hover) {
                 g.fill(btnAreaX, by, btnAreaX + 3, by + BTN_H, Theme.getAnimatedAccent());
             }
 
-            g.centeredText(mc.font, Component.literal(btnLabels[i]), btnAreaX + BTN_W / 2, by + (BTN_H - 8) / 2, Theme.TEXT);
+            g.centeredText(mc.font, Component.literal(btnLabels[i]), btnAreaX + BTN_W / 2, by + (BTN_H - 8) / 2, Theme.ON_SURFACE);
         }
     }
 

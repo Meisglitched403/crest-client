@@ -30,13 +30,13 @@ public class KeybindRow implements Widget {
         int keyX = x + w - keyW - 4;
 
         boolean hover = mx >= keyX && mx <= keyX + keyW && my >= y && my <= y + H;
-        int bg = ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.BG_SURFACE, 220);
+        int bg = ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220);
         if (capturing) bg = ColorUtil.withAlpha(Theme.BG_SELECT, 240);
         g.fill(keyX, y + 2, keyX + keyW, y + H - 2, bg);
         g.centeredText(font, Component.literal("[" + keyName + "]"), keyX + keyW / 2, y + 4,
-            capturing ? Theme.getAnimatedAccent() : hover ? Theme.TEXT : Theme.TEXT_DIM);
+            capturing ? Theme.getAnimatedAccent() : hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.TEXT_DIM);
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
     }
 
     @Override

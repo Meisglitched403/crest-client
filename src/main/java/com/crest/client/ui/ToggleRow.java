@@ -26,7 +26,7 @@ public class ToggleRow implements Widget {
         int controlX = x + labelW + 4;
         int controlW = w - labelW - 8;
         if (controlW < ToggleSwitch.W) controlW = ToggleSwitch.W;
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.TEXT_DIM);
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
         ToggleSwitch.render(g, controlX + controlW - ToggleSwitch.W, y + 2, setting.get(), anim.get());
     }
 

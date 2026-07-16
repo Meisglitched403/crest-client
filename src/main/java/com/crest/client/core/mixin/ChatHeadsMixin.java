@@ -15,7 +15,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ChatHeadsMixin {
     @Inject(method = "handlePlayerChatMessage", at = @At("HEAD"))
     private void crest$captureProfile(PlayerChatMessage message, GameProfile profile, ChatType.Bound bound, CallbackInfo ci) {
-        ChatHeadsModule.setLastProfile(profile);
+        if (profile != null) {
+            ChatHeadsModule.setLastProfile(profile);
+        }
     }
 
     @Inject(method = "handleDisguisedChatMessage", at = @At("HEAD"))

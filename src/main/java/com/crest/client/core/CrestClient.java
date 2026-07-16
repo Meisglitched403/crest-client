@@ -62,9 +62,11 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new AppleSkinModule());
         CrestModules.register(new ChatHeadsModule());
         CrestModules.register(new SkinLayers3dModule());
-        CrestModules.register(new CrestNametagModule());
+        CrestModules.register(new FastRightClickModule());
 
         MusicModule.init();
+
+        KeybindManager.registerAction(GLFW.GLFW_KEY_F7, HudEditScreen::open);
 
         KeybindManager.registerAction(GLFW.GLFW_KEY_M, () -> {
             Minecraft mc = Minecraft.getInstance();

@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 @Mixin(targets = "net.minecraft.client.gui.font.PlayerGlyphProvider$Instance")
 public class PlayerGlyph3DMixin {
     private static float ness() {
-        return CrestModules.isEnabled("chat_heads") ? ChatHeadsModule.getNess() : 0;
+        return CrestModules.isEnabled("chat_heads") ? Math.min(ChatHeadsModule.getNess(), 2f) : 0;
     }
 
     @ModifyArg(method = "renderSprite", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/font/PlayerGlyphProvider$Instance;renderQuad(Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/vertex/VertexConsumer;IFFFFFIFFIIII)V", ordinal = 0), index = 3)

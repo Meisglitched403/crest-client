@@ -4,6 +4,7 @@ import com.crest.client.core.setting.BooleanSetting;
 import com.crest.client.core.setting.FloatSetting;
 import com.crest.client.core.setting.IntegerSetting;
 import com.crest.client.core.setting.Setting;
+import com.crest.client.core.skinlayers3d.Layers3d;
 import com.crest.client.core.skinlayers3d.SkinLayersConfig;
 
 import java.util.List;
@@ -35,25 +36,29 @@ public class SkinLayers3dModule implements CrestModule {
                 enableLeftPants, enableRightPants, renderDistance, fastRender);
     }
 
+    public static void syncConfig() {
+        var m = CrestModules.get("skin_layers_3d");
+        if (!(m instanceof SkinLayers3dModule mod)) return;
+        SkinLayersConfig c = Layers3d.getConfig();
+        c.enableHat = mod.enableHat.get();
+        c.enableJacket = mod.enableJacket.get();
+        c.enableLeftSleeve = mod.enableLeftSleeve.get();
+        c.enableRightSleeve = mod.enableRightSleeve.get();
+        c.enableLeftPants = mod.enableLeftPants.get();
+        c.enableRightPants = mod.enableRightPants.get();
+        c.renderDistanceLOD = mod.renderDistance.get();
+        c.fastRender = mod.fastRender.get();
+    }
+
     @Override
     public void onEnable() {
-        SkinLayersConfig c = new SkinLayersConfig();
-        c.enableHat = enableHat.get();
-        c.enableJacket = enableJacket.get();
-        c.enableLeftSleeve = enableLeftSleeve.get();
-        c.enableRightSleeve = enableRightSleeve.get();
-        c.enableLeftPants = enableLeftPants.get();
-        c.enableRightPants = enableRightPants.get();
-        c.renderDistanceLOD = renderDistance.get();
-        c.fastRender = fastRender.get();
-        com.crest.client.core.skinlayers3d.Layers3d.setConfig(c);
+        syncConfig();
     }
 
     @Override
     public void onDisable() {
-        SkinLayersConfig c = new SkinLayersConfig();
+        SkinLayersConfig c = Layers3d.getConfig();
         c.enableHat = c.enableJacket = c.enableLeftSleeve = c.enableRightSleeve = false;
         c.enableLeftPants = c.enableRightPants = false;
-        com.crest.client.core.skinlayers3d.Layers3d.setConfig(c);
     }
 }
