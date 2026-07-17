@@ -20,7 +20,6 @@ public class TogglesModule extends HudModule implements ClickableHud {
     private static final int LINE_H = 11;
     private static final int COL_W = 120;
 
-    private final HudBackground bg = new HudBackground();
     private final BooleanSetting showCategory = new BooleanSetting("Show Category", true);
 
     private int drawX, drawY, drawW, drawH;
@@ -36,7 +35,7 @@ public class TogglesModule extends HudModule implements ClickableHud {
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        List<Setting<?>> s = new ArrayList<>();
         s.add(showCategory);
         return s;
     }
@@ -74,7 +73,7 @@ public class TogglesModule extends HudModule implements ClickableHud {
         drawH = getHeight();
         drawX = x < 0 ? mc.getWindow().getGuiScaledWidth() - drawW : x;
         drawY = y;
-        bg.draw(g, drawX, drawY, drawW, drawH);
+        HudBackground.draw(g, drawX, drawY, drawW, drawH);
 
         int cy = drawY + PAD;
         for (CrestModule m : list) {

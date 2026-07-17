@@ -16,15 +16,17 @@ public class KeybindSetting extends Setting<Integer> {
 
     public String getKeyName() {
         int key = get();
-        if (key == GLFW.GLFW_KEY_UNKNOWN) return "None";
+        if (key == GLFW.GLFW_KEY_UNKNOWN || key < 0) return "None";
         String name = GLFW.glfwGetKeyName(key, 0);
         return name != null ? name.toUpperCase() : "KEY_" + key;
     }
 
     public boolean isPressed() {
+        int key = get();
+        if (key == GLFW.GLFW_KEY_UNKNOWN || key < 0) return false;
         long window = GLFW.glfwGetCurrentContext();
         if (window == 0) return false;
-        return GLFW.glfwGetKey(window, get()) == GLFW.GLFW_PRESS;
+        return GLFW.glfwGetKey(window, key) == GLFW.GLFW_PRESS;
     }
 
     public boolean wasPressed() {

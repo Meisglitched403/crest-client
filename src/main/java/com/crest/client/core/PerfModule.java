@@ -6,7 +6,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 import com.crest.client.core.setting.Setting;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,13 +40,12 @@ public class PerfModule extends HudModule {
         }
     }
 
-    private final HudBackground bg = new HudBackground();
     private List<Line> cachedLines;
     private String cacheKey = "";
 
     @Override
     public java.util.List<Setting<?>> getSettings() {
-        return bg.settings();
+        return java.util.List.of();
     }
 
     @Override
@@ -75,7 +73,7 @@ public class PerfModule extends HudModule {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW - 4 : x;
         int ry = y;
 
-        bg.draw(g, rx, ry, boxW, boxH);
+        HudBackground.draw(g, rx, ry, boxW, boxH);
         int cy = ry + pad;
         for (Line l : lines) {
             g.text(mc.font, l.comp, rx + 2, cy, l.color);

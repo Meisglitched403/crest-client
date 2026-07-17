@@ -117,7 +117,7 @@ public class SpeedometerModule extends HudModule {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 4 - 2 : x;
         int ry = y;
 
-        g.fill(rx, ry, rx + w + 4, ry + mc.font.lineHeight + 4, 0x66000000);
+        HudBackground.draw(g, rx, ry, w + 4, mc.font.lineHeight + 4);
         g.text(mc.font, cachedSpeedComp, rx + 2, ry + 2, textColor.get());
     }
 

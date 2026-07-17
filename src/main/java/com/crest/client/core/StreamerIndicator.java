@@ -88,8 +88,7 @@ public class StreamerIndicator extends HudModule {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - textW - 14 - 2 : x;
         int ry = y;
 
-        int bgColor = err != null ? 0xCC3333FF : 0xAA000000;
-        g.fill(rx, ry, rx + textW + 14, ry + mc.font.lineHeight + 6, bgColor);
+        HudBackground.draw(g, rx, ry, textW + 14, mc.font.lineHeight + 6);
         g.text(mc.font, cachedStatsComp, rx + 10, ry + 3, 0xFFFFFFFF);
 
         boolean dotOn = ((System.currentTimeMillis() / (err != null ? 300 : 600)) % 2) == 0;

@@ -23,6 +23,11 @@ public class FifoStreamer {
                                     double scaleFactor, String recordOutput) throws IOException {
         boolean audioRequested = audioDevice != null && !audioDevice.isEmpty() && !audioDevice.equals("none");
 
+        // Create the video FIFO before launching ffmpeg so it has a reader to
+        // attach to. Recreate it fresh each start.
+        cleanupFifos();
+        mkfifo(VIDEO_FIFO);
+
         List<String> args = buildFfmpegArgs(url, fps, width, height, bitrate, true, encoder, preset, audioRequested ? audioDevice : "none", scaleFactor, recordOutput);
         ffmpegProcess = launchFfmpeg(args);
 
@@ -42,9 +47,22 @@ public class FifoStreamer {
 
         try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
 
-        fifoChannel = FileChannel.open(VIDEO_FIFO, StandardOpenOption.WRITE);
+        // Opening a FIFO for write blocks until a reader (ffmpeg) attaches. We
+        // already slept ~500ms after launch above, but retry defensively in case
+        // ffmpeg is still initializing.
+        fifoChannel = null;
+        for (int i = 0; i < 100 && fifoChannel == null; i++) {
+            try {
+                fifoChannel = FileChannel.open(VIDEO_FIFO, StandardOpenOption.WRITE);
+            } catch (IOException e) {
+                try { Thread.sleep(50); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+            }
+        }
+        if (fifoChannel == null) {
+            throw new IOException("Timed out opening video FIFO for writing");
+        }
 
-        FrameCapture.start(fps, width, height);
+        FrameCapture.start(fps, width, height, true);
 
         encoderThread = new VideoEncoderThread(
             FrameCapture.getFilledQueue(),
@@ -100,7 +118,18 @@ public class FifoStreamer {
     }
 
     private static void mkfifo(Path path) throws IOException {
-        Runtime.getRuntime().exec(new String[]{"mkfifo", path.toString()});
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"mkfifo", path.toString()});
+            p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        // Block until the FIFO node actually exists before we try to open it.
+        for (int i = 0; i < 50; i++) {
+            if (Files.exists(path)) return;
+            try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+        }
+        throw new IOException("mkfifo failed to create " + path);
     }
 
     private static void cleanupFifos() {
@@ -128,6 +157,12 @@ public class FifoStreamer {
                                                  int bitrate, boolean streaming,
                                                  String encoder, String preset, String audioDevice,
                                                  double scaleFactor, String recordOutput) {
+        // Use the REAL captured dimensions (render target), which can differ from
+        // the window size on HiDPI/scaled displays; otherwise frames are garbled.
+        int capW = FrameCapture.getCapturedWidth();
+        int capH = FrameCapture.getCapturedHeight();
+        if (capW > 0 && capH > 0) { width = capW; height = capH; }
+
         List<String> cmd = new ArrayList<>();
         cmd.add("ffmpeg");
         cmd.add("-y");
@@ -166,6 +201,20 @@ public class FifoStreamer {
 
         cmd.add("-c:v"); cmd.add(encoder);
 
+        // Force constant-frame-rate output timestamps from the declared fps so
+        // the stream plays back at the correct speed (rawvideo has no PTS).
+        cmd.add("-fps_mode"); cmd.add("cfr");
+
+        boolean isVaapi = EncoderProbe.isVaapi(encoder);
+
+        if (isVaapi) {
+            // VAAPI needs the device and the hwupload filter
+            String dev = EncoderProbe.getVaapiDevice();
+            if (dev != null) {
+                cmd.add("-vaapi_device"); cmd.add(dev);
+            }
+        }
+
         if (encoder.startsWith("libx") || encoder.startsWith("software")) {
             cmd.add("-preset"); cmd.add(preset);
             // ponytail: low-latency tune for software encoding
@@ -176,16 +225,27 @@ public class FifoStreamer {
             cmd.add("-preset"); cmd.add(preset);
         } else if (encoder.endsWith("_nvenc") || encoder.endsWith("_amf") || encoder.endsWith("_videotoolbox")) {
             cmd.add("-preset"); cmd.add(preset);
+        } else if (isVaapi) {
+            cmd.add("-preset"); cmd.add(preset);
         }
 
         // Build filter chain: scale (if needed) + vflip + format
         int sw = scaled(width, scaleFactor);
         int sh = scaled(height, scaleFactor);
         StringBuilder vf = new StringBuilder();
-        if (scaleFactor < 0.99 || scaleFactor > 1.01) {
-            vf.append("scale=").append(sw).append(":").append(sh).append(",");
+        if (isVaapi) {
+            // VAAPI pipeline: upload to GPU, scale on GPU (if needed), flip, format
+            vf.append("hwupload");
+            if (scaleFactor < 0.99 || scaleFactor > 1.01) {
+                vf.append(",scale_vaapi=w=").append(sw).append(":h=").append(sh);
+            }
+            vf.append(",vflip,format=nv12");
+        } else {
+            if (scaleFactor < 0.99 || scaleFactor > 1.01) {
+                vf.append("scale=").append(sw).append(":").append(sh).append(",");
+            }
+            vf.append("vflip,format=nv12");
         }
-        vf.append("vflip,format=nv12");
         cmd.add("-vf"); cmd.add(vf.toString());
 
         if (streaming && scaleFactor < 0.99) {
@@ -204,10 +264,14 @@ public class FifoStreamer {
 
         cmd.add("-g"); cmd.add(String.valueOf(fps * 2));
 
+        // Map video (input 0) and audio (input 1) explicitly so audio is present
+        // in the output regardless of stream/record branching.
+        cmd.add("-map"); cmd.add("0:v:0");
+        cmd.add("-map"); cmd.add("1:a:0");
+
         // Dual output: stream + record via tee muxer
         boolean dualOutput = streaming && recordOutput != null && !recordOutput.isEmpty();
         if (dualOutput) {
-            cmd.add("-map"); cmd.add("0");
             cmd.add("-f"); cmd.add("tee");
             cmd.add("-flags"); cmd.add("+global_header");
             String teeSpec = "[f=flv:onfail=ignore]" + output + "|[f=matroska:onfail=ignore]" + recordOutput;

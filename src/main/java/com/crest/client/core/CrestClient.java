@@ -25,6 +25,7 @@ public class CrestClient implements ClientModInitializer {
     public void onInitializeClient() {
         CrestModules.init();
 
+        CrestModules.register(new HudAppearanceModule());
         CrestModules.register(new ZoomModule());
         CrestModules.register(new CoordsModule());
         CrestModules.register(new FpsModule());
@@ -79,6 +80,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ScrollableTooltipsModule());
         CrestModules.register(new ColorSaturationModule());
         CrestModules.register(new GlintColorizerModule());
+        CrestModules.register(new PlayerHealthIndicatorModule());
 
         MusicModule.init();
 

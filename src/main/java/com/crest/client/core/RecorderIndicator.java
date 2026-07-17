@@ -48,7 +48,7 @@ public class RecorderIndicator extends HudModule {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 12 - 2 : x;
         int ry = y;
 
-        g.fill(rx, ry, rx + w + 12, ry + mc.font.lineHeight + 4, 0x66000000);
+        HudBackground.draw(g, rx, ry, w + 12, mc.font.lineHeight + 4);
         g.text(mc.font, cachedComp, rx + 10, ry + 2, 0xFFFFFFFF);
 
         if ((System.currentTimeMillis() / 500) % 2 == 0) {

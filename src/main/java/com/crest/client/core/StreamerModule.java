@@ -76,15 +76,31 @@ public class StreamerModule implements CrestModule {
     public int getBitrate() { return bitrate.get(); }
     public void setBitrate(int value) { bitrate.set(value); }
     public int getFps() { return fps.get(); }
+    public void setFps(int value) { fps.set(value); }
     public double getScaleFactor() {
         String s = scale.getMode();
         return Double.parseDouble(s.substring(0, s.length() - 1));
     }
+    public void setScale(int index) { scale.set(index); }
     public String getEncoder() { return encoder.getMode(); }
+    public void setEncoder(String mode) { encoder.setMode(mode); }
     public String getEncoderPreset() { return encoderPreset.getMode(); }
+    public void setEncoderPreset(String mode) { encoderPreset.setMode(mode); }
     public boolean isAudioEnabled() { return audioEnabled.get(); }
+    public void setAudioEnabled(boolean value) { audioEnabled.set(value); }
     public String getAudioDevice() { return audioDevice.get(); }
+    public void setAudioDevice(String device) { audioDevice.set(device); }
     public boolean isRecordWhileStreaming() { return recordWhileStreaming.get(); }
+    public void setRecordWhileStreaming(boolean value) { recordWhileStreaming.set(value); }
+
+    private String resolveAudioDevice() {
+        String configured = audioDevice.get();
+        if (configured == null || configured.isBlank() || configured.equals("default")) {
+            String[] detected = EncoderProbe.getAudioDevices();
+            if (detected != null && detected.length > 0) return detected[0];
+        }
+        return configured;
+    }
 
     public void toggleStreaming() {
         if (Streamer.isStreaming()) {
@@ -104,10 +120,10 @@ public class StreamerModule implements CrestModule {
                 recPath = dir + "crest-stream-" + java.time.Instant.now().toString()
                     .replace(":", "-").substring(0, 19) + ".mkv";
             }
-Streamer.start(url, fps.get(), w, h, bitrate.get(),
-    encoder.getMode(), encoderPreset.getMode(),
-    audioEnabled.get() ? EncoderProbe.getAudioDevices()[0] : "none",
-    getScaleFactor(), recPath);
+        Streamer.start(url, fps.get(), w, h, bitrate.get(),
+            encoder.getMode(), encoderPreset.getMode(),
+            audioEnabled.get() ? resolveAudioDevice() : "none",
+            getScaleFactor(), recPath);
         }
     }
 

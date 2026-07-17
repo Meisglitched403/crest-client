@@ -17,7 +17,6 @@ public class CoordsModule extends HudModule {
     private static final int LINE_HEIGHT = 10;
     private static final int PADDING = 2;
 
-    private final HudBackground bg = new HudBackground();
     private final BooleanSetting showXyz = new BooleanSetting("Show XYZ", true);
     private final BooleanSetting showFacing = new BooleanSetting("Show Facing", true);
     private final BooleanSetting showBiome = new BooleanSetting("Show Biome", true);
@@ -33,7 +32,7 @@ public class CoordsModule extends HudModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        List<Setting<?>> s = new ArrayList<>();
         s.add(showXyz); s.add(showFacing); s.add(showBiome);
         return s;
     }
@@ -89,7 +88,7 @@ public class CoordsModule extends HudModule {
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;
-        bg.draw(g, rx, ry, boxW, boxH);
+        HudBackground.draw(g, rx, ry, boxW, boxH);
 
         int cy = ry + PADDING;
         if (showXyz.get()) { g.text(mc.font, xyzComp, rx + PADDING, cy, 0xFFFFFFFF); cy += LINE_HEIGHT; }

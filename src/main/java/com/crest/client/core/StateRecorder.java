@@ -57,11 +57,13 @@ public class StateRecorder {
     private static Thread writerThread;
     private static final BlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
-    // ponytail: reuse scratch buffers instead of allocating a Netty buffer per
-    // packet/event. The recorder is single-threaded (client thread), so reuse is safe.
-    private static io.netty.buffer.ByteBuf scratchBacking;
-    private static FriendlyByteBuf scratchFbb;
-    private static ByteBuffer scratchRec;
+    // ponytail: thread-local scratch buffers so onPacketIn (called from the Netty
+    // network thread) and the render-thread calls (onKey, onTick, etc.) do not
+    // corrupt each other's state. Each thread gets its own buffer — zero contention.
+    private static final ThreadLocal<io.netty.buffer.ByteBuf> scratchBackingTl =
+        ThreadLocal.withInitial(Unpooled::buffer);
+    private static final ThreadLocal<ByteBuffer> scratchRecTl =
+        ThreadLocal.withInitial(() -> ByteBuffer.allocate(4096).order(ByteOrder.LITTLE_ENDIAN));
 
     public static boolean isActive() { return active.get(); }
 
@@ -179,9 +181,9 @@ public class StateRecorder {
             }
             @SuppressWarnings({"unchecked", "rawtypes"})
             StreamCodec<ByteBuf, Packet<?>> codec = (StreamCodec) info.codec();
-            if (scratchBacking == null) scratchBacking = Unpooled.buffer();
-            else scratchBacking.clear();
-            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(scratchBacking, access);
+            io.netty.buffer.ByteBuf backing = scratchBackingTl.get();
+            backing.clear();
+            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(backing, access);
             codec.encode(buf, packet);
             byte[] out = new byte[buf.readableBytes()];
             buf.readBytes(out);
@@ -191,14 +193,17 @@ public class StateRecorder {
         }
     }
 
-    // ponytail: write into the reused FriendlyByteBuf and copy out the readable
-    // bytes into a freshly-sized byte[] (only the small fixed builders use this).
+    // ponytail: thread-local FriendlyByteBuf so buildFromScratch is safe from
+    // any thread even if called concurrently (render + network).
+    private static final ThreadLocal<FriendlyByteBuf> scratchFbbTl =
+        ThreadLocal.withInitial(() -> new FriendlyByteBuf(Unpooled.buffer()));
+
     private static byte[] buildFromScratch(java.util.function.Consumer<FriendlyByteBuf> writer) {
-        if (scratchFbb == null) scratchFbb = new FriendlyByteBuf(Unpooled.buffer());
-        else scratchFbb.clear();
-        writer.accept(scratchFbb);
-        byte[] out = new byte[scratchFbb.readableBytes()];
-        scratchFbb.readBytes(out);
+        FriendlyByteBuf buf = scratchFbbTl.get();
+        buf.clear();
+        writer.accept(buf);
+        byte[] out = new byte[buf.readableBytes()];
+        buf.readBytes(out);
         return out;
     }
 
@@ -250,17 +255,19 @@ public class StateRecorder {
     private static void enqueue(int type, byte[] payload) {
         if (payload == null || payload.length == 0) return;
         int total = 1 + 8 + 4 + payload.length;
-        if (scratchRec == null || scratchRec.capacity() < total) {
-            scratchRec = ByteBuffer.allocate(Math.max(total, 4096)).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = scratchRecTl.get();
+        if (buf.capacity() < total) {
+            buf = ByteBuffer.allocate(Math.max(total, 4096)).order(ByteOrder.LITTLE_ENDIAN);
+            scratchRecTl.set(buf);
         }
-        scratchRec.clear();
-        scratchRec.put((byte) type);
-        scratchRec.putLong((System.currentTimeMillis() - recordStartMs) * 1000L);
-        scratchRec.putInt(payload.length);
-        scratchRec.put(payload);
-        scratchRec.flip();
-        byte[] out = new byte[scratchRec.remaining()];
-        scratchRec.get(out);
+        buf.clear();
+        buf.put((byte) type);
+        buf.putLong((System.currentTimeMillis() - recordStartMs) * 1000L);
+        buf.putInt(payload.length);
+        buf.put(payload);
+        buf.flip();
+        byte[] out = new byte[buf.remaining()];
+        buf.get(out);
         queue.offer(out);
     }
 

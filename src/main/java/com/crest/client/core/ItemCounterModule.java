@@ -62,7 +62,7 @@ public class ItemCounterModule extends HudModule {
         }
 
         int tw = mc.font.width(cachedText);
-        g.fill(rx, y, rx + Math.max(tw, getWidth()) + 4, y + mc.font.lineHeight + 4, 0x66000000);
+        HudBackground.draw(g, rx, y, Math.max(tw, getWidth()) + 4, mc.font.lineHeight + 4);
         g.text(mc.font, cachedComp, rx + 2, y + 2, 0xFFFFFFFF);
     }
 }

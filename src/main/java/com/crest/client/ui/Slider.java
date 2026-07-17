@@ -33,13 +33,17 @@ public class Slider implements Widget {
         float frac = (max > min) ? (value - min) / (max - min) : 0f;
         frac = Anim.clamp(frac, 0, 1);
 
-        int barY = y + 7;
-        g.fill(x, barY, x + w, barY + 4, ColorUtil.withAlpha(Theme.BG_BASE, 220));
-        int fillW = (int) (frac * w);
-        g.fill(x, barY, x + fillW, barY + 4, Theme.getAnimatedAccent());
-        if (dragging) {
-            g.fill(x + fillW - 2, barY - 2, x + fillW + 2, barY + 6, 0xFFFFFFFF);
-        }
+        int trackH = 8;
+        int barY = y + (H - trackH) / 2;
+        // Track (full width)
+        g.fill(x, barY, x + w, barY + trackH, ColorUtil.withAlpha(Theme.MUTED, 220));
+        // Fill (accent) up to the knob
+        int fillW = Math.max(8, (int) (frac * w));
+        g.fill(x, barY, x + fillW, barY + trackH, Theme.getAnimatedAccent());
+        // Handle (8x8) centered on the fill end
+        int hx = (int) (frac * w) - 4;
+        int hy = y + (H - 8) / 2;
+        g.fill(x + hx, hy, x + hx + 8, hy + 8, Theme.FOREGROUND);
     }
 
     @Override

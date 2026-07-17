@@ -101,13 +101,13 @@ public class Button implements Widget {
 
         if (outline) {
             if (bg != 0) Panel.draw(g, x, y, w, lastH, bg);
-            Panel.draw(g, x, y, w, lastH, ColorUtil.withAlpha(Theme.BORDER, hover ? 180 : 100));
+            g.outline(x, y, w, lastH, ColorUtil.withAlpha(Theme.BORDER, hover ? 180 : 100));
         } else if (bg != 0) {
             Panel.draw(g, x, y, w, lastH, bg);
         }
 
         if (hover && variant != Variant.OUTLINE && variant != Variant.GHOST && bg != 0) {
-            Panel.draw(g, x, y, w, lastH, ColorUtil.withAlpha(0xFFFFFFFF, 20));
+            g.fill(x, y, x + w, y + lastH, ColorUtil.withAlpha(0xFFFFFF, 16));
         }
 
         g.centeredText(font, Component.literal(text), x + w / 2, y + (lastH - font.lineHeight) / 2, fg);

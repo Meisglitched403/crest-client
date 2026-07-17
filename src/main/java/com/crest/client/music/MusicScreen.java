@@ -38,6 +38,9 @@ public class MusicScreen extends Screen {
     private boolean draggingVolume;
     private boolean draggingProgress;
 
+    private int queueScroll;
+    private int queueListX, queueListY, queueListW, queueRowH = 18, queueRows;
+
     private final Animated openAnim = new Animated(0f, 10f);
 
     public MusicScreen(MusicPlayer player) {
@@ -99,9 +102,11 @@ public class MusicScreen extends Screen {
     private int renderSearchBar(GuiGraphicsExtractor g, int mx, int my, int m, int aw, int y) {
         int fh = 18;
         int loadW = 36;
-        int fieldW = aw - BTN_GAP - loadW - Spacing.S2 * 2;
+        int folderW = 56;
+        int fieldW = aw - BTN_GAP * 2 - loadW - folderW - Spacing.S2 * 2;
         int fr = m + Spacing.S1 + fieldW;
         int lx = fr + BTN_GAP;
+        int fx = lx + loadW + BTN_GAP;
 
         Panel.draw(g, m + Spacing.S1, y, fieldW, fh,
             ColorUtil.withAlpha(urlFocused ? Theme.PRIMARY_CONTAINER : Theme.BG_SURFACE, 200));
@@ -119,6 +124,11 @@ public class MusicScreen extends Screen {
         Panel.draw(g, lx, y, loadW, fh, ColorUtil.withAlpha(hoverLoad ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220));
         g.centeredText(font, Component.literal("Go"), lx + loadW / 2, y + 3,
             hoverLoad ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
+
+        boolean hoverFolder = mx >= fx && mx <= fx + folderW && my >= y && my <= y + fh;
+        Panel.draw(g, fx, y, folderW, fh, ColorUtil.withAlpha(hoverFolder ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220));
+        g.centeredText(font, Component.literal("Folder"), fx + folderW / 2, y + 3,
+            hoverFolder ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
 
         return y + fh + Spacing.S2;
     }
@@ -186,7 +196,7 @@ public class MusicScreen extends Screen {
     }
 
     private void renderNowPlaying(GuiGraphicsExtractor g, int mx, int my, int m, int aw, int y, int accent) {
-        Panel.draw(g, m + Spacing.S1, y, aw - Spacing.S2, Math.max(100, height - y - Spacing.S6),
+        Panel.draw(g, m + Spacing.S1, y, aw - Spacing.S2, Math.max(140, height - y - Spacing.S6),
             ColorUtil.withAlpha(Theme.SURFACE, 100));
 
         g.text(font, Component.literal("NOW PLAYING"), m + Spacing.S2, y + Spacing.S1, Theme.MUTED_FOREGROUND);
@@ -208,36 +218,65 @@ public class MusicScreen extends Screen {
             float progress = dur > 0 ? (float) pos / dur : 0;
 
             boolean hp = mx >= m + Spacing.S2 && mx <= m + aw - Spacing.S2 && my >= by && my <= by + BAR_H;
-            g.fill(m + Spacing.S2, by, m + aw - Spacing.S2, by + BAR_H, 0xFF333355);
+            g.fill(m + Spacing.S2, by, m + aw - Spacing.S2, by + BAR_H, Theme.MUTED);
             int fillW = (int) ((aw - Spacing.S4) * progress);
             if (fillW > 0) {
-                g.fill(m + Spacing.S2, by, m + Spacing.S2 + fillW, by + BAR_H, hp ? accent : 0xFF55FF55);
+                g.fill(m + Spacing.S2, by, m + Spacing.S2 + fillW, by + BAR_H, accent);
             }
+            nowPlayingBarX = m + Spacing.S2;
+            nowPlayingBarW = aw - Spacing.S4;
             g.text(font, Component.literal(formatTime(pos) + " / " + formatTime(dur)), m + Spacing.S2, by + BAR_H + 2, Theme.TEXT_FAINT);
 
+            // Transport controls row
             int cy = by + BAR_H + Spacing.S3;
             nowPlayingBtnY = cy;
-            int btnW = Math.min(90, (aw - Spacing.S8 - BTN_GAP) / 2);
+            int btnW = Math.min(64, (aw - Spacing.S10 - BTN_GAP * 4) / 5);
+            int bx = m + Spacing.S2;
 
-            renderButton(g, mx, my, m + Spacing.S2, cy, btnW, player.isPaused() ? "\u25B6 PLAY" : "\u23F8 PAUSE");
-            renderButton(g, mx, my, m + Spacing.S2 + btnW + BTN_GAP, cy, btnW, "\u25A0 STOP");
+            renderTransport(g, mx, my, bx, cy, btnW, "\u23EE PREV", false); bx += btnW + BTN_GAP;
+            renderTransport(g, mx, my, bx, cy, btnW, player.isPaused() ? "\u25B6 PLAY" : "\u23F8 PAUSE", false); bx += btnW + BTN_GAP;
+            renderTransport(g, mx, my, bx, cy, btnW, "\u25A0 STOP", false); bx += btnW + BTN_GAP;
+            renderTransport(g, mx, my, bx, cy, btnW, "\u23ED NEXT", false); bx += btnW + BTN_GAP;
+            String repLabel = switch (player.getRepeatMode()) {
+                case OFF -> "\u21BB OFF";
+                case ALL -> "\u21BB ALL";
+                case ONE -> "\u21BB 1";
+            };
+            renderTransport(g, mx, my, bx, cy, btnW, repLabel, player.getRepeatMode() != MusicPlayer.RepeatMode.OFF);
+            int shufX = bx + btnW + BTN_GAP;
 
-            int volY = cy + BTN_H + BTN_GAP;
+            // Shuffle toggle (small, below or beside). Put it on a second mini-row to avoid overflow.
+            int shufY = cy + BTN_H + BTN_GAP;
+            renderTransport(g, mx, my, m + Spacing.S2, shufY, btnW, "\u00BD SHUF", player.isShuffle());
+            shuffleBtnY = shufY; shuffleBtnX = m + Spacing.S2; shuffleBtnW = btnW;
+
+            int volY = shufY + BTN_H + BTN_GAP;
             renderVolumeSlider(g, mx, my, m + Spacing.S2, volY, aw - Spacing.S4, accent);
+
+            // Queue list
+            int qTop = volY + BTN_H + Spacing.S2;
+            int qBottom = y + (height - y - Spacing.S6) - Spacing.S2;
+            if (qBottom - qTop > 40) {
+                renderQueue(g, mx, my, m, aw, qTop, qBottom, accent);
+            }
         } else {
             g.text(font, Component.literal("No track loaded"), m + Spacing.S2, ny, Theme.TEXT_DIM);
+            if (!player.isBackendAvailable()) {
+                int ey = ny + Spacing.S3;
+                g.text(font, Component.literal("\u26A0 No audio backend — install pulseaudio / pipewire / alsa"),
+                    m + Spacing.S2, ey, Theme.DESTRUCTIVE);
+            }
         }
     }
 
-    private void renderButton(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String label) {
+    private void renderTransport(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, String label, boolean active) {
         boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + BTN_H;
-        Panel.draw(g, x, y, w, BTN_H, ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220));
-        g.centeredText(font, Component.literal(label), x + w / 2, y + 4, hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
+        int base = active ? ColorUtil.withAlpha(Theme.PRIMARY, 180)
+            : (hover ? ColorUtil.withAlpha(Theme.BG_HOVER, 220) : ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 220));
+        Panel.draw(g, x, y, w, BTN_H, base);
+        g.centeredText(font, Component.literal(label), x + w / 2, y + 4,
+            active ? Theme.PRIMARY_FOREGROUND : (hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT));
     }
-
-    private int volumeSliderX;
-    private int volumeSliderW;
-    private int nowPlayingBtnY;
 
     private void renderVolumeSlider(GuiGraphicsExtractor g, int mx, int my, int x, int y, int w, int accent) {
         int labelW = font.width("Volume") + 6;
@@ -256,13 +295,74 @@ public class MusicScreen extends Screen {
         int vf = (int) (vsW * (vol / 100f));
         boolean hoverVol = mx >= barX && mx <= barX + vsW && my >= sy && my <= sy + BAR_H;
 
-        g.fill(barX, sy, barX + vsW, sy + BAR_H, 0xFF333355);
+        g.fill(barX, sy, barX + vsW, sy + BAR_H, Theme.MUTED);
         if (vf > 0) {
-            g.fill(barX, sy, barX + vf, sy + BAR_H, hoverVol ? 0xFF77CCFF : accent);
+            g.fill(barX, sy, barX + vf, sy + BAR_H, accent);
         }
 
         String pct = (int) vol + "%";
         g.text(font, Component.literal(pct), barX + vsW + 4, y + 4, hoverVol ? Theme.TEXT : Theme.TEXT_DIM);
+    }
+
+    private void renderQueue(GuiGraphicsExtractor g, int mx, int my, int m, int aw, int top, int bottom, int accent) {
+        List<AudioTrack> q = player.getQueue();
+        g.text(font, Component.literal("QUEUE (" + q.size() + ")"), m + Spacing.S2, top, Theme.MUTED_FOREGROUND);
+
+        int listY = top + Spacing.S2 + 10;
+        int listH = bottom - listY;
+        if (listH <= 0) return;
+
+        int rowH = queueRowH;
+        int rows = Math.max(1, listH / rowH);
+        int total = q.size();
+
+        // Clamp scroll
+        int maxScroll = Math.max(0, total - rows);
+        if (queueScroll > maxScroll) queueScroll = maxScroll;
+        if (queueScroll < 0) queueScroll = 0;
+        queueRows = rows;
+
+        int x = m + Spacing.S2;
+        int w = aw - Spacing.S4;
+        queueListX = x; queueListY = listY; queueListW = w;
+
+        // Clip to list area
+        g.enableScissor(x, listY, x + w, bottom);
+
+        int cur = player.getQueueIndex();
+        int maxTextW = w - 40;
+        for (int i = 0; i < rows; i++) {
+            int idx = i + queueScroll;
+            if (idx >= total) break;
+            AudioTrack track = q.get(idx);
+            int ry = listY + i * rowH;
+            boolean ho = my >= ry && my <= ry + rowH && mx >= x && mx <= x + w;
+            boolean playing = idx == cur;
+
+            if (playing) {
+                g.fill(x, ry, x + w, ry + rowH, ColorUtil.withAlpha(accent, 40));
+                g.fill(x, ry, x + 2, ry + rowH, accent);
+            } else if (ho) {
+                g.fill(x, ry, x + w, ry + rowH, ColorUtil.withAlpha(Theme.BG_HOVER, 120));
+            }
+
+            String text = (idx + 1) + ". " + sanitizeMeta(track.getInfo().title);
+            if (track.getInfo().author != null && !track.getInfo().author.equals("Unknown")) {
+                text += " - " + sanitizeMeta(track.getInfo().author);
+            }
+            if (font.width(text) > maxTextW) text = font.plainSubstrByWidth(text, maxTextW - 4) + "...";
+            int col = playing ? Theme.FOREGROUND : (ho ? Theme.TEXT : Theme.TEXT_DIM);
+            g.text(font, Component.literal(text), x + 6, ry + 3, col);
+        }
+
+        g.disableScissor();
+
+        // Scroll indicator
+        if (total > rows) {
+            float thumbH = (float) rows / total * listH;
+            float thumbY = listY + (queueScroll / (float) Math.max(1, maxScroll)) * (listH - thumbH);
+            g.fill(x + w - 2, (int) thumbY, x + w, (int) (thumbY + thumbH), ColorUtil.withAlpha(accent, 160));
+        }
     }
 
     // --- Input ---
@@ -343,6 +443,7 @@ public class MusicScreen extends Screen {
         int aw = availW();
         int fh = 18;
         int loadW = 36;
+        int folderW = 56;
 
         // Close button
         if (mx >= width - 18 && mx <= width - 6 && my >= Spacing.S2 + 4 && my <= Spacing.S2 + 16) {
@@ -352,9 +453,10 @@ public class MusicScreen extends Screen {
 
         // Search field
         int sy = Spacing.S6 + Spacing.S1;
-        int fieldW = aw - BTN_GAP - loadW - Spacing.S2 * 2;
+        int fieldW = aw - BTN_GAP * 2 - loadW - folderW - Spacing.S2 * 2;
         int fr = m + Spacing.S1 + fieldW;
         int lx = fr + BTN_GAP;
+        int fx = lx + loadW + BTN_GAP;
 
         if (mx >= m + Spacing.S1 && mx <= fr && my >= sy && my <= sy + fh) {
             urlFocused = true; selectedResult = -1;
@@ -362,6 +464,7 @@ public class MusicScreen extends Screen {
             return true;
         }
         if (mx >= lx && mx <= lx + loadW && my >= sy && my <= sy + fh) { goAction(); return true; }
+        if (mx >= fx && mx <= fx + folderW && my >= sy && my <= sy + fh) { loadFolderAction(); return true; }
         urlFocused = false;
 
         // Results
@@ -381,24 +484,33 @@ public class MusicScreen extends Screen {
         if (player.hasTrack()) {
             int npY = nowPlayingBtnY;
             if (npY == 0) return super.mouseClicked(event, doubleClick);
-            int btnW = Math.min(90, (aw - Spacing.S8 - BTN_GAP) / 2);
+            int btnW = Math.min(64, (aw - Spacing.S10 - BTN_GAP * 4) / 5);
+            int bx = m + Spacing.S2;
 
-            if (mx >= m + Spacing.S2 && mx <= m + Spacing.S2 + btnW && my >= npY && my <= npY + BTN_H) {
-                player.togglePause(); return true;
-            }
-            if (mx >= m + Spacing.S2 + btnW + BTN_GAP && mx <= m + Spacing.S2 + btnW * 2 + BTN_GAP && my >= npY && my <= npY + BTN_H) {
-                player.stop(); setStatus("Stopped"); return true;
+            if (mx >= bx && mx <= bx + btnW && my >= npY && my <= npY + BTN_H) { player.previous(); return true; }
+            bx += btnW + BTN_GAP;
+            if (mx >= bx && mx <= bx + btnW && my >= npY && my <= npY + BTN_H) { player.togglePause(); return true; }
+            bx += btnW + BTN_GAP;
+            if (mx >= bx && mx <= bx + btnW && my >= npY && my <= npY + BTN_H) { player.stop(); setStatus("Stopped"); return true; }
+            bx += btnW + BTN_GAP;
+            if (mx >= bx && mx <= bx + btnW && my >= npY && my <= npY + BTN_H) { player.next(); return true; }
+            bx += btnW + BTN_GAP;
+            if (mx >= bx && mx <= bx + btnW && my >= npY && my <= npY + BTN_H) { player.cycleRepeatMode(); return true; }
+
+            if (mx >= shuffleBtnX && mx <= shuffleBtnX + shuffleBtnW && my >= shuffleBtnY && my <= shuffleBtnY + BTN_H) {
+                player.setShuffle(!player.isShuffle()); return true;
             }
 
-            int progressBarY = npY - Spacing.S3 - 2;
-            if (mx >= m + Spacing.S2 && mx <= m + aw - Spacing.S2 && my >= progressBarY && my <= progressBarY + BAR_H) {
-                float pct = (float) Math.max(0, Math.min(1, (mx - m - Spacing.S2) / (aw - Spacing.S4)));
+            // Click-to-seek (also begins drag)
+            if (nowPlayingBarW > 0 && mx >= nowPlayingBarX && mx <= nowPlayingBarX + nowPlayingBarW
+                && my >= npY - Spacing.S3 - 2 && my <= npY - Spacing.S3 - 2 + BAR_H) {
+                float pct = Mth.clamp((float) (mx - nowPlayingBarX) / nowPlayingBarW, 0, 1);
                 player.seek((long) (player.getDuration() * pct));
                 draggingProgress = true;
                 return true;
             }
 
-            int volY = npY + BTN_H + BTN_GAP;
+            int volY = shuffleBtnY + BTN_H + BTN_GAP;
             int labelW = font.width("Volume") + 6;
             int barX = m + Spacing.S2 + labelW + 2;
             int vsW = aw - Spacing.S4 - labelW - font.width(" 100%") - 4;
@@ -410,9 +522,33 @@ public class MusicScreen extends Screen {
                 draggingVolume = true;
                 return true;
             }
+
+            // Queue list click-to-jump
+            if (queueRows > 0 && mx >= queueListX && mx <= queueListX + queueListW
+                && my >= queueListY && my <= queueListY + queueRows * queueRowH) {
+                int row = (int) ((my - queueListY) / queueRowH);
+                int idx = row + queueScroll;
+                if (idx >= 0 && idx < player.getQueue().size()) {
+                    player.playQueueItem(idx);
+                    return true;
+                }
+            }
         }
 
         return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if (player.hasTrack() && queueRows > 0
+            && mouseX >= queueListX && mouseX <= queueListX + queueListW
+            && mouseY >= queueListY && mouseY <= queueListY + queueRows * queueRowH) {
+            int total = player.getQueue().size();
+            int maxScroll = Math.max(0, total - queueRows);
+            queueScroll = Mth.clamp(queueScroll - (int) deltaY, 0, maxScroll);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
     }
 
     @Override
@@ -423,11 +559,9 @@ public class MusicScreen extends Screen {
             player.setSliderVolume(Mth.clamp(pct * 100, 0, 100));
             return true;
         }
-        if (draggingProgress && player.hasTrack()) {
-            int m = margin();
-            int aw = availW();
-            float pct = (float) ((mx - m - Spacing.S2) / (aw - Spacing.S4));
-            player.seek((long) (player.getDuration() * Mth.clamp(pct, 0, 1)));
+        if (draggingProgress && player.hasTrack() && nowPlayingBarW > 0) {
+            float pct = Mth.clamp((float) (mx - nowPlayingBarX) / nowPlayingBarW, 0, 1);
+            player.seek((long) (player.getDuration() * pct));
             return true;
         }
         return super.mouseDragged(event, dx, dy);
@@ -486,12 +620,22 @@ public class MusicScreen extends Screen {
         }
     }
 
+    private void loadFolderAction() {
+        String input = urlText.toString().trim();
+        if (input.isEmpty()) { setStatus("Paste a folder path first"); return; }
+        setStatus("Loading folder...");
+        player.loadLocalFolder(input);
+    }
+
     private void playResult(int index) {
         if (index < 0 || index >= searchResults.size()) return;
         AudioTrack track = searchResults.get(index);
         selectedResult = index;
         setStatus("\u25B6  Loading: " + track.getInfo().title);
-        player.loadAndPlay(track.getInfo().uri);
+        // Queue the whole result set starting at this track.
+        List<AudioTrack> clone = new java.util.ArrayList<>();
+        for (AudioTrack t : searchResults) clone.add(t.makeClone());
+        player.playList(clone, index);
     }
 
     public void setStatus(String msg) { statusText = msg; statusTimer = 80; }
@@ -523,4 +667,13 @@ public class MusicScreen extends Screen {
         }
         return sb.toString();
     }
+
+    private int volumeSliderX;
+    private int volumeSliderW;
+    private int nowPlayingBtnY;
+    private int nowPlayingBarX;
+    private int nowPlayingBarW;
+    private int shuffleBtnX;
+    private int shuffleBtnY;
+    private int shuffleBtnW;
 }

@@ -23,7 +23,6 @@ public class ArmorHudModule extends HudModule {
     private static final int LABEL_W = 80;
     private static final int BG = 0x66000000;
 
-    private final HudBackground bg = new HudBackground();
     private final ModeSetting durabilityMode = new ModeSetting(
         "Durability Mode", new String[]{"Bar+%", "% only", "Num", "Bar only", "Bar+Num"}, 0
     );
@@ -40,7 +39,7 @@ public class ArmorHudModule extends HudModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        List<Setting<?>> s = new ArrayList<>();
         s.add(durabilityMode); s.add(showHeld);
         return s;
     }
@@ -74,7 +73,7 @@ public class ArmorHudModule extends HudModule {
 
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
         int ry = y;
-        bg.draw(g, rx, ry, getWidth(), getHeight());
+        HudBackground.draw(g, rx, ry, getWidth(), getHeight());
 
         int cy = ry + MARGIN;
 

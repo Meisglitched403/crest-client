@@ -49,6 +49,13 @@ public class EncoderProbe {
 
         encoderList = found.toArray(new String[0]);
 
+        // Detect a usable VAAPI render device so we can hardware-encode on Intel/AMD Linux.
+        if (found.contains("h264_vaapi") || found.contains("hevc_vaapi")) {
+            for (String dev : new String[]{"/dev/dri/renderD128", "/dev/dri/renderD129", "/dev/dri/card0"}) {
+                if (new java.io.File(dev).exists()) { vaapiDevice = dev; break; }
+            }
+        }
+
         // pick best: nvenc > amf > videotoolbox > qsv > libx264
         for (String[] enc : ENCODERS) {
             if (found.contains(enc[0])) {
@@ -73,6 +80,17 @@ public class EncoderProbe {
         return 1; // medium for HW
     }
 
+    public static boolean isVaapi(String encoder) {
+        return encoder.endsWith("_vaapi");
+    }
+
+    // Path to a VAAPI render device, or null if unavailable.
+    private static String vaapiDevice;
+
+    public static String getVaapiDevice() { return vaapiDevice; }
+
+    public static boolean hasVaapiDevice() { return vaapiDevice != null; }
+
     // --- Audio backend probing ---
 
     private static String audioBackend = "pulse";
@@ -80,6 +98,19 @@ public class EncoderProbe {
 
     static {
         probeAudio();
+        probeVaapi();
+    }
+
+    private static void probeVaapi() {
+        // Only probe if VAAPI encoders are available
+        for (String[] enc : ENCODERS) {
+            if (enc[0].endsWith("_vaapi")) {
+                for (String dev : new String[]{"/dev/dri/renderD128", "/dev/dri/renderD129", "/dev/dri/card0"}) {
+                    if (new java.io.File(dev).exists()) { vaapiDevice = dev; return; }
+                }
+                break;
+            }
+        }
     }
 
     private static void probeAudio() {
@@ -134,14 +165,19 @@ public class EncoderProbe {
     // Returns the backend that actually works with ffmpeg
     public static String getWorkingAudioBackend() {
         // Try pipewire first, but fall back to pulse if pipewire format not supported
-if (audioBackend.equals("pipewire")) {
-            // Check if ffmpeg supports pipewire format
+        if (audioBackend.equals("pipewire")) {
+            // Check if ffmpeg supports the pipewire input format
             try {
-                Process p = new ProcessBuilder("ffmpeg", "-hide_banner", "-formats", "|grep", " pipewire ").start();
-                if (p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS) && p.exitValue() == 0) {
-                    // pipewire format is supported
-                    return "pipewire";
+                Process p = new ProcessBuilder("ffmpeg", "-hide_banner", "-formats").start();
+                try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        if (line.contains("pipewire")) {
+                            return "pipewire";
+                        }
+                    }
                 }
+                p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
             } catch (Exception ignored) {}
             // Fall back to pulse
             return "pulse";

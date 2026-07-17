@@ -8,8 +8,6 @@ import net.minecraft.network.chat.Component;
 import com.crest.client.core.setting.Setting;
 
 public class FpsModule extends HudModule {
-    private final HudBackground bg = new HudBackground();
-
     private int cachedFps = -1;
     private String cachedText;
     private int cachedWidth;
@@ -33,7 +31,7 @@ public class FpsModule extends HudModule {
 
     @Override
     public java.util.List<Setting<?>> getSettings() {
-        return bg.settings();
+        return java.util.List.of();
     }
 
     @Override
@@ -73,7 +71,7 @@ public class FpsModule extends HudModule {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 4 : x;
         int ry = y;
 
-        bg.draw(g, rx, ry, w + 4, mc.font.lineHeight + 4);
+        HudBackground.draw(g, rx, ry, w + 4, mc.font.lineHeight + 4);
         g.text(mc.font, cachedComp, rx + 2, ry + 2, color);
     }
 

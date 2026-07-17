@@ -22,7 +22,6 @@ public class TeamViewModule extends HudModule {
     private static final int PAD = 2;
     private static final int LINE_H = 10;
 
-    private final HudBackground bg = new HudBackground();
     private final BooleanSetting showMembers = new BooleanSetting("Show Members", true);
     private final BooleanSetting onlyMyTeam = new BooleanSetting("Only My Team", false);
 
@@ -37,7 +36,7 @@ public class TeamViewModule extends HudModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        List<Setting<?>> s = new ArrayList<>();
         s.add(showMembers);
         s.add(onlyMyTeam);
         return s;
@@ -100,7 +99,7 @@ public class TeamViewModule extends HudModule {
         int boxH = lines.size() * LINE_H + PAD * 2;
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;
-        bg.draw(g, rx, ry, boxW, boxH);
+        HudBackground.draw(g, rx, ry, boxW, boxH);
 
         int cy = ry + PAD;
         for (int i = 0; i < lines.size(); i++) {

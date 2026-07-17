@@ -21,7 +21,6 @@ public class StopwatchModule extends HudModule {
     private static final int PAD = 2;
     private static final int LINE_H = 10;
 
-    private final HudBackground bg = new HudBackground();
     private final KeybindSetting toggleKey = new KeybindSetting("Toggle Key", GLFW.GLFW_KEY_H);
     private final BooleanSetting showMillis = new BooleanSetting("Show Milliseconds", true);
 
@@ -41,7 +40,7 @@ public class StopwatchModule extends HudModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        List<Setting<?>> s = new ArrayList<>();
         s.add(toggleKey);
         s.add(showMillis);
         return s;
@@ -84,7 +83,7 @@ public class StopwatchModule extends HudModule {
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;
-        bg.draw(g, rx, ry, boxW, boxH);
+        HudBackground.draw(g, rx, ry, boxW, boxH);
 
         int color = running ? 0xFFFFFFFF : 0xFFAAAAAA;
         g.text(mc.font, Component.literal(txt), rx + PAD, ry + PAD, color);

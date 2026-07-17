@@ -39,6 +39,7 @@
         "RightClickDelayAccessor",
 
         "ParticleEngineMixin",
+        "PlayerHealthIndicatorMixin",
         "ItemStackTooltipMixin",
         "ItemEntityMixin",
         "ScreenTooltipMixin",

@@ -50,7 +50,8 @@ public class StreamerSettingsScreen extends Screen {
         for (int i = 0; i < SCALES.length; i++) { if (SCALES[i].equals(currentScale)) { scaleIdx = i; break; } }
         this.audioEnabled = module.isAudioEnabled();
         this.recordWhileStreaming = module.isRecordWhileStreaming();
-        this.audioDeviceText = module.isAudioEnabled() ? EncoderProbe.getAudioDevices()[0] : module.getAudioDevice();
+        String cfg = module.getAudioDevice();
+        this.audioDeviceText = (cfg == null || cfg.isBlank() || cfg.equals("default")) ? "" : cfg;
         this.streaming = Streamer.isStreaming();
 
         String[] encoders = EncoderProbe.getAvailableEncoders();
@@ -334,7 +335,7 @@ public class StreamerSettingsScreen extends Screen {
         }
         if (audioFocused) {
             audioDeviceText += event.codepointAsString();
-            module.getAudioDevice();
+            module.setAudioDevice(audioDeviceText);
             return true;
         }
         return super.charTyped(event);
@@ -353,16 +354,9 @@ public class StreamerSettingsScreen extends Screen {
             if (key == 257 || key == 335) { urlFocused = false; return true; }
         }
 if (audioFocused) {
-    if (audioEnabled) {
-        // When audio is enabled, use the detected device name(s) instead of user input
-        String[] devices = EncoderProbe.getAudioDevices();
-        if (devices != null && devices.length > 0) {
-            audioDeviceText = devices[0];  // Use the first (actual) device
-        }
-        return true;
-    }
     if (key == 259 && !audioDeviceText.isEmpty()) {
         audioDeviceText = audioDeviceText.substring(0, audioDeviceText.length() - 1);
+        module.setAudioDevice(audioDeviceText);
         return true;
     }
     if (key == 257 || key == 335) { audioFocused = false; return true; }
@@ -371,52 +365,21 @@ if (audioFocused) {
     }
 
     private void saveAndClose() {
-        module.getSettings();
         // Save scale
-        try {
-            var f = module.getClass().getDeclaredField("scale");
-            f.setAccessible(true);
-            var setting = f.get(module);
-            for (int i = 0; i < SCALES.length; i++) {
-                if (i == scaleIdx) { setting.getClass().getMethod("set", Object.class).invoke(setting, i); break; }
-            }
-        } catch (Exception ignored) {}
+        module.setScale(scaleIdx);
         // Save audio device
-        try {
-            var f = module.getClass().getDeclaredField("audioDevice");
-            f.setAccessible(true);
-            var setting = f.get(module);
-            setting.getClass().getMethod("set", Object.class).invoke(setting, audioDeviceText);
-        } catch (Exception ignored) {}
+        module.setAudioDevice(audioDeviceText);
+        module.setAudioEnabled(audioEnabled);
+        module.setRecordWhileStreaming(recordWhileStreaming);
         // Save encoder choice
         String[] encoders = EncoderProbe.getAvailableEncoders();
         if (encoderIdx >= 0 && encoderIdx < encoders.length) {
-            try {
-                var f = module.getClass().getDeclaredField("encoder");
-                f.setAccessible(true);
-                var setting = f.get(module);
-                for (int i = 0; i < encoders.length; i++) {
-                    if (encoders[i].equals(encoders[encoderIdx])) {
-                        setting.getClass().getMethod("set", Object.class).invoke(setting, i);
-                        break;
-                    }
-                }
-            } catch (Exception ignored) {}
+            module.setEncoder(encoders[encoderIdx]);
         }
         // Save preset
         String[] presets = EncoderProbe.getPresets(encoders[Math.min(encoderIdx, encoders.length - 1)]);
         if (presetIdx >= 0 && presetIdx < presets.length) {
-            try {
-                var f = module.getClass().getDeclaredField("encoderPreset");
-                f.setAccessible(true);
-                var setting = f.get(module);
-                for (int i = 0; i < presets.length; i++) {
-                    if (presets[i].equals(presets[presetIdx])) {
-                        setting.getClass().getMethod("set", Object.class).invoke(setting, i);
-                        break;
-                    }
-                }
-            } catch (Exception ignored) {}
+            module.setEncoderPreset(presets[presetIdx]);
         }
         minecraft.setScreen(parent);
     }
@@ -432,12 +395,7 @@ if (audioFocused) {
         float frac = (float)((mx - left) / cw);
         frac = Math.min(Math.max(frac, 0), 1);
         streamFps = Math.round(15 + frac * 105);
-        try {
-            var f = module.getClass().getDeclaredField("fps");
-            f.setAccessible(true);
-            var setting = f.get(module);
-            setting.getClass().getMethod("set", Object.class).invoke(setting, streamFps);
-        } catch (Exception ignored) {}
+        module.setFps(streamFps);
     }
 
     private void toggleStreaming() {

@@ -90,9 +90,19 @@ public class ReplayBuffer {
         frameCounter++;
         if (frameCounter % storeInterval != 0) return;
 
-        // Hand the raw buffer to the downscale worker; reuse the buffer afterwards.
+        // ponytail: copy the frame data so the original buffer can be reused
+        // immediately by the encoder or returned to the free pool. Without this
+        // copy the downscale thread races with the encoder (read-vs-read) and
+        // with the capture thread reusing the buffer for the next frame (read-vs-write).
+        ByteBuffer copy = ByteBuffer.allocateDirect(src.limit());
+        int pos = src.position();
+        src.position(0);
+        copy.put(src);
+        copy.flip();
+        src.position(pos);
+
         RawFrame f = new RawFrame();
-        f.src = src;
+        f.src = copy;
         f.srcW = srcW;
         f.srcH = srcH;
         if (!pending.offer(f)) {

@@ -23,7 +23,6 @@ public class BiomeModule extends HudModule {
     private static final int LINE_HEIGHT = 10;
     private static final int PADDING = 2;
 
-    private final HudBackground bg = new HudBackground();
     private final BooleanSetting showName = new BooleanSetting("Show Biome Name", true);
     private final BooleanSetting showId = new BooleanSetting("Show Registry ID", false);
     private final BooleanSetting showCoords = new BooleanSetting("Show Coordinates", false);
@@ -39,7 +38,7 @@ public class BiomeModule extends HudModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        List<Setting<?>> s = new ArrayList<>();
         s.add(showName); s.add(showId); s.add(showCoords);
         return s;
     }
@@ -90,7 +89,7 @@ public class BiomeModule extends HudModule {
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;
-        bg.draw(g, rx, ry, boxW, boxH);
+        HudBackground.draw(g, rx, ry, boxW, boxH);
 
         int cy = ry + PADDING;
         if (showName.get()) { g.text(mc.font, Component.literal("Biome: " + nameCache), rx + PADDING, cy, 0xFF88CCFF); cy += LINE_HEIGHT; }

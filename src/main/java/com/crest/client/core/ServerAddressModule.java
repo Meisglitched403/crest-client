@@ -39,7 +39,7 @@ public class ServerAddressModule extends HudModule {
 
     private void renderText(GuiGraphicsExtractor g, Minecraft mc, String text) {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
-        g.fill(rx, y, rx + getWidth(), y + mc.font.lineHeight + 4, 0x66000000);
+        HudBackground.draw(g, rx, y, getWidth(), mc.font.lineHeight + 4);
         g.text(mc.font, Component.literal(text), rx + 2, y + 2, 0xFFFFFFFF);
     }
 }

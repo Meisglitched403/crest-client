@@ -19,8 +19,6 @@ public class CpsModule extends HudModule {
     private static final int GRAPH_W = 60;
     private static final int GRAPH_H = 14;
 
-    private final HudBackground bg = new HudBackground();
-
     private final java.util.Deque<Integer> leftHist = new java.util.ArrayDeque<>();
     private final java.util.Deque<Integer> rightHist = new java.util.ArrayDeque<>();
     private int sampleTick;
@@ -36,7 +34,7 @@ public class CpsModule extends HudModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return new ArrayList<>(bg.settings());
+        return List.of();
     }
 
     @Override
@@ -64,7 +62,7 @@ public class CpsModule extends HudModule {
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;
-        bg.draw(g, rx, ry, boxW, boxH);
+        HudBackground.draw(g, rx, ry, boxW, boxH);
 
         int textY = ry + PAD;
         String txt = "L " + CpsTracker.leftCps() + "  R " + CpsTracker.rightCps();

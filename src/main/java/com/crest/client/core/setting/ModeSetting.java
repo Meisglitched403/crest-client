@@ -17,6 +17,12 @@ public class ModeSetting extends Setting<Integer> {
     public String[] getModes() { return modes; }
     public String getMode() { return modes[get()]; }
 
+    public void setMode(String mode) {
+        for (int i = 0; i < modes.length; i++) {
+            if (modes[i].equals(mode)) { set(i); return; }
+        }
+    }
+
     public void cycle() {
         set((get() + 1) % modes.length);
     }

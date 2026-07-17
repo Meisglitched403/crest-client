@@ -49,7 +49,7 @@ public class PotionHudModule extends HudModule {
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
         Collection<MobEffectInstance> effects = mc.player.getActiveEffects();
         if (effects.isEmpty()) {
-            g.fill(rx, y, rx + getWidth(), y + getHeight(), BG);
+            HudBackground.draw(g, rx, y, getWidth(), getHeight());
             g.text(mc.font, Component.literal("No effects"), rx + PAD, y + PAD, 0xFF888888);
             return;
         }
