@@ -53,11 +53,34 @@ public class ReplayTickMixin {
         if (sp.eof()) StatePlayerHolder.stop();
     }
 
+    // ponytail: cache reflected Methods once (setAccessible once) instead of
+    // doing getDeclaredMethod + setAccessible per packet / per key event.
+    private static volatile Method channelRead0;
+    private static volatile Method keyPress;
+
+    private static Method getChannelRead0() throws NoSuchMethodException {
+        Method m = channelRead0;
+        if (m == null) {
+            m = Connection.class.getDeclaredMethod("channelRead0", ChannelHandlerContext.class, net.minecraft.network.protocol.Packet.class);
+            m.setAccessible(true);
+            channelRead0 = m;
+        }
+        return m;
+    }
+
+    private static Method getKeyPress() throws NoSuchMethodException {
+        Method m = keyPress;
+        if (m == null) {
+            m = KeyboardHandler.class.getDeclaredMethod("keyPress", long.class, int.class, int.class, int.class, int.class);
+            m.setAccessible(true);
+            keyPress = m;
+        }
+        return m;
+    }
+
     private static void invokeChannelRead(Connection conn, net.minecraft.network.protocol.Packet<?> pkt) {
         try {
-            Method m = Connection.class.getDeclaredMethod("channelRead0", ChannelHandlerContext.class, net.minecraft.network.protocol.Packet.class);
-            m.setAccessible(true);
-            m.invoke(conn, (ChannelHandlerContext) null, pkt);
+            getChannelRead0().invoke(conn, (ChannelHandlerContext) null, pkt);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -65,9 +88,7 @@ public class ReplayTickMixin {
 
     private static void invokeKeyPress(KeyboardHandler kb, long window, int key, int scancode, int action, int mods) {
         try {
-            Method m = KeyboardHandler.class.getDeclaredMethod("keyPress", long.class, int.class, int.class, int.class, int.class);
-            m.setAccessible(true);
-            m.invoke(kb, window, key, scancode, action, mods);
+            getKeyPress().invoke(kb, window, key, scancode, action, mods);
         } catch (Exception e) {
             e.printStackTrace();
         }

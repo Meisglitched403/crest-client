@@ -87,6 +87,8 @@ public class WaypointsModule implements CrestModule, RenderableModule {
         Vec3 cameraPos = camera.position();
         Quaternionf cameraRot = new Quaternionf(camera.rotation());
         cameraRot.conjugate();
+        // ponytail: reuse a single scratch vector across all waypoints per frame
+        Vector3f viewSpace = new Vector3f();
 
         int screenW = mc.getWindow().getGuiScaledWidth();
         int screenH = mc.getWindow().getGuiScaledHeight();
@@ -107,7 +109,7 @@ public class WaypointsModule implements CrestModule, RenderableModule {
             if (distSq > maxDistSq) continue;
             if (distSq < 1) continue;
 
-            Vector3f viewSpace = new Vector3f((float) dx, (float) dy, (float) dz);
+            viewSpace.set((float) dx, (float) dy, (float) dz);
             cameraRot.transform(viewSpace);
 
             float screenX, screenY;
@@ -129,12 +131,20 @@ public class WaypointsModule implements CrestModule, RenderableModule {
             g.fill((int) screenX - 3, (int) screenY - 3, (int) screenX + 3, (int) screenY + 3, color);
 
             if (showLabels.get()) {
+                // ponytail: cache the label + measured width on the waypoint; only
+                // rebuild when the name or rounded distance bucket changes.
                 String label = wp.getName();
                 if (showDistance.get()) {
-                    double dist = Math.sqrt(distSq);
-                    label += " (" + String.format("%.0f", dist) + "m)";
+                    int distRounded = (int) Math.sqrt(distSq);
+                    String cacheKey = wp.getName() + ":" + distRounded;
+                    String cached = wp.getCachedLabel();
+                    if (!cacheKey.equals(cached)) {
+                        wp.setCachedLabel(cacheKey, wp.getName() + " (" + distRounded + "m)", mc.font.width(wp.getName() + " (" + distRounded + "m)"));
+                    }
+                    label = wp.getCachedLabelText();
                 }
-                int labelW = mc.font.width(label);
+                int labelW = wp.getCachedLabelWidth();
+                if (showDistance.get() && labelW <= 0) labelW = mc.font.width(label);
                 int lx = (int) screenX - labelW / 2;
                 int ly = (int) screenY + 5;
                 g.fill(lx - 1, ly - 1, lx + labelW + 1, ly + mc.font.lineHeight + 1, 0x66000000);

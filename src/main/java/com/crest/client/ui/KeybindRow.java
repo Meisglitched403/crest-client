@@ -24,19 +24,28 @@ public class KeybindRow implements Widget {
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
-        int labelW = font.width(setting.getName()) + 4;
-        String keyName = capturing ? "..." : setting.getKeyName();
-        int keyW = font.width("[" + keyName + "]") + 14;
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+
+        String keyName = capturing ? "Press a key..." : setting.getKeyName();
+        int keyW = font.width(keyName) + 16;
         int keyX = x + w - keyW - 4;
 
         boolean hover = mx >= keyX && mx <= keyX + keyW && my >= y && my <= y + H;
-        int bg = ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220);
-        if (capturing) bg = ColorUtil.withAlpha(Theme.BG_SELECT, 240);
+        int bg;
+        if (capturing) {
+            bg = ColorUtil.withAlpha(Theme.BG_SELECT, 240);
+        } else if (hover) {
+            bg = ColorUtil.withAlpha(Theme.BG_HOVER, 220);
+        } else {
+            bg = ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 200);
+        }
         g.fill(keyX, y + 2, keyX + keyW, y + H - 2, bg);
-        g.centeredText(font, Component.literal("[" + keyName + "]"), keyX + keyW / 2, y + 4,
-            capturing ? Theme.getAnimatedAccent() : hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
+        if (capturing) {
+            g.fill(keyX, y + 2, keyX + keyW, y + 3, Theme.getAnimatedAccent());
+        }
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        int textColor = capturing ? Theme.getAnimatedAccent() : (hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
+        g.centeredText(font, Component.literal(keyName), keyX + keyW / 2, y + 4, textColor);
     }
 
     @Override

@@ -22,7 +22,7 @@ public class EventBus {
     public <T extends Event> void post(T event) {
         List<Consumer<?>> list = listeners.get(event.getClass());
         if (list != null) {
-            for (Consumer<?> listener : List.copyOf(list)) {
+            for (Consumer<?> listener : list) {
                 ((Consumer<T>) listener).accept(event);
             }
         }

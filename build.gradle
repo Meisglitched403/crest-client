@@ -28,6 +28,11 @@ dependencies {
 
     shadow 'dev.arbjerg:lavaplayer:2.2.6'
     implementation 'dev.arbjerg:lavaplayer:2.2.6'
+
+    // ponytail: Sodium is the block mesher in our environment; the Block LOD mixin
+    // targets Sodium internals, so it must be on the compile classpath. compileOnly
+    // on the local mod jar includes it for compilation but does NOT bundle/shade it.
+    compileOnly files("run/mods/sodium-fabric-0.9.1+mc26.1.2.jar")
 }
 
 shadowJar {

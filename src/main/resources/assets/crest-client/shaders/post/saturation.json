@@ -1,0 +1,22 @@
+{
+  "targets": {
+  },
+  "passes": [
+    {
+      "vertexShaderId": "minecraft:position_tex",
+      "fragmentShaderId": "crest-client:saturation",
+      "inputs": [
+        {
+          "samplerName": "InSampler",
+          "targetId": "previous",
+          "useDepthBuffer": false,
+          "bilinear": false
+        }
+      ],
+      "outputTarget": "final",
+      "uniforms": {
+        "Saturation": [1.0]
+      }
+    }
+  ]
+}

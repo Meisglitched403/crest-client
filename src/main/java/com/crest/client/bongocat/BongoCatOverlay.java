@@ -3,47 +3,64 @@ package com.crest.client.bongocat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
 
+/**
+ * ponytail: Faithful Bongo Cat overlay using the REAL bongo-cat-obs sprites
+ * (cat-rest / cat-left / cat-right), baked rotated -13deg so they display like
+ * the plugin. Behavior mirrors the plugin:
+ *   - idle "breathing": whole cat subtly scales vertically (sine).
+ *   - LEFT paw rises when WASD / Shift / Ctrl are held (cat-left image).
+ *   - RIGHT paw "holds the mouse": the cat-right image follows the cursor
+ *     smoothly (smoothed offset) and shows the raised right paw while moving.
+ */
 public class BongoCatOverlay {
-    private static final Identifier BODY = Identifier.fromNamespaceAndPath("bongocat", "textures/body.png");
-    private static final Identifier LEFT_DOWN = Identifier.fromNamespaceAndPath("bongocat", "textures/paw_left_down.png");
-    private static final Identifier LEFT_UP = Identifier.fromNamespaceAndPath("bongocat", "textures/paw_left_up.png");
-    private static final Identifier RIGHT_DOWN = Identifier.fromNamespaceAndPath("bongocat", "textures/paw_right_down.png");
-    private static final Identifier RIGHT_UP = Identifier.fromNamespaceAndPath("bongocat", "textures/paw_right_up.png");
+    // smoothed mouse-follow offset (in display px, pre-scale)
+    private static float followX, followY;
+    private static long animT;
 
-    private static final float ASPECT = 397.0f / 201.0f;
-    private static final int BASE_HEIGHT = 40;
-
-    public static void render(GuiGraphicsExtractor g, Minecraft mc, InputTracker input, BongoCatConfig config) {
+    public static void render(GuiGraphicsExtractor g, Minecraft mc, InputTracker input, BongoCatConfig config,
+                              int baseX, int baseY) {
         if (mc.getWindow() == null) return;
+        BongoCatTextures.ensure();
 
-        int screenW = mc.getWindow().getGuiScaledWidth();
-        int screenH = mc.getWindow().getGuiScaledHeight();
+        float s = config.scale;
+        int dw = (int) (BongoCatTextures.TEX_W * s);
+        int dh = (int) (BongoCatTextures.TEX_H * s);
 
-        float scale = config.scale;
-        int catW = (int) (BASE_HEIGHT * ASPECT * scale);
-        int catH = (int) (BASE_HEIGHT * scale);
+        // breathing (sine, plugin range ~0.98..1.08)
+        animT += 16;
+        double stretch = 1.03 + 0.05 * Math.sin(animT / 1000.0 * Math.PI * 2.0 * 0.25);
+        int breathH = (int) (dh * stretch);
 
-        int cx = config.x;
-        int cy = config.y;
-        if (cx < 0 || cy < 0 || cx > screenW || cy > screenH) {
-            cx = (screenW - catW) / 2;
-            cy = screenH - catH - 4;
+        boolean leftActive = input.anyWasdOrMod();
+        boolean rightActive = input.mouseMovedRecently();
+
+        // smooth the right-paw follow offset toward the cursor
+        int tx = input.getCursorX();
+        int ty = input.getCursorY();
+        float targetX = clamp((tx - (baseX + dw / 2)) * 0.25f, -dw * 0.18f, dw * 0.18f);
+        float targetY = clamp((ty - (baseY + dh / 2)) * 0.25f, -dh * 0.18f, dh * 0.18f);
+        float lerp = rightActive ? 0.25f : 0.12f;
+        followX += (targetX - followX) * lerp;
+        followY += (targetY - followY) * lerp;
+
+        int drawY = baseY + (dh - breathH); // anchor bottom
+        int tw = BongoCatTextures.TEX_W;
+        int th = BongoCatTextures.TEX_H;
+
+        // base cat
+        net.minecraft.resources.Identifier base = leftActive ? BongoCatTextures.LEFT : BongoCatTextures.REST;
+        g.blit(RenderPipelines.GUI_TEXTURED, base, baseX, drawY, 0f, 0f, tw, th, tw, th, 0xFFFFFFFF);
+
+        // right paw follows the mouse on top of the base
+        if (rightActive) {
+            int rx = (int) (baseX + followX);
+            int ry = (int) (drawY + followY);
+            g.blit(RenderPipelines.GUI_TEXTURED, BongoCatTextures.RIGHT, rx, ry, 0f, 0f, tw, th, tw, th, 0xFFFFFFFF);
         }
+    }
 
-        g.blit(RenderPipelines.GUI_TEXTURED, BODY, cx, cy, 0, 0, catW, catH, catW, catH);
-
-        Identifier leftTex = input.getLeftPaw().isRaised() ? LEFT_UP : LEFT_DOWN;
-        g.blit(RenderPipelines.GUI_TEXTURED, leftTex, cx, cy, 0, 0, catW, catH, catW, catH);
-
-        Identifier rightTex = input.getRightPaw().isRaised() ? RIGHT_UP : RIGHT_DOWN;
-        g.blit(RenderPipelines.GUI_TEXTURED, rightTex, cx, cy, 0, 0, catW, catH, catW, catH);
-
-        if (config.keyboardVisible) {
-            int kbX = cx + catW + 4;
-            int kbY = cy + (catH - VirtualKeyboard.getHeight(scale)) / 2;
-            VirtualKeyboard.render(g, kbX, kbY, scale, input.getKeyStates());
-        }
+    private static float clamp(float v, float lo, float hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
     }
 }

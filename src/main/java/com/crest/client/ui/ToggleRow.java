@@ -22,12 +22,17 @@ public class ToggleRow implements Widget {
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
         anim.set(setting.get() ? 1f : 0f);
         anim.tick(delta);
-        int labelW = font.width(setting.getName()) + 4;
-        int controlX = x + labelW + 4;
-        int controlW = w - labelW - 8;
-        if (controlW < ToggleSwitch.W) controlW = ToggleSwitch.W;
         g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
-        ToggleSwitch.render(g, controlX + controlW - ToggleSwitch.W, y + 2, setting.get(), anim.get());
+
+        String state = setting.get() ? "ON" : "OFF";
+        int stateW = font.width(state) + 8;
+        int toggleX = x + w - stateW - ToggleSwitch.W - 8;
+        boolean stateHover = mx >= toggleX && mx <= toggleX + stateW && my >= y && my <= y + H;
+        int stateColor = ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.TEXT_ON, anim.get());
+        if (stateHover) stateColor = ColorUtil.lerpARGB(stateColor, 0xFFFFFFFF, 0.2f);
+        g.text(font, Component.literal(state), toggleX + 4, y + 4, stateColor);
+
+        ToggleSwitch.render(g, toggleX + stateW + 4, y + 3, setting.get(), anim.get());
     }
 
     @Override

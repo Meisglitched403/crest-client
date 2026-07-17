@@ -6,8 +6,24 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 public class StreamerIndicator extends HudModule {
+    private long lastStatsReset;
+    private int lastCaptured;
+    private int lastEncoded;
+    private int captureFps;
+    private int encodeFps;
+
+    // ponytail: cached stats string to avoid per-frame String.format + Component alloc
+    private long cachedStatsElapsed = -1;
+    private int cachedStatsFps = -1;
+    private long cachedStatsDrop = -1;
+    private boolean cachedStatsErr;
+    private boolean cachedStatsAudio;
+    private String cachedStats;
+    private net.minecraft.network.chat.Component cachedStatsComp;
+
     public StreamerIndicator() {
         super(-1, 24);
+        lastStatsReset = System.currentTimeMillis();
     }
 
     @Override
@@ -15,42 +31,73 @@ public class StreamerIndicator extends HudModule {
     @Override
     public String getName() { return "Streamer Indicator"; }
     @Override
-    public String getDescription() { return "Shows LIVE indicator when streaming"; }
+    public String getDescription() { return "Shows LIVE indicator with FPS and bitrate when streaming"; }
     @Override
     public boolean isEnabled() { return true; }
 
     @Override
     public int getWidth() {
-        return Minecraft.getInstance().font.width("LIVE 00:00") + 12;
+        return Minecraft.getInstance().font.width("LIVE 00:00 | 00fps | 00000kbps") + 14;
     }
 
     @Override
     public int getHeight() {
-        return Minecraft.getInstance().font.lineHeight + 4;
+        return Minecraft.getInstance().font.lineHeight + 6;
     }
 
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         if (!Streamer.isStreaming()) return;
 
-        long elapsed = (System.currentTimeMillis() - Streamer.getStartTime()) / 1000;
-        String text = String.format("LIVE %02d:%02d", elapsed / 60, elapsed % 60);
-        String err = Streamer.getLastError();
-        if (err != null) text = "ERR: " + err;
+        long now = System.currentTimeMillis();
+        int captured = (int) Streamer.getCapturedFrames();
+        int encoded = (int) Streamer.getEncodedFrames();
+        long dropped = Streamer.getDroppedFrames();
 
-        int w = mc.font.width(text);
-        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 12 - 2 : x;
+        if (now - lastStatsReset > 1000) {
+            captureFps = captured - lastCaptured;
+            encodeFps = encoded - lastEncoded;
+            lastCaptured = captured;
+            lastEncoded = encoded;
+            lastStatsReset = now;
+        }
+
+        long elapsed = (now - Streamer.getStartTime()) / 1000;
+        String err = Streamer.getLastError();
+
+        // ponytail: only rebuild the stats String + Component once per second
+        // (when FPS/drop counters refresh), not every frame.
+        if (cachedStatsElapsed != elapsed || cachedStatsFps != encodeFps || cachedStatsDrop != dropped
+                || cachedStatsErr != (err != null) || cachedStatsAudio != Streamer.didAudioFallBack()
+                || cachedStats == null) {
+            cachedStatsElapsed = elapsed;
+            cachedStatsFps = encodeFps;
+            cachedStatsDrop = dropped;
+            cachedStatsErr = (err != null);
+            cachedStatsAudio = Streamer.didAudioFallBack();
+
+            String stats = String.format("LIVE %02d:%02d | %dfps | %d drop",
+                elapsed / 60, elapsed % 60, encodeFps, dropped);
+            if (err != null) stats = "ERR: " + err;
+            else if (Streamer.didAudioFallBack()) stats = "LIVE (no audio) " + stats.substring(5);
+            cachedStats = stats;
+            cachedStatsComp = Component.literal(stats);
+        }
+
+        int textW = mc.font.width(cachedStats);
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - textW - 14 - 2 : x;
         int ry = y;
 
-        int color = err != null ? 0xFF3333FF : 0x66000000;
-        g.fill(rx, ry, rx + w + 12, ry + mc.font.lineHeight + 4, color);
-        g.text(mc.font, Component.literal(text), rx + 10, ry + 2, 0xFFFFFFFF);
+        int bgColor = err != null ? 0xCC3333FF : 0xAA000000;
+        g.fill(rx, ry, rx + textW + 14, ry + mc.font.lineHeight + 6, bgColor);
+        g.text(mc.font, cachedStatsComp, rx + 10, ry + 3, 0xFFFFFFFF);
 
-        if ((System.currentTimeMillis() / 500) % 2 == 0) {
-            int dSize = 6;
-            int dx = rx + 2;
-            int dy = ry + (mc.font.lineHeight + 4 - dSize) / 2;
-            g.fill(dx, dy, dx + dSize, dy + dSize, err != null ? 0xFFFF3333 : 0xFF33FF33);
+        boolean dotOn = ((System.currentTimeMillis() / (err != null ? 300 : 600)) % 2) == 0;
+        int dotSize = 6;
+        int dx = rx + 3;
+        int dy = ry + (mc.font.lineHeight + 6 - dotSize) / 2;
+        if (dotOn) {
+            g.fill(dx, dy, dx + dotSize, dy + dotSize, err != null ? 0xFFFF3333 : 0xFF33FF33);
         }
     }
 }

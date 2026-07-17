@@ -5,24 +5,42 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
+import com.crest.client.core.setting.Setting;
+
 public class FpsModule extends HudModule {
+    private final HudBackground bg = new HudBackground();
+
+    private int cachedFps = -1;
+    private String cachedText;
+    private int cachedWidth;
+    private Component cachedComp;
+
+    // ponytail: min/max/avg over a rolling window so the panel shows real FPS behavior.
+    private int minFps = Integer.MAX_VALUE, maxFps = 0;
+    private long sumFps;
+    private int samples;
+    private int avgFps;
+    private int statTick;
+
     public FpsModule() {
         super(-1, 4);
     }
 
+    @Override public String getId() { return "fps"; }
+    @Override public String getName() { return "FPS Display"; }
+    @Override public String getDescription() { return "Shows current FPS with min/avg/max over a rolling window."; }
+    @Override public boolean isEnabled() { return true; }
+
     @Override
-    public String getId() { return "fps"; }
-    @Override
-    public String getName() { return "FPS Display"; }
-    @Override
-    public String getDescription() { return "Shows current FPS with color-coded value"; }
-    @Override
-    public boolean isEnabled() { return true; }
+    public java.util.List<Setting<?>> getSettings() {
+        return bg.settings();
+    }
 
     @Override
     public int getWidth() {
-        String t = Minecraft.getInstance().getFps() + " FPS";
-        return Minecraft.getInstance().font.width(t) + 4;
+        Minecraft mc = Minecraft.getInstance();
+        String probe = mc.getFps() + " FPS  min 0  avg 0  max 0";
+        return mc.font.width(probe) + 4;
     }
 
     @Override
@@ -33,14 +51,30 @@ public class FpsModule extends HudModule {
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         int fps = mc.getFps();
-        String text = fps + " FPS";
+
+        // update rolling stats ~ once per second of ticks
+        statTick++;
+        if (statTick >= 20) {
+            minFps = Math.min(minFps, fps);
+            maxFps = Math.max(maxFps, fps);
+            sumFps += fps; samples++;
+            avgFps = (int) (sumFps / Math.max(1, samples));
+            statTick = 0;
+        }
+
+        if (fps != cachedFps || cachedText == null) {
+            cachedFps = fps;
+            cachedText = fps + " FPS  min " + minFps + "  avg " + avgFps + "  max " + maxFps;
+            cachedWidth = mc.font.width(cachedText);
+            cachedComp = Component.literal(cachedText);
+        }
         int color = getFpsColor(fps);
-        int w = mc.font.width(text);
-        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 4 - 2 : x;
+        int w = cachedWidth;
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 4 : x;
         int ry = y;
 
-        g.fill(rx, ry, rx + w + 4, ry + mc.font.lineHeight + 4, 0x66000000);
-        g.text(mc.font, Component.literal(text), rx + 2, ry + 2, color);
+        bg.draw(g, rx, ry, w + 4, mc.font.lineHeight + 4);
+        g.text(mc.font, cachedComp, rx + 2, ry + 2, color);
     }
 
     private static int getFpsColor(int fps) {

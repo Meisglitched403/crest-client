@@ -38,6 +38,7 @@ public class VideoEncoderThread extends Thread {
                 }
                 buf.position(0);
                 fifoChannel.write(buf);
+                Streamer.addEncoded();
                 freePool.offer(buf);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

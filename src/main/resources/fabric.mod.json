@@ -9,7 +9,7 @@
     "entrypoints": {
         "client": ["com.crest.client.core.CrestClient"]
     },
-    "mixins": ["crest-client.mixins.json"],
+    "mixins": ["crest-client.mixins.json", "crest-client-sodium.mixins.json"],
     "depends": {
         "fabricloader": ">=0.19.0",
         "minecraft": ">=26.1",

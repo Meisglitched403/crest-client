@@ -14,10 +14,7 @@ public class BongoCatConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static BongoCatConfig instance;
 
-    public int x = -1;
-    public int y = -1;
     public float scale = 1.0f;
-    public boolean keyboardVisible = false;
 
     public static BongoCatConfig getInstance() {
         if (instance == null) instance = load();

@@ -57,6 +57,12 @@ public class StateRecorder {
     private static Thread writerThread;
     private static final BlockingQueue<byte[]> queue = new LinkedBlockingQueue<>();
 
+    // ponytail: reuse scratch buffers instead of allocating a Netty buffer per
+    // packet/event. The recorder is single-threaded (client thread), so reuse is safe.
+    private static io.netty.buffer.ByteBuf scratchBacking;
+    private static FriendlyByteBuf scratchFbb;
+    private static ByteBuffer scratchRec;
+
     public static boolean isActive() { return active.get(); }
 
     public static void start(String crestPath) {
@@ -173,110 +179,89 @@ public class StateRecorder {
             }
             @SuppressWarnings({"unchecked", "rawtypes"})
             StreamCodec<ByteBuf, Packet<?>> codec = (StreamCodec) info.codec();
-            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), access);
+            if (scratchBacking == null) scratchBacking = Unpooled.buffer();
+            else scratchBacking.clear();
+            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(scratchBacking, access);
             codec.encode(buf, packet);
             byte[] out = new byte[buf.readableBytes()];
             buf.readBytes(out);
-            buf.release();
             return out;
         } catch (Throwable t) {
             return null;
         }
     }
 
+    // ponytail: write into the reused FriendlyByteBuf and copy out the readable
+    // bytes into a freshly-sized byte[] (only the small fixed builders use this).
+    private static byte[] buildFromScratch(java.util.function.Consumer<FriendlyByteBuf> writer) {
+        if (scratchFbb == null) scratchFbb = new FriendlyByteBuf(Unpooled.buffer());
+        else scratchFbb.clear();
+        writer.accept(scratchFbb);
+        byte[] out = new byte[scratchFbb.readableBytes()];
+        scratchFbb.readBytes(out);
+        return out;
+    }
+
     private static byte[] buildMeta(long seed, String dim, UUID uuid, int x, int y, int z, int w, int h) {
-        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
-        try {
+        return buildFromScratch(b -> {
             b.writeLong(seed);
             b.writeUtf(dim, 32767);
             b.writeUUID(uuid);
             b.writeInt(x); b.writeInt(y); b.writeInt(z);
             b.writeInt(w); b.writeInt(h);
-            byte[] out = new byte[b.readableBytes()];
-            b.readBytes(out);
-            return out;
-        } finally {
-            b.release();
-        }
+        });
     }
 
     private static byte[] buildKey(int key, int scancode, int action, int modifiers) {
-        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
-        try {
+        return buildFromScratch(b -> {
             b.writeInt(key);
             b.writeInt(scancode);
             b.writeInt(action);
             b.writeInt(modifiers);
-            byte[] out = new byte[b.readableBytes()];
-            b.readBytes(out);
-            return out;
-        } finally {
-            b.release();
-        }
+        });
     }
 
     private static byte[] buildMouseButton(int button, int action, int mods) {
-        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
-        try {
+        return buildFromScratch(b -> {
             b.writeInt(button);
             b.writeInt(action);
             b.writeInt(mods);
-            byte[] out = new byte[b.readableBytes()];
-            b.readBytes(out);
-            return out;
-        } finally {
-            b.release();
-        }
+        });
     }
 
     private static byte[] buildMouseScroll(float horizontal, float vertical) {
-        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
-        try {
+        return buildFromScratch(b -> {
             b.writeFloat(horizontal);
             b.writeFloat(vertical);
-            byte[] out = new byte[b.readableBytes()];
-            b.readBytes(out);
-            return out;
-        } finally {
-            b.release();
-        }
+        });
     }
 
     private static byte[] buildMouseMove(float deltaX, float deltaY) {
-        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
-        try {
+        return buildFromScratch(b -> {
             b.writeFloat(deltaX);
             b.writeFloat(deltaY);
-            byte[] out = new byte[b.readableBytes()];
-            b.readBytes(out);
-            return out;
-        } finally {
-            b.release();
-        }
+        });
     }
 
     private static byte[] buildTick(int tick) {
-        FriendlyByteBuf b = new FriendlyByteBuf(Unpooled.buffer());
-        try {
-            b.writeInt(tick);
-            byte[] out = new byte[b.readableBytes()];
-            b.readBytes(out);
-            return out;
-        } finally {
-            b.release();
-        }
+        return buildFromScratch(b -> b.writeInt(tick));
     }
 
     private static void enqueue(int type, byte[] payload) {
         if (payload == null || payload.length == 0) return;
         int total = 1 + 8 + 4 + payload.length;
-        ByteBuffer rec = ByteBuffer.allocate(total).order(ByteOrder.LITTLE_ENDIAN);
-        rec.put((byte) type);
-        rec.putLong((System.currentTimeMillis() - recordStartMs) * 1000L);
-        rec.putInt(payload.length);
-        rec.put(payload);
-        rec.flip();
-        queue.offer(rec.array());
+        if (scratchRec == null || scratchRec.capacity() < total) {
+            scratchRec = ByteBuffer.allocate(Math.max(total, 4096)).order(ByteOrder.LITTLE_ENDIAN);
+        }
+        scratchRec.clear();
+        scratchRec.put((byte) type);
+        scratchRec.putLong((System.currentTimeMillis() - recordStartMs) * 1000L);
+        scratchRec.putInt(payload.length);
+        scratchRec.put(payload);
+        scratchRec.flip();
+        byte[] out = new byte[scratchRec.remaining()];
+        scratchRec.get(out);
+        queue.offer(out);
     }
 
     private static void writerLoop() {

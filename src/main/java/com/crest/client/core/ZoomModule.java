@@ -20,6 +20,10 @@ public class ZoomModule implements CrestModule {
     private static boolean active;
     private static boolean initialized;
 
+    // ponytail: cache the singleton so getSensitivity()/isScrollZoomEnabled()
+    // (called on the mouse-turn hot path) don't do a Map.get + cast per call.
+    private static ZoomModule instance;
+
     private final FloatSetting initialZoom = new FloatSetting("Zoom Amount", 1.1f, 50f, 4f);
     private final FloatSetting zoomInTime = new FloatSetting("Zoom In Time", 0f, 1f, 0.3f);
     private final FloatSetting zoomOutTime = new FloatSetting("Zoom Out Time", 0f, 1f, 0.2f);
@@ -51,6 +55,7 @@ public class ZoomModule implements CrestModule {
 
     @Override
     public void onInitialize() {
+        instance = this;
         CrestModules.getEventBus().subscribe(TickEvent.class, this::onTick);
     }
 
@@ -98,12 +103,10 @@ public class ZoomModule implements CrestModule {
     public static boolean isActive() { return active; }
     public static boolean isInitialized() { return initialized; }
     public static float getSensitivity() {
-        CrestModule m = CrestModules.get("zoom");
-        return m instanceof ZoomModule z ? z.sensitivity.get() / 100f : 0.5f;
+        return instance != null ? instance.sensitivity.get() / 100f : 0.5f;
     }
     public static boolean isScrollZoomEnabled() {
-        CrestModule m = CrestModules.get("zoom");
-        return m instanceof ZoomModule z ? z.scrollZoom.get() : true;
+        return instance != null ? instance.scrollZoom.get() : true;
     }
     public static void addScrollTier(int delta) {
         scrollTier = Math.max(0, Math.min(100, scrollTier + delta));

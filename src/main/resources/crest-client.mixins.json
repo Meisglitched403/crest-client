@@ -15,10 +15,7 @@
         "BlockOutlineMixin",
         "FreelookMixin",
         "FreelookCameraMixin",
-        "SkinLayersPlayerMixin",
-        "SkinLayersPlayerModelMixin",
-        "SkinLayersModelPartMixin",
-        "SkinLayersPlayerRendererMixin",
+
         "ConnectionBlockMixin",
         "ReplayTickMixin",
         "ClientTickMixin",
@@ -31,15 +28,24 @@
         "gui/ContainerPanelMixin",
         "gui/TitleScreenMixin",
         "FrameCaptureMixin",
+        "RenderBudgetMixin",
         "WhoamiMixin",
         "ChatComponentAnimationMixin",
-        "ChatComponentHeadMixin",
+
         "ChatScreenAnimationMixin",
         "AppleSkinMixin",
         "FoodDataAccessor",
-        "ChatHeadsMixin",
-        "PlayerGlyph3DMixin",
-        "RightClickDelayAccessor"
+
+        "RightClickDelayAccessor",
+
+        "ParticleEngineMixin",
+        "ItemStackTooltipMixin",
+        "ItemEntityMixin",
+        "ScreenTooltipMixin",
+        "LevelRendererHitboxMixin",
+        "ShaderManagerMixin",
+        "GameRendererAccess",
+        "ItemFeatureRendererMixin"
     ],
     "injectors": {
         "defaultRequire": 1

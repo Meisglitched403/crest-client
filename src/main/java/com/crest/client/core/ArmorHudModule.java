@@ -1,5 +1,6 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.BooleanSetting;
 import com.crest.client.core.setting.ModeSetting;
 import com.crest.client.core.setting.Setting;
 import net.minecraft.client.DeltaTracker;
@@ -10,6 +11,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ArmorHudModule extends HudModule {
@@ -21,9 +23,11 @@ public class ArmorHudModule extends HudModule {
     private static final int LABEL_W = 80;
     private static final int BG = 0x66000000;
 
+    private final HudBackground bg = new HudBackground();
     private final ModeSetting durabilityMode = new ModeSetting(
-        "Durability Mode", new String[]{"Bar+%", "% only", "Num"}, 0
+        "Durability Mode", new String[]{"Bar+%", "% only", "Num", "Bar only", "Bar+Num"}, 0
     );
+    private final BooleanSetting showHeld = new BooleanSetting("Show Held Item", true);
 
     public ArmorHudModule() {
         super(4, 50);
@@ -31,12 +35,14 @@ public class ArmorHudModule extends HudModule {
 
     @Override public String getId() { return "armor_hud"; }
     @Override public String getName() { return "Armor HUD"; }
-    @Override public String getDescription() { return "Shows armor durability and held item"; }
+    @Override public String getDescription() { return "Shows armor durability and held item (toggleable), with customizable background."; }
     @Override public boolean isEnabled() { return false; }
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(durabilityMode);
+        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        s.add(durabilityMode); s.add(showHeld);
+        return s;
     }
 
     public int getDurabilityMode() { return durabilityMode.get(); }
@@ -57,7 +63,7 @@ public class ArmorHudModule extends HudModule {
     public int getHeight() {
         int slots = 4;
         Player p = Minecraft.getInstance().player;
-        if (p != null && p.getMainHandItem().isDamageableItem()) slots++;
+        if (showHeld.get() && p != null && p.getMainHandItem().isDamageableItem()) slots++;
         return MARGIN + slots * (LINE_H + MARGIN);
     }
 
@@ -67,7 +73,10 @@ public class ArmorHudModule extends HudModule {
         if (player == null) return;
 
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
-        int cy = y + MARGIN;
+        int ry = y;
+        bg.draw(g, rx, ry, getWidth(), getHeight());
+
+        int cy = ry + MARGIN;
 
         for (EquipmentSlot slot : EquipmentSlot.values()) {
             if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) continue;
@@ -76,7 +85,7 @@ public class ArmorHudModule extends HudModule {
         }
 
         ItemStack held = player.getMainHandItem();
-        if (held.isDamageableItem()) {
+        if (showHeld.get() && held.isDamageableItem()) {
             renderSlot(g, mc, held, "held", rx, cy);
         }
     }
@@ -84,6 +93,9 @@ public class ArmorHudModule extends HudModule {
     private String cap(String s) {
         return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
+
+    // ponytail: cache per-slot text so we don't rebuild a String + Component every frame.
+    private final java.util.Map<String, Component> labelCache = new java.util.HashMap<>();
 
     private void renderSlot(GuiGraphicsExtractor g, Minecraft mc, ItemStack stack, String label, int rx, int cy) {
         int iconX = rx + MARGIN;
@@ -104,16 +116,26 @@ public class ArmorHudModule extends HudModule {
         int cur = maxDmg - dmg;
         int pct = maxDmg > 0 ? cur * 100 / maxDmg : 100;
 
-        switch (durabilityMode.get()) {
-            case 0 -> {
-                g.text(mc.font, Component.literal(display + pct + "%"), textX, cy + 2, 0xFFFFFFFF);
-                int barColor = pct > 60 ? 0xFF55FF55 : pct > 30 ? 0xFFFFFF55 : 0xFFFF5555;
-                int fillW = cur * BAR_W / Math.max(maxDmg, 1);
-                g.fill(barX, cy + 4, barX + BAR_W, cy + 4 + BAR_H, 0x44000000);
-                if (fillW > 0) g.fill(barX, cy + 4, barX + fillW, cy + 4 + BAR_H, barColor);
-            }
-            case 1 -> g.text(mc.font, Component.literal(display + pct + "%"), textX, cy + 2, 0xFFFFFFFF);
-            case 2 -> g.text(mc.font, Component.literal(display + cur + "/" + maxDmg), textX, cy + 2, 0xFFFFFFFF);
+        int barColor = pct > 60 ? 0xFF55FF55 : pct > 30 ? 0xFFFFFF55 : 0xFFFF5555;
+        int fillW = cur * BAR_W / Math.max(maxDmg, 1);
+
+        String key = display + durabilityMode.get() + ":" + cur + ":" + maxDmg;
+        Component comp = labelCache.get(key);
+        if (comp == null) {
+            String suffix = switch (durabilityMode.get()) {
+                case 0, 4 -> pct + "%";
+                default -> cur + "/" + maxDmg;
+            };
+            comp = Component.literal(display + suffix);
+            if (labelCache.size() < 32) labelCache.put(key, comp);
         }
+
+        int mode = durabilityMode.get();
+        boolean showText = mode <= 2;        // 0,1,2 show text
+        boolean showBar = mode == 0 || mode == 3 || mode == 4; // bar variants
+
+        if (showText) g.text(mc.font, comp, textX, cy + 2, 0xFFFFFFFF);
+        g.fill(barX, cy + 4, barX + BAR_W, cy + 4 + BAR_H, 0x44000000);
+        if (showBar && fillW > 0) g.fill(barX, cy + 4, barX + fillW, cy + 4 + BAR_H, barColor);
     }
 }

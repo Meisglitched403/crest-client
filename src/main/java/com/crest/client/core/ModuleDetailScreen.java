@@ -15,9 +15,9 @@ import java.util.*;
 
 public class ModuleDetailScreen extends Screen {
     private static final int HEADER_H = 48;
-    private static final int ROW_H = Spacing.S5;
-    private static final int PANEL_MIN_W = 320;
-    private static final int PANEL_MAX_W = 420;
+    private static final int ROW_H = 26;
+    private static final int PANEL_MIN_W = 300;
+    private static final int PANEL_MAX_W = 480;
 
     private final CrestModule module;
     private final Screen parent;
@@ -40,6 +40,7 @@ public class ModuleDetailScreen extends Screen {
 
     // animations
     private final Animated openAnim = new Animated(0f, 10f);
+    private int hoveredRow = -1;
 
     public ModuleDetailScreen(CrestModule module, Screen parent) {
         super(Component.literal(module.getName()));
@@ -123,35 +124,53 @@ public class ModuleDetailScreen extends Screen {
         ta.tick(0.016f);
 
         g.fillGradient(0, 0, width, HEADER_H, 0x80141218, 0x40141218);
-        Panel.drawHollowRect(g, 0, 0, width, HEADER_H, Theme.BORDER_LIGHT);
+        int accent = Theme.getAnimatedAccent();
 
+        // Back button
         String back = "\u2190";
-        boolean backHover = mx >= Spacing.S3 && mx <= Spacing.S3 + font.width(back) + Spacing.S2 && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2;
+        int backW = font.width(back) + Spacing.S2;
+        boolean backHover = mx >= Spacing.S3 && mx <= Spacing.S3 + backW && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2;
+        if (backHover) {
+            g.fill(Spacing.S3, Spacing.S2, Spacing.S3 + backW, HEADER_H - Spacing.S2, ColorUtil.withAlpha(accent, 20));
+        }
         g.text(font, Component.literal(back), Spacing.S3, (HEADER_H - font.lineHeight) / 2,
-            backHover ? Theme.getAnimatedAccent() : Theme.FOREGROUND);
+            backHover ? accent : Theme.FOREGROUND);
 
-        int nameX = Spacing.S3 + font.width(back) + Spacing.S4;
+        // Module name
+        int nameX = Spacing.S3 + backW + Spacing.S3;
         g.text(font, Component.literal(module.getName()), nameX, (HEADER_H - font.lineHeight) / 2, Theme.FOREGROUND);
 
-        int toggleX = width - Spacing.S3 - Spacing.S3 - 44;
-        drawToggle(g, toggleX, (HEADER_H - 24) / 2, enabled);
-
+        // Description
         String desc = module.getDescription();
         if (!desc.isEmpty()) {
-            g.text(font, Component.literal(desc), Spacing.S3 + font.width(back) + Spacing.S4, (HEADER_H - font.lineHeight) / 2 + font.lineHeight + 1,
-                Theme.MUTED_FOREGROUND);
+            g.text(font, Component.literal(desc), nameX, (HEADER_H - font.lineHeight) / 2 + font.lineHeight + 1,
+                ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 180));
         }
+
+        // Settings count
+        int count = settings.size();
+        String countStr = count + " setting" + (count != 1 ? "s" : "");
+        int countW = font.width(countStr);
+        int countX = width - Spacing.S3 - countW - 44 - Spacing.S3;
+        g.text(font, Component.literal(countStr), countX, HEADER_H - font.lineHeight - Spacing.S1,
+            ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 100));
+
+        // Toggle
+        int toggleX = width - Spacing.S3 - 44;
+        drawToggle(g, toggleX, (HEADER_H - 24) / 2, enabled, ta.get());
     }
 
-    private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on) {
+    private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
         int w = 44, h = 24;
         int trackColor = on
-            ? ColorUtil.lerpARGB(0x1AFFFFFF, Theme.getAnimatedAccent(), 1f)
-            : 0x1AFFFFFF;
+            ? ColorUtil.lerpARGB(0x1AFFFFFF, Theme.getAnimatedAccent(), anim)
+            : ColorUtil.lerpARGB(0x1AFFFFFF, 0x2AFFFFFF, anim);
         g.fillGradient(x, y, x + w, y + h, trackColor, ColorUtil.withAlpha(trackColor, 80));
         Panel.drawHollowRect(g, x, y, w, h, Theme.BORDER_LIGHT);
-        int knobX = on ? x + w - 19 : x + 3;
-        int knobColor = on ? Theme.PRIMARY : Theme.MUTED_FOREGROUND;
+        int knobMinX = x + 3;
+        int knobMaxX = x + w - 19;
+        int knobX = (int) Anim.lerp(knobMinX, knobMaxX, anim);
+        int knobColor = ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.PRIMARY, anim);
         g.fill(knobX, y + 3, knobX + 16, y + h - 3, knobColor);
     }
 
@@ -160,11 +179,45 @@ public class ModuleDetailScreen extends Screen {
         int contentH = widgets.size() * ROW_H + Spacing.S4;
 
         int bh = Math.min(panelH, contentH + Spacing.S2);
-        Panel.drawGlassCard(g, panelX, panelY, panelW, bh, false);
+        Panel.drawElevated(g, panelX, panelY, panelW, bh, ColorUtil.withAlpha(Theme.CARD, 200), Theme.ELEVATION_1);
+        g.fill(panelX + 2, panelY, panelX + panelW - 2, panelY + 1, ColorUtil.withAlpha(Theme.getAnimatedAccent(), 80));
 
         scroll.set(panelX + Spacing.S3, panelY + Spacing.S2, panelW - Spacing.S3 * 2, bh - Spacing.S4, ROW_H, widgets);
         scroll.hoverColor = ColorUtil.withAlpha(Theme.MUTED, 100);
+
+        // Draw dividers between rows
+        for (int i = 1; i < widgets.size(); i++) {
+            int dy = scroll.y + i * ROW_H - (int) scroll.scrollOffset;
+            if (dy >= scroll.y && dy <= scroll.y + scroll.h) {
+                g.fill(scroll.x, dy - 1, scroll.x + scroll.w, dy, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40));
+            }
+        }
+
         scroll.render(g, font, mx, my, delta);
+        hoveredRow = -1;
+        for (int i = 0; i < widgets.size(); i++) {
+            int cy = scroll.y + i * ROW_H - (int) scroll.scrollOffset;
+            if (mx >= scroll.x && mx <= scroll.x + scroll.w && my >= cy && my <= cy + ROW_H) {
+                hoveredRow = i;
+                break;
+            }
+        }
+
+        // Hover tooltip for setting description
+        if (hoveredRow >= 0 && hoveredRow < settings.size()) {
+            Setting<?> s = settings.get(hoveredRow);
+            String sdesc = s.getDescription();
+            if (sdesc != null && !sdesc.isEmpty()) {
+                int tx = mx + 12;
+                int ty = my - 20;
+                if (tx + 150 > width) tx = mx - 160;
+                if (ty < 0) ty = my + 12;
+                int tw = font.width(sdesc) + 8;
+                int th = font.lineHeight + 4;
+                Panel.draw(g, tx, ty, tw, th, ColorUtil.withAlpha(Theme.POPOVER, 230));
+                g.text(font, Component.literal(sdesc), tx + 4, ty + 2, Theme.POPOVER_FOREGROUND);
+            }
+        }
     }
 
     // --- Input ---
@@ -216,14 +269,16 @@ public class ModuleDetailScreen extends Screen {
         }
 
         // back button
-        if (btn == 0 && mx >= Spacing.S3 && mx <= Spacing.S3 + font.width("\u2190") + Spacing.S2 && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2) {
+        String back = "\u2190";
+        int backW = font.width(back) + Spacing.S2;
+        if (btn == 0 && mx >= Spacing.S3 && mx <= Spacing.S3 + backW && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2) {
             onClose();
             return true;
         }
 
         // toggle in header
         if (btn == 0) {
-            int toggleX = width - Spacing.S3 - Spacing.S3 - 44;
+            int toggleX = width - Spacing.S3 - 44;
             if (mx >= toggleX && mx <= toggleX + 44 && my >= (HEADER_H - 24) / 2 && my <= (HEADER_H + 24) / 2) {
                 CrestModules.setEnabled(module.getId(), !CrestModules.isEnabled(module.getId()));
                 return true;
@@ -278,8 +333,10 @@ public class ModuleDetailScreen extends Screen {
         int px = Math.min(width / 2 - pw / 2, width - pw - Spacing.S2);
         int py = HEADER_H + Spacing.S3;
         int a = (int) (255 * colorPickerAnim.get());
-        g.fillGradient(px, py, px + pw, py + ph, ColorUtil.withAlpha(0x141218, a), ColorUtil.withAlpha(0x141218, a / 2));
-        Panel.drawHollowRect(g, px, py, pw, ph, ColorUtil.withAlpha(Theme.BORDER_LIGHT, a));
+        int accent = Theme.getAnimatedAccent();
+
+        Panel.drawElevated(g, px, py, pw, ph, ColorUtil.withAlpha(0x141218, a), Theme.ELEVATION_3);
+        g.fill(px + 2, py, px + pw - 2, py + 1, ColorUtil.withAlpha(accent, 100));
 
         int sq = 130, sx = px + Spacing.S3, sy = py + Spacing.S8;
         int hueBarX = sx + sq + Spacing.S3, hueBarW = 14, hueBarH = sq;
@@ -287,14 +344,14 @@ public class ModuleDetailScreen extends Screen {
         for (int yy = 0; yy < sq; yy += 2) {
             for (int xx = 0; xx < sq; xx += 2) {
                 float sat = xx / (float) sq, val = 1 - yy / (float) sq;
-                int col = ColorUtil.hsvToInt(colorPicker.h / 360f, sat, val, 255);
+                int col = ColorUtil.hsvToInt(colorPicker.h / 360f, sat, val, 1f);
                 g.fill(sx + xx, sy + yy, sx + xx + 2, sy + yy + 2, col);
             }
         }
 
         for (int yy = 0; yy < hueBarH; yy += 2) {
             float hh = 1 - yy / (float) hueBarH;
-            g.fill(hueBarX, sy + yy, hueBarX + hueBarW, sy + yy + 2, ColorUtil.hsvToInt(hh, 1, 1, 255));
+            g.fill(hueBarX, sy + yy, hueBarX + hueBarW, sy + yy + 2, ColorUtil.hsvToInt(hh, 1, 1, 1f));
         }
 
         int selX = sx + (int) (colorPicker.s / 100f * sq) - 3;
@@ -304,7 +361,7 @@ public class ModuleDetailScreen extends Screen {
         g.fill(hueBarX - 2, hueY, hueBarX + hueBarW + 2, hueY + 4, 0xFFFFFFFF);
 
         g.text(font, Component.literal("Pick a color"), px + Spacing.S3, py + Spacing.S3, Theme.FOREGROUND);
-        g.text(font, Component.literal("[Done]"), px + pw - Spacing.S4, py + ph - Spacing.S4, Theme.getAnimatedAccent());
+        g.text(font, Component.literal("[Done]"), px + pw - Spacing.S4, py + ph - Spacing.S4, accent);
 
         colorPicker._sx = sx; colorPicker._sy = sy; colorPicker._sq = sq;
         colorPicker._hx = hueBarX; colorPicker._hy = sy; colorPicker._hh = hueBarH;
@@ -329,7 +386,7 @@ public class ModuleDetailScreen extends Screen {
 
     private void applyColor() {
         ColorPickerState st = colorPicker;
-        int rgb = ColorUtil.hsvToInt(st.h / 360f, st.s / 100f, st.v / 100f, 255);
+        int rgb = ColorUtil.hsvToInt(st.h / 360f, st.s / 100f, st.v / 100f, 1f);
         st.setting.set(rgb);
         CrestModules.getConfigManager().markDirty();
     }

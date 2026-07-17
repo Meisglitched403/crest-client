@@ -1,5 +1,7 @@
 package com.crest.client.core;
 
+import com.crest.client.core.setting.BooleanSetting;
+import com.crest.client.core.setting.Setting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -8,37 +10,59 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
+import java.util.List;
 
 public class CoordsModule extends HudModule {
     private static final int LINE_HEIGHT = 10;
     private static final int PADDING = 2;
-    private static final int BG_COLOR = 0x66000000;
+
+    private final HudBackground bg = new HudBackground();
+    private final BooleanSetting showXyz = new BooleanSetting("Show XYZ", true);
+    private final BooleanSetting showFacing = new BooleanSetting("Show Facing", true);
+    private final BooleanSetting showBiome = new BooleanSetting("Show Biome", true);
 
     public CoordsModule() {
         super(4, 4);
     }
 
+    @Override public String getId() { return "coords"; }
+    @Override public String getName() { return "Coordinates"; }
+    @Override public String getDescription() { return "Shows XYZ, direction, and biome (each toggleable)."; }
+    @Override public boolean isEnabled() { return true; }
+
     @Override
-    public String getId() { return "coords"; }
-    @Override
-    public String getName() { return "Coordinates"; }
-    @Override
-    public String getDescription() { return "Shows XYZ, direction, and biome"; }
-    @Override
-    public boolean isEnabled() { return true; }
+    public List<Setting<?>> getSettings() {
+        List<Setting<?>> s = new ArrayList<>(bg.settings());
+        s.add(showXyz); s.add(showFacing); s.add(showBiome);
+        return s;
+    }
 
     @Override
     public int getWidth() {
-        return 110;
+        int w = 0;
+        Minecraft mc = Minecraft.getInstance();
+        if (showXyz.get()) w = Math.max(w, mc.font.width("XYZ: -0000 / -0000 / -0000"));
+        if (showFacing.get()) w = Math.max(w, mc.font.width("Facing: South-West"));
+        if (showBiome.get()) w = Math.max(w, mc.font.width("Biome: minecraft:unknown_biome"));
+        return w + PADDING * 2;
     }
 
     @Override
     public int getHeight() {
-        return LINE_HEIGHT * 3 + PADDING * 2;
+        int lines = 0;
+        if (showXyz.get()) lines++;
+        if (showFacing.get()) lines++;
+        if (showBiome.get()) lines++;
+        return lines > 0 ? lines * LINE_HEIGHT + PADDING * 2 : LINE_HEIGHT + PADDING * 2;
     }
 
     private String biomeCache = "Unknown";
     private int biomeCacheTick;
+
+    private int lastX = Integer.MAX_VALUE, lastY = Integer.MAX_VALUE, lastZ = Integer.MAX_VALUE;
+    private String lastDir;
+    private Component xyzComp, dirComp, biomeComp;
 
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
@@ -54,15 +78,23 @@ public class CoordsModule extends HudModule {
             biomeCacheTick = tick;
         }
 
-        Component xyz = Component.literal(
-            String.format("XYZ: %d / %d / %d", pos.getX(), pos.getY(), pos.getZ()));
-        Component dirComp = Component.literal("Facing: " + dir);
-        Component biomeComp = Component.literal("Biome: " + biomeCache);
+        if (pos.getX() != lastX || pos.getY() != lastY || pos.getZ() != lastZ || !dir.equals(lastDir)) {
+            lastX = pos.getX(); lastY = pos.getY(); lastZ = pos.getZ(); lastDir = dir;
+            xyzComp = Component.literal("XYZ: " + pos.getX() + " / " + pos.getY() + " / " + pos.getZ());
+            dirComp = Component.literal("Facing: " + dir);
+            biomeComp = Component.literal("Biome: " + biomeCache);
+        }
 
-        g.fill(x, y, x + getWidth(), y + getHeight(), BG_COLOR);
-        g.text(mc.font, xyz, x + PADDING, y + PADDING, 0xFFFFFFFF);
-        g.text(mc.font, dirComp, x + PADDING, y + PADDING + LINE_HEIGHT, 0xFFFFFFFF);
-        g.text(mc.font, biomeComp, x + PADDING, y + PADDING + LINE_HEIGHT * 2, 0xFFFFFFFF);
+        int boxW = getWidth();
+        int boxH = getHeight();
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
+        int ry = y;
+        bg.draw(g, rx, ry, boxW, boxH);
+
+        int cy = ry + PADDING;
+        if (showXyz.get()) { g.text(mc.font, xyzComp, rx + PADDING, cy, 0xFFFFFFFF); cy += LINE_HEIGHT; }
+        if (showFacing.get()) { g.text(mc.font, dirComp, rx + PADDING, cy, 0xFFFFFFFF); cy += LINE_HEIGHT; }
+        if (showBiome.get()) { g.text(mc.font, biomeComp, rx + PADDING, cy, 0xFFFFFFFF); cy += LINE_HEIGHT; }
     }
 
     private static String getFacing(Player player) {

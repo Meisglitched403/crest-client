@@ -1,7 +1,5 @@
 package com.crest.client.core;
 
-import com.crest.client.bongocat.BongoCatConfig;
-import com.crest.client.bongocat.BongoCatEditScreen;
 import com.crest.client.bongocat.BongoCatModule;
 import com.crest.client.core.event.TickEvent;
 import com.crest.client.music.MusicModule;
@@ -30,6 +28,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ZoomModule());
         CrestModules.register(new CoordsModule());
         CrestModules.register(new FpsModule());
+        CrestModules.register(new PerfModule());
         CrestModules.register(new ArmorHudModule());
         CrestModules.register(new PotionHudModule());
         CrestModules.register(new CrosshairModule());
@@ -57,12 +56,29 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new RecorderIndicator());
         CrestModules.register(new StreamerModule());
         CrestModules.register(new StreamerIndicator());
+        CrestModules.register(new ReplayBufferModule());
         CrestModules.register(new WhoamiModule());
         CrestModules.register(new ChatAnimationModule());
         CrestModules.register(new AppleSkinModule());
-        CrestModules.register(new ChatHeadsModule());
-        CrestModules.register(new SkinLayers3dModule());
+
         CrestModules.register(new FastRightClickModule());
+        CrestModules.register(new BlockLodModule());
+        CrestModules.register(new AdaptiveRenderDistanceModule());
+        CrestModules.register(new BiomeModule());
+        CrestModules.register(new CpsModule());
+        CrestModules.register(new TogglesModule());
+        CrestModules.register(new StopwatchModule());
+        CrestModules.register(new AutoTextHotkeyModule());
+        CrestModules.register(new ReachDisplayModule());
+        CrestModules.register(new PvpInfoModule());
+        CrestModules.register(new TeamViewModule());
+        CrestModules.register(new HitboxModule());
+        CrestModules.register(new ParticleChangerModule());
+        CrestModules.register(new ShulkerPreviewModule());
+        CrestModules.register(new ItemPhysicsModule());
+        CrestModules.register(new ScrollableTooltipsModule());
+        CrestModules.register(new ColorSaturationModule());
+        CrestModules.register(new GlintColorizerModule());
 
         MusicModule.init();
 
@@ -74,16 +90,6 @@ public class CrestClient implements ClientModInitializer {
                 mc.screen.onClose();
             } else if (mc.screen == null) {
                 mc.setScreen(new MusicScreen(MusicModule.getPlayer()));
-            }
-        });
-
-        KeybindManager.registerAction(GLFW.GLFW_KEY_LEFT_ALT, () -> {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.screen instanceof BongoCatEditScreen) {
-                mc.screen.onClose();
-            } else if (mc.screen == null) {
-                BongoCatConfig.reload();
-                mc.setScreen(new BongoCatEditScreen(null));
             }
         });
 

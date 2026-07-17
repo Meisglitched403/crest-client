@@ -22,18 +22,25 @@ public class ColorRow implements Widget {
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
-        int labelW = font.width(setting.getName()) + 4;
-        int swatchX = x + w - 22;
-        int swatchS = 13;
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
 
-        g.fill(swatchX - 1, y + 3, swatchX + swatchS + 1, y + 3 + swatchS + 1, 0xFF000000);
-        g.fill(swatchX, y + 4, swatchX + swatchS, y + 4 + swatchS, 0xFF000000 | setting.getRGB());
+        int swatchS = 12;
+        int swatchX = x + w - swatchS - 4;
+        int swatchY = y + 4;
+
+        // Border
+        g.fill(swatchX - 1, swatchY - 1, swatchX + swatchS + 1, swatchY + swatchS + 1, 0x44000000);
+        // Color fill
+        g.fill(swatchX, swatchY, swatchX + swatchS, swatchY + swatchS, 0xFF000000 | setting.getRGB());
 
         String hex = String.format("#%06X", setting.getRGB());
         int hexX = swatchX - font.width(hex) - 6;
-        g.text(font, Component.literal(hex), hexX, y + 5, Theme.ON_SURFACE_VARIANT);
+        g.text(font, Component.literal(hex), hexX, y + 4, ColorUtil.withAlpha(Theme.ON_SURFACE_VARIANT, 180));
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        boolean hover = mx >= swatchX && mx <= swatchX + swatchS && my >= swatchY && my <= swatchY + swatchS;
+        if (hover) {
+            g.fill(swatchX - 1, swatchY - 1, swatchX + swatchS + 1, swatchY + swatchS + 1, Theme.getAnimatedAccent());
+        }
     }
 
     @Override

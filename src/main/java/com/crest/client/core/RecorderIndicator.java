@@ -29,18 +29,27 @@ public class RecorderIndicator extends HudModule {
         return Minecraft.getInstance().font.lineHeight + 4;
     }
 
+    // ponytail: cache the timer text + Component; only rebuild once per second.
+    private long cachedElapsed = -1;
+    private String cachedText;
+    private Component cachedComp;
+
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         if (!Recorder.isRecording()) return;
 
         long elapsed = (System.currentTimeMillis() - Recorder.getStartTime()) / 1000;
-        String text = String.format("REC %02d:%02d", elapsed / 60, elapsed % 60);
-        int w = mc.font.width(text);
+        if (elapsed != cachedElapsed || cachedComp == null) {
+            cachedElapsed = elapsed;
+            cachedText = String.format("REC %02d:%02d", elapsed / 60, elapsed % 60);
+            cachedComp = Component.literal(cachedText);
+        }
+        int w = mc.font.width(cachedText);
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 12 - 2 : x;
         int ry = y;
 
         g.fill(rx, ry, rx + w + 12, ry + mc.font.lineHeight + 4, 0x66000000);
-        g.text(mc.font, Component.literal(text), rx + 10, ry + 2, 0xFFFFFFFF);
+        g.text(mc.font, cachedComp, rx + 10, ry + 2, 0xFFFFFFFF);
 
         if ((System.currentTimeMillis() / 500) % 2 == 0) {
             int dSize = 6;

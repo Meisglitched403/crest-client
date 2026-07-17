@@ -77,13 +77,16 @@ public class StatePlayer {
      * from the internal cursor. Call once per replay frame. Returns empty list when
      * EOF is reached.
      */
+    // ponytail: reuse a single list across calls instead of allocating per replay frame
+    private final List<StateRecord> dueCache = new ArrayList<>();
+
     public List<StateRecord> pollUpTo(long targetUs) {
-        List<StateRecord> due = new ArrayList<>();
+        dueCache.clear();
         while (recordPos < records.size() && records.get(recordPos).timestampUs <= targetUs) {
-            due.add(records.get(recordPos));
+            dueCache.add(records.get(recordPos));
             recordPos++;
         }
-        return due;
+        return dueCache;
     }
 
     /**

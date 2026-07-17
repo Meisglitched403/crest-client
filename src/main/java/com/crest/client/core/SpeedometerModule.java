@@ -82,6 +82,8 @@ public class SpeedometerModule extends HudModule {
             currentSpeed = sum / limit;
         }
 
+        cachedSpeedText = null; // ponytail: invalidate cached render string on speed update
+
         prevX = x;
         prevZ = z;
         hasPrevPos = true;
@@ -98,15 +100,25 @@ public class SpeedometerModule extends HudModule {
         return Minecraft.getInstance().font.lineHeight + 4;
     }
 
+    // ponytail: cache formatted speed text + width + Component; speed is only
+    // recomputed in onTick, so the rendered string rarely changes between frames.
+    private String cachedSpeedText;
+    private int cachedSpeedWidth = -1;
+    private Component cachedSpeedComp;
+
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
-        String text = formatSpeed();
-        int w = mc.font.width(text);
+        if (cachedSpeedText == null) {
+            cachedSpeedText = formatSpeed();
+            cachedSpeedWidth = mc.font.width(cachedSpeedText);
+            cachedSpeedComp = Component.literal(cachedSpeedText);
+        }
+        int w = cachedSpeedWidth;
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - w - 4 - 2 : x;
         int ry = y;
 
         g.fill(rx, ry, rx + w + 4, ry + mc.font.lineHeight + 4, 0x66000000);
-        g.text(mc.font, Component.literal(text), rx + 2, ry + 2, textColor.get());
+        g.text(mc.font, cachedSpeedComp, rx + 2, ry + 2, textColor.get());
     }
 
     private String formatSpeed() {

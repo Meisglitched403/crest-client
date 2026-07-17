@@ -1,0 +1,8 @@
+{
+    "required": false,
+    "package": "com.crest.client.core.mixin",
+    "compatibilityLevel": "JAVA_25",
+    "client": [
+        "SodiumBlockLodMixin"
+    ]
+}

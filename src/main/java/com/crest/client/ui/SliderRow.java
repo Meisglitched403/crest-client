@@ -38,18 +38,22 @@ public class SliderRow implements Widget {
         slider.setValue((setting instanceof IntegerSetting is) ? is.get()
             : (setting instanceof FloatSetting fs) ? fs.get() : 0);
         labelW = font.width(setting.getName()) + 4;
-        int barX = x + labelW + 4;
-        int barMaxW = w - labelW - 8;
-        int barW = Math.min(barMaxW - 34, 110);
-        if (barW < 20) barW = 20;
+
+        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
 
         String valLabel = (setting instanceof FloatSetting)
             ? String.format("%.1f", slider.getValue())
             : String.valueOf(Math.round(slider.getValue()));
+        int valW = font.width(valLabel) + 8;
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        int barMaxW = w - labelW - 8;
+        int barW = Math.max(Math.min(barMaxW - valW - 8, 140), 40);
+        int barX = x + labelW + 4;
+        int valX = barX + barW + 6;
+
         slider.render(g, font, barX, y, barW, mx, my, delta);
-        g.text(font, Component.literal(valLabel), barX + barW + 6, y + 3, Theme.ON_SURFACE);
+        g.fill(valX, y + 2, valX + valW, y + H - 2, ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 120));
+        g.centeredText(font, Component.literal(valLabel), valX + valW / 2, y + 4, Theme.ON_SURFACE);
     }
 
     @Override

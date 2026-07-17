@@ -16,6 +16,9 @@ public class PotionHudModule extends HudModule {
     private static final int BAR_W = 4;
     private static final int BG = 0x66000000;
 
+    // ponytail: cache rendered potion labels by (effect:amplifier:second-bucket)
+    private final java.util.Map<String, Component> labelCache = new java.util.HashMap<>();
+
     public PotionHudModule() {
         super(-1, 4);
     }
@@ -63,16 +66,24 @@ public class PotionHudModule extends HudModule {
             g.fill(rx, cy, rx + BAR_W, cy + LINE_H, argb);
             g.fill(rx + BAR_W, cy, rx + getWidth(), cy + LINE_H, BG);
 
-            String name = Component.translatable(effect.getDescriptionId()).getString();
             int amp = effect.getAmplifier() + 1;
             int ticks = effect.getDuration();
             int secs = ticks / 20;
-            String time = secs >= 3600
-                ? String.format("%d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60)
-                : String.format("%d:%02d", secs / 60, secs % 60);
-            String label = amp > 1 ? name + " " + toRoman(amp) + " " + time : name + " " + time;
+            // ponytail: only rebuild the label String + Component when the displayed
+            // value changes (effect id + amplifier + whole-second timer bucket).
+            String cacheKey = effect.getDescriptionId() + ":" + amp + ":" + secs;
+            Component labelComp = labelCache.get(cacheKey);
+            if (labelComp == null) {
+                String name = Component.translatable(effect.getDescriptionId()).getString();
+                String time = secs >= 3600
+                    ? String.format("%d:%02d:%02d", secs / 3600, (secs % 3600) / 60, secs % 60)
+                    : String.format("%d:%02d", secs / 60, secs % 60);
+                String label = amp > 1 ? name + " " + toRoman(amp) + " " + time : name + " " + time;
+                labelComp = Component.literal(label);
+                if (labelCache.size() < 64) labelCache.put(cacheKey, labelComp);
+            }
 
-            g.text(mc.font, Component.literal(label), rx + BAR_W + PAD, cy + PAD, 0xFFFFFFFF);
+            g.text(mc.font, labelComp, rx + BAR_W + PAD, cy + PAD, 0xFFFFFFFF);
             i++;
         }
     }

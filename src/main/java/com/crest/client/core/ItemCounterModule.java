@@ -26,6 +26,12 @@ public class ItemCounterModule extends HudModule {
     @Override
     public int getHeight() { Minecraft mc = Minecraft.getInstance(); return mc.font.lineHeight + 4; }
 
+    // ponytail: cache the rendered text + Component; rebuild only when the held
+    // item's name/damage/count actually changes.
+    private String cachedKey;
+    private String cachedText;
+    private Component cachedComp;
+
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         Player player = mc.player;
@@ -36,18 +42,27 @@ public class ItemCounterModule extends HudModule {
 
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
 
+        String key;
         String text;
         if (held.isDamageableItem()) {
             int cur = held.getMaxDamage() - held.getDamageValue();
             int max = held.getMaxDamage();
             int pct = max > 0 ? cur * 100 / max : 100;
+            key = "dmg:" + cur + ":" + max;
             text = held.getHoverName().getString() + " " + cur + "/" + max + " (" + pct + "%)";
         } else {
+            key = "cnt:" + held.getCount();
             text = held.getHoverName().getString() + " x" + held.getCount();
         }
 
-        int tw = mc.font.width(text);
+        if (!key.equals(cachedKey) || cachedComp == null) {
+            cachedKey = key;
+            cachedText = text;
+            cachedComp = Component.literal(text);
+        }
+
+        int tw = mc.font.width(cachedText);
         g.fill(rx, y, rx + Math.max(tw, getWidth()) + 4, y + mc.font.lineHeight + 4, 0x66000000);
-        g.text(mc.font, Component.literal(text), rx + 2, y + 2, 0xFFFFFFFF);
+        g.text(mc.font, cachedComp, rx + 2, y + 2, 0xFFFFFFFF);
     }
 }

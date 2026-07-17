@@ -1,5 +1,7 @@
 package com.crest.client.core;
 
+import com.crest.client.music.MusicModule;
+import com.crest.client.music.MusicScreen;
 import com.crest.client.ui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -116,6 +118,15 @@ public class CrestMenu extends Screen {
             g.text(font, Component.literal(cat), pX + 35, tabY + 9, textColor);
             tabY += 35;
         }
+
+        // Music button
+        int musicY = pY + pH - 90;
+        boolean musicHover = mx >= pX + 20 && mx <= pX + SIDEBAR_W - 20
+                         && my >= musicY && my <= musicY + 26;
+        if (musicHover) {
+            g.fill(pX + 20, musicY, pX + SIDEBAR_W - 20, musicY + 26, ColorUtil.withAlpha(accent, 30));
+        }
+        g.text(font, "\u266B Music", pX + 20, musicY + 6, musicHover ? accent : Theme.MUTED_FOREGROUND);
 
         // HUD Edit button (draggable GUI)
         int hudY = pY + pH - 60;
@@ -348,6 +359,13 @@ public class CrestMenu extends Screen {
         int closeY = pY + pH - 30;
         if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= closeY && myy <= closeY + 26) {
             onClose();
+            return true;
+        }
+
+        // Music button
+        int musicY = pY + pH - 90;
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= musicY && myy <= musicY + 26) {
+            minecraft.setScreen(new MusicScreen(MusicModule.getPlayer()));
             return true;
         }
 
