@@ -95,7 +95,7 @@ public class TeamViewModule extends HudModule {
             }
         }
 
-        int boxW = Math.max(getWidth(), longest(lines, mc));
+        int boxW = Math.max(getRenderWidth(), longest(lines, mc));
         int boxH = lines.size() * LINE_H + PAD * 2;
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;

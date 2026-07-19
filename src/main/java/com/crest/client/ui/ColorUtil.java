@@ -66,4 +66,27 @@ public final class ColorUtil {
     public static int hsvToArgb(float h, float s, float v) {
         return hsvToInt(h, s, v, 1f);
     }
+
+    /** Shorthand for hsvToArgb. */
+    public static int hsv(float h, float s, float v) {
+        return hsvToInt(h, s, v, 1f);
+    }
+
+    /** Convert packed ARGB to HSV (h,s,v in 0..1). Alpha ignored. */
+    public static float[] toHSV(int c) {
+        int r = getR(c), g = getG(c), b = getB(c);
+        int max = Math.max(r, Math.max(g, b));
+        int min = Math.min(r, Math.min(g, b));
+        float v = max / 255f;
+        float d = (max - min) / 255f;
+        float s = max == 0 ? 0f : d / v;
+        float h;
+        if (d == 0) h = 0f;
+        else if (max == r) h = ((g - b) / 255f) / d;
+        else if (max == g) h = 2f + ((b - r) / 255f) / d;
+        else h = 4f + ((r - g) / 255f) / d;
+        h /= 6f;
+        if (h < 0) h += 1f;
+        return new float[]{h, s, v};
+    }
 }

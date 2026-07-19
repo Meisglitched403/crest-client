@@ -26,7 +26,10 @@
         "input/MouseInputMixin",
         "gui/ScreenBackgroundMixin",
         "gui/ContainerPanelMixin",
+        "gui/ContainerCornerTextMixin",
+        "gui/RecipeBookCornerTextMixin",
         "gui/TitleScreenMixin",
+        "gui/ScoreboardMixin",
         "FrameCaptureMixin",
         "RenderBudgetMixin",
         "WhoamiMixin",
@@ -40,13 +43,21 @@
 
         "ParticleEngineMixin",
         "PlayerHealthIndicatorMixin",
+        "TntTimerMixin",
         "ItemStackTooltipMixin",
         "ItemEntityMixin",
         "ScreenTooltipMixin",
         "LevelRendererHitboxMixin",
         "ShaderManagerMixin",
         "GameRendererAccess",
-        "ItemFeatureRendererMixin"
+        "ItemFeatureRendererMixin",
+        "SymbolChatMixin",
+        "SkinLayers3dMixin",
+        "MouseTweaksMixin",
+        "ChatHeadsMixin",
+        "HumanoidRenderStateMixin",
+        "AvatarRendererMixin",
+        "ItemInHandLayerMixin"
     ],
     "injectors": {
         "defaultRequire": 1

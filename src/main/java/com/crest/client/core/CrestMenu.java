@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public class CrestMenu extends Screen {
     private static final int MARGIN = 40;
     private static final int SIDEBAR_W = 200;
-    private static final int CARD_H = 100;
+    private static final int CARD_H = 90;
     private static final int CARD_GAP = 12;
     private static final int SEARCH_H = 36;
     private static final int TOGGLE_W = 44;
@@ -58,7 +58,7 @@ public class CrestMenu extends Screen {
         contentW = pW - SIDEBAR_W - 30;
         gridY = contentY + SEARCH_H + 16;
         gridH = pH - (gridY - pY) - 16;
-        cols = Math.max(2, contentW / 280);
+        cols = Math.max(2, contentW / 200);
 
         openAnim.setImmediate(0f);
         openAnim.set(1f);
@@ -242,27 +242,27 @@ public class CrestMenu extends Screen {
         g.fill(cx + 2, cy + 8, cx + 5, cy + ch - 8, ColorUtil.withAlpha(accent, barAlpha));
 
         // Module name
-        int nameMaxW = cw - 40;
+        int nameMaxW = cw - 32;
         String name = font.width(mod.getName()) > nameMaxW
             ? font.plainSubstrByWidth(mod.getName(), nameMaxW - 4) + "\u2026"
             : mod.getName();
         int nameColor = ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.FOREGROUND, toggleAmt);
-        g.text(font, Component.literal(name), cx + 16, cy + 16, nameColor);
+        g.text(font, Component.literal(name), cx + 14, cy + 14, nameColor);
 
         // Description
         String desc = mod.getDescription();
         if (desc != null && !desc.isEmpty()) {
-            String truncated = font.width(desc) > cw - 32
-                ? font.plainSubstrByWidth(desc, cw - 36) + "\u2026"
+            String truncated = font.width(desc) > cw - 28
+                ? font.plainSubstrByWidth(desc, cw - 32) + "\u2026"
                 : desc;
             int descColor = ColorUtil.lerpARGB(
                 ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 120),
                 Theme.MUTED_FOREGROUND, toggleAmt);
-            g.text(font, Component.literal(truncated), cx + 16, cy + 38, descColor);
+            g.text(font, Component.literal(truncated), cx + 14, cy + 32, descColor);
         }
 
         // Toggle switch
-        drawToggle(g, cx + cw - TOGGLE_W - 16, cy + 12, enabled, toggleAmt);
+        drawToggle(g, cx + cw - TOGGLE_W - 12, cy + 8, enabled, toggleAmt);
     }
 
     private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
@@ -404,12 +404,14 @@ public class CrestMenu extends Screen {
                 int cy = baseY + r * (CARD_H + CARD_GAP);
 
                 if (mxx >= cx && mxx <= cx + cardW && myy >= cy && myy <= cy + CARD_H) {
-                    int toggleX = cx + cardW - TOGGLE_W - 16;
-                    int toggleY = cy + 12;
+                    int toggleX = cx + cardW - TOGGLE_W - 12;
+                    int toggleY = cy + 8;
                     if (mxx >= toggleX && mxx <= toggleX + TOGGLE_W && myy >= toggleY && myy <= toggleY + TOGGLE_H) {
                         CrestModules.setEnabled(mods.get(i).getId(), !CrestModules.isEnabled(mods.get(i).getId()));
                     } else {
-                        minecraft.setScreen(new ModuleDetailScreen(mods.get(i), this));
+                        CrestModule mod = mods.get(i);
+                        Screen config = mod.createConfigScreen(this);
+                        minecraft.setScreen(config != null ? config : new ModuleDetailScreen(mod, this));
                     }
                     return true;
                 }

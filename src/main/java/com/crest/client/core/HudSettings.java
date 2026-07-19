@@ -18,6 +18,7 @@ public class HudSettings {
     private static boolean dirty;
 
     public Map<String, HudPosition> positions = new HashMap<>();
+    public Map<String, HudSize> sizes = new HashMap<>();
     public Map<String, Map<String, Object>> moduleSettings = new HashMap<>();
 
     public static HudSettings getInstance() {
@@ -33,6 +34,17 @@ public class HudSettings {
         HudPosition pos = getInstance().positions.computeIfAbsent(moduleId, k -> new HudPosition(0, 0));
         pos.x = x;
         pos.y = y;
+        dirty = true;
+    }
+
+    public static HudSize getSize(String moduleId) {
+        return getInstance().sizes.get(moduleId);
+    }
+
+    public static void setSize(String moduleId, Integer w, Integer h) {
+        HudSize s = getInstance().sizes.computeIfAbsent(moduleId, k -> new HudSize());
+        s.w = w;
+        s.h = h;
         dirty = true;
     }
 
@@ -79,5 +91,12 @@ public class HudSettings {
             this.x = x;
             this.y = y;
         }
+    }
+
+    public static class HudSize {
+        public Integer w;
+        public Integer h;
+
+        public HudSize() {}
     }
 }

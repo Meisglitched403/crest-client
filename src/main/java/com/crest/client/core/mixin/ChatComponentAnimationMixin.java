@@ -31,7 +31,7 @@ public class ChatComponentAnimationMixin {
         int fadeTime = ChatAnimationModule.getFadeTime();
         if (elapsed >= fadeTime) return;
         float t = Math.min(1f, (float) elapsed / fadeTime);
-        float displacement = (1 - Easing.apply(ChatAnimationModule.getEasing(), t)) * 9;
+        float displacement = (1 - Easing.apply(ChatAnimationModule.getEasing(), ChatAnimationModule.getEasingMode(), t)) * 9;
         if (displacement > 0.5f) {
             access.updatePose(m -> m.translate(0, displacement));
         }

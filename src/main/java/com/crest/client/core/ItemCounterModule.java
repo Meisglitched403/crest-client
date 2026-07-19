@@ -40,7 +40,7 @@ public class ItemCounterModule extends HudModule {
         ItemStack held = player.getMainHandItem();
         if (held.isEmpty()) return;
 
-        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getRenderWidth() : x;
 
         String key;
         String text;
@@ -62,7 +62,7 @@ public class ItemCounterModule extends HudModule {
         }
 
         int tw = mc.font.width(cachedText);
-        HudBackground.draw(g, rx, y, Math.max(tw, getWidth()) + 4, mc.font.lineHeight + 4);
+        HudBackground.draw(g, rx, y, Math.max(tw, getRenderWidth()) + 4, mc.font.lineHeight + 4);
         g.text(mc.font, cachedComp, rx + 2, y + 2, 0xFFFFFFFF);
     }
 }

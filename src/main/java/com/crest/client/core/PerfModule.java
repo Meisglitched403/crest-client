@@ -68,7 +68,7 @@ public class PerfModule extends HudModule {
         List<Line> lines = buildLines(mc);
         int lh = mc.font.lineHeight;
         int pad = 2;
-        int boxW = getWidth();
+        int boxW = getRenderWidth();
         int boxH = lh * lines.size() + 4 + (lines.size() - 1) * 2 + pad;
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW - 4 : x;
         int ry = y;

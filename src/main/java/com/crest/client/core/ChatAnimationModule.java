@@ -13,6 +13,7 @@ public class ChatAnimationModule implements CrestModule {
     private final IntegerSetting fadeTime = new IntegerSetting("Fade Time (ms)", 100, 2000, 500);
     private final BooleanSetting opacityAnimation = new BooleanSetting("Opacity Animation", true);
     private final ModeSetting easing = new ModeSetting("Easing", new String[]{"Sine", "Quad", "Cubic", "Quart", "Expo"}, 0);
+    private final ModeSetting easingMode = new ModeSetting("Easing Mode", new String[]{"In", "Out", "InOut"}, 1);
 
     @Override public String getId() { return "chat_animation"; }
     @Override public String getName() { return "Chat Animation"; }
@@ -22,7 +23,7 @@ public class ChatAnimationModule implements CrestModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(enabled, messageAnimation, fadeTime, opacityAnimation, easing);
+        return List.of(enabled, messageAnimation, fadeTime, opacityAnimation, easing, easingMode);
     }
 
     public static boolean messagesAnimated() {
@@ -47,5 +48,16 @@ public class ChatAnimationModule implements CrestModule {
         var m = CrestModules.get("chat_animation");
         if (!(m instanceof ChatAnimationModule cam)) return "Sine";
         return cam.easing.getMode();
+    }
+
+    public static Easing.Mode getEasingMode() {
+        var m = CrestModules.get("chat_animation");
+        if (!(m instanceof ChatAnimationModule cam)) return Easing.Mode.OUT;
+        return switch (cam.easingMode.get()) {
+            case 0 -> Easing.Mode.IN;
+            case 1 -> Easing.Mode.OUT;
+            case 2 -> Easing.Mode.IN_OUT;
+            default -> Easing.Mode.OUT;
+        };
     }
 }

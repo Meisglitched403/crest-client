@@ -70,7 +70,7 @@ public class PvpInfoModule extends HudModule {
         if (!(target instanceof LivingEntity living)) return;
         if (mc.player == null) return;
 
-        int boxW = getWidth();
+        int boxW = getRenderWidth();
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;

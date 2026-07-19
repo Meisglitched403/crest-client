@@ -37,6 +37,8 @@ public class CrestModules {
             var pos = HudSettings.getPosition(module.getId(), hud.getX(), hud.getY());
             hud.setX(pos.x);
             hud.setY(pos.y);
+            var size = HudSettings.getSize(module.getId());
+            if (size != null) hud.setSize(size.w, size.h);
         }
         module.loadSettings();
         if (configManager.has(module.getId(), "_enabled")) {

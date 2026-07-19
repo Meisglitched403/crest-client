@@ -46,10 +46,10 @@ public class PotionHudModule extends HudModule {
     @Override
     public void render(GuiGraphicsExtractor g, Minecraft mc, DeltaTracker d) {
         if (mc.player == null) return;
-        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getRenderWidth() : x;
         Collection<MobEffectInstance> effects = mc.player.getActiveEffects();
         if (effects.isEmpty()) {
-            HudBackground.draw(g, rx, y, getWidth(), getHeight());
+            HudBackground.draw(g, rx, y, getRenderWidth(), getRenderHeight());
             g.text(mc.font, Component.literal("No effects"), rx + PAD, y + PAD, 0xFF888888);
             return;
         }
@@ -64,7 +64,7 @@ public class PotionHudModule extends HudModule {
             int argb = 0xFF000000 | (color & 0x00FFFFFF);
 
             g.fill(rx, cy, rx + BAR_W, cy + LINE_H, argb);
-            g.fill(rx + BAR_W, cy, rx + getWidth(), cy + LINE_H, BG);
+            g.fill(rx + BAR_W, cy, rx + getRenderWidth(), cy + LINE_H, BG);
 
             int amp = effect.getAmplifier() + 1;
             int ticks = effect.getDuration();

@@ -75,7 +75,7 @@ public class ReachDisplayModule extends HudModule {
         // pad the box slightly so the boundary reads fairly
         boolean within = player.isWithinAttackRange(stack, box, dist + 0.01);
 
-        int boxW = getWidth();
+        int boxW = getRenderWidth();
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;

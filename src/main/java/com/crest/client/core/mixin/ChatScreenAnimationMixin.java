@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ChatScreen.class)
 public class ChatScreenAnimationMixin {
     @Unique private long crest$openTime;
+    @Unique private boolean crest$pushed;
 
     @Inject(method = "init", at = @At("HEAD"))
     private void crest$onInit(CallbackInfo ci) {
@@ -22,27 +23,23 @@ public class ChatScreenAnimationMixin {
 
     @Inject(method = "extractRenderState", at = @At("HEAD"))
     private void crest$beforeRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        crest$pushed = false;
         if (!CrestModules.isEnabled("chat_animation")) return;
         long elapsed = System.currentTimeMillis() - crest$openTime;
         int fadeTime = ChatAnimationModule.getFadeTime();
         if (elapsed >= fadeTime) return;
         float t = Math.min(1f, (float) elapsed / fadeTime);
-        float displacement = (1 - Easing.apply(ChatAnimationModule.getEasing(), t)) * (graphics.guiHeight() / 4f);
+        float displacement = (1 - Easing.apply(ChatAnimationModule.getEasing(), ChatAnimationModule.getEasingMode(), t)) * 20;
         if (displacement > 0.5f) {
             graphics.pose().pushMatrix();
             graphics.pose().translate(0, displacement);
+            crest$pushed = true;
         }
     }
 
     @Inject(method = "extractRenderState", at = @At("RETURN"))
     private void crest$afterRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        if (!CrestModules.isEnabled("chat_animation")) return;
-        long elapsed = System.currentTimeMillis() - crest$openTime;
-        int fadeTime = ChatAnimationModule.getFadeTime();
-        if (elapsed >= fadeTime) return;
-        float t = Math.min(1f, (float) elapsed / fadeTime);
-        float displacement = (1 - Easing.apply(ChatAnimationModule.getEasing(), t)) * (graphics.guiHeight() / 4f);
-        if (displacement > 0.5f) {
+        if (crest$pushed) {
             graphics.pose().popMatrix();
         }
     }

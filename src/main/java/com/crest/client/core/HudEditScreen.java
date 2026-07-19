@@ -17,9 +17,13 @@ public class HudEditScreen extends Screen {
 
     private String selectedId;
     private boolean dragging;
+    private boolean resizing;
     private int dragOffX;
     private int dragOffY;
     private boolean changed;
+
+    private static final int HANDLE = 10;
+    private static final int MIN_SIZE = 24;
 
     protected HudEditScreen() {
         super(Component.literal("Edit HUD"));
@@ -27,6 +31,10 @@ public class HudEditScreen extends Screen {
 
     public static void open() {
         Minecraft.getInstance().setScreen(new HudEditScreen());
+    }
+
+    private int rx(HudModule mod) {
+        return mod.getX() < 0 ? width - mod.getRenderWidth() : mod.getX();
     }
 
     @Override
@@ -41,12 +49,25 @@ public class HudEditScreen extends Screen {
         for (HudModule mod : modules) {
             if (!CrestModules.isEnabled(mod.getId())) continue;
             hasEnabled = true;
-            int rx = mod.getX() < 0 ? width - mod.getWidth() : mod.getX();
+            int rx = rx(mod);
             int ry = mod.getY();
+            int rw = mod.getRenderWidth();
+            int rh = mod.getRenderHeight();
             boolean selected = mod.getId().equals(selectedId);
             int borderCol = selected ? accent : Theme.BORDER_LIGHT;
 
-            Panel.drawHollowRect(g, rx - 2, ry - 2, mod.getWidth() + 4, mod.getHeight() + 4, borderCol);
+            Panel.drawHollowRect(g, rx - 2, ry - 2, rw + 4, rh + 4, borderCol);
+
+            if (selected) {
+                // Resize handle (bottom-right corner)
+                int hx = rx + rw + 4 - HANDLE;
+                int hy = ry + rh + 4 - HANDLE;
+                g.fill(hx, hy, hx + HANDLE, hy + HANDLE, ColorUtil.withAlpha(accent, 220));
+                g.fill(hx + 2, hy + 2, hx + HANDLE - 2, hy + 2 + 1, 0xFFFFFFFF);
+                g.fill(hx + 2, hy + 5, hx + HANDLE - 2, hy + 5 + 1, 0xFFFFFFFF);
+                g.fill(hx + 2, hy + 2, hx + 2 + 1, hy + HANDLE - 2, 0xFFFFFFFF);
+                g.fill(hx + 5, hy + 2, hx + 5 + 1, hy + HANDLE - 2, 0xFFFFFFFF);
+            }
 
             String modeSuffix = mod instanceof ArmorHudModule a ? " [" + a.getModeLabel() + "]" : "";
             String modLabel = "[" + mod.getName() + "]" + modeSuffix;
@@ -64,7 +85,7 @@ public class HudEditScreen extends Screen {
             g.centeredText(font, msg, width / 2, height / 2 - 10, Theme.ON_SURFACE_VARIANT);
         }
 
-        Component hint = Component.literal("Click + drag to move  |  ESC to save & close");
+        Component hint = Component.literal("Click + drag to move  |  drag corner to resize  |  ESC to save & close");
         g.text(font, hint, (width - font.width(hint)) / 2, height - 16, Theme.TEXT_FAINT);
     }
 
@@ -75,11 +96,28 @@ public class HudEditScreen extends Screen {
         int btn = event.buttonInfo().input();
         if (btn != 0) return super.mouseClicked(event, doubleClick);
 
+        // Selected module's resize handle takes priority
+        HudModule sel = selectedId != null ? findModule(selectedId) : null;
+        if (sel != null && CrestModules.isEnabled(sel.getId())) {
+            int rx = rx(sel);
+            int ry = sel.getY();
+            int rw = sel.getRenderWidth();
+            int rh = sel.getRenderHeight();
+            int hx = rx + rw + 4 - HANDLE;
+            int hy = ry + rh + 4 - HANDLE;
+            if (mx >= hx && mx <= hx + HANDLE && my >= hy && my <= hy + HANDLE) {
+                resizing = true;
+                return true;
+            }
+        }
+
         for (HudModule mod : getHudModules()) {
             if (!CrestModules.isEnabled(mod.getId())) continue;
-            int rx = mod.getX() < 0 ? width - mod.getWidth() : mod.getX();
+            int rx = rx(mod);
             int ry = mod.getY();
-            if (mx >= rx && mx <= rx + mod.getWidth() && my >= ry && my <= ry + mod.getHeight()) {
+            int rw = mod.getRenderWidth();
+            int rh = mod.getRenderHeight();
+            if (mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh) {
                 selectedId = mod.getId();
                 dragging = true;
                 dragOffX = (int) (mx - rx);
@@ -93,6 +131,19 @@ public class HudEditScreen extends Screen {
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (resizing && selectedId != null) {
+            HudModule mod = findModule(selectedId);
+            if (mod != null) {
+                int rx = rx(mod);
+                int ry = mod.getY();
+                int newW = (int) Math.max(MIN_SIZE, Math.min(width - rx, event.x() - rx));
+                int newH = (int) Math.max(MIN_SIZE, Math.min(height - ry, event.y() - ry));
+                mod.setSize(newW, newH);
+                HudSettings.setSize(selectedId, newW, newH);
+                changed = true;
+            }
+            return true;
+        }
         if (dragging && selectedId != null) {
             HudModule mod = findModule(selectedId);
             if (mod != null) {
@@ -111,6 +162,7 @@ public class HudEditScreen extends Screen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         dragging = false;
+        resizing = false;
         return super.mouseReleased(event);
     }
 

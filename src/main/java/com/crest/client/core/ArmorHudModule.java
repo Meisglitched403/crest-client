@@ -71,9 +71,9 @@ public class ArmorHudModule extends HudModule {
         Player player = mc.player;
         if (player == null) return;
 
-        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getWidth() : x;
+        int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getRenderWidth() : x;
         int ry = y;
-        HudBackground.draw(g, rx, ry, getWidth(), getHeight());
+        HudBackground.draw(g, rx, ry, getRenderWidth(), getRenderHeight());
 
         int cy = ry + MARGIN;
 

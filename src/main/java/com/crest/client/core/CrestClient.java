@@ -27,6 +27,7 @@ public class CrestClient implements ClientModInitializer {
 
         CrestModules.register(new HudAppearanceModule());
         CrestModules.register(new ZoomModule());
+        CrestModules.register(new ScoreboardModule());
         CrestModules.register(new CoordsModule());
         CrestModules.register(new FpsModule());
         CrestModules.register(new PerfModule());
@@ -43,6 +44,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new TimeChangerModule());
         CrestModules.register(new WeatherChangerModule());
         CrestModules.register(new NoOverlayModule());
+        CrestModules.register(new HideScoreboardModule());
         CrestModules.register(new ItemCounterModule());
         CrestModules.register(new ServerAddressModule());
         CrestModules.register(new ToggleNotificationsModule());
@@ -81,6 +83,13 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ColorSaturationModule());
         CrestModules.register(new GlintColorizerModule());
         CrestModules.register(new PlayerHealthIndicatorModule());
+        CrestModules.register(new TntTimerModule());
+        CrestModules.register(new SymbolChatModule());
+        CrestModules.register(new SkinLayers3dModule());
+        CrestModules.register(new MouseTweaksModule());
+        CrestModules.register(new CornerTextModule());
+        CrestModules.register(new ChatHeadsModule());
+        CrestModules.register(new ShieldStatusModule());
 
         MusicModule.init();
 
@@ -147,7 +156,11 @@ public class CrestClient implements ClientModInitializer {
 
         for (RenderableModule renderable : CrestModules.getRenderableModules()) {
             try {
-                renderable.render(g, mc, d);
+                if (renderable instanceof HudModule hud) {
+                    hud.renderScaled(g, mc, d);
+                } else {
+                    renderable.render(g, mc, d);
+                }
             } catch (Exception e) {
                 System.err.println("[Crest] HUD render error: " + e);
             }

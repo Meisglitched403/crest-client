@@ -79,7 +79,7 @@ public class StopwatchModule extends HudModule {
         long elapsed = elapsedNanos();
         String txt = format(elapsed);
 
-        int boxW = getWidth();
+        int boxW = getRenderWidth();
         int boxH = getHeight();
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - boxW : x;
         int ry = y;
