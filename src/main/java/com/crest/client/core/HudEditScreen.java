@@ -1,16 +1,16 @@
 package com.crest.client.core;
 
-import com.crest.client.ui.ColorUtil;
-import com.crest.client.ui.Panel;
-import com.crest.client.ui.Theme;
+import com.crest.client.ui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class HudEditScreen extends Screen {
@@ -22,8 +22,15 @@ public class HudEditScreen extends Screen {
     private int dragOffY;
     private boolean changed;
 
-    private static final int HANDLE = 10;
+    private static final int HANDLE = 12;
     private static final int MIN_SIZE = 24;
+    private static final int SNAP = 4;
+    private static boolean snapEnabled = true;
+
+    private final Animated openAnim = new Animated(0f, 10f);
+    private final Animated selectAnim = new Animated(0f, 12f);
+    private final Animated handleAnim = new Animated(0f, 12f);
+    private int mx, my;
 
     protected HudEditScreen() {
         super(Component.literal("Edit HUD"));
@@ -38,12 +45,27 @@ public class HudEditScreen extends Screen {
     }
 
     @Override
+    protected void init() {
+        Theme.load();
+        openAnim.setImmediate(0f);
+        openAnim.set(1f);
+        selectAnim.set(0f);
+        handleAnim.set(0f);
+    }
+
+    @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        this.mx = mx; this.my = my;
         Theme.tick(delta);
-        int accent = Theme.getAnimatedAccent();
-        g.fill(0, 0, width, height, Theme.GLASS_BG);
+        openAnim.tick(delta);
+        selectAnim.tick(delta);
+        handleAnim.tick(delta);
+
+        int open = (int) (Theme.glassOpacity * openAnim.get());
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, open));
 
         List<HudModule> modules = getHudModules();
+        modules.sort(Comparator.comparingInt(m -> HudSettings.getOrder(m.getId())));
         boolean hasEnabled = false;
 
         for (HudModule mod : modules) {
@@ -54,30 +76,43 @@ public class HudEditScreen extends Screen {
             int rw = mod.getRenderWidth();
             int rh = mod.getRenderHeight();
             boolean selected = mod.getId().equals(selectedId);
-            int borderCol = selected ? accent : Theme.BORDER_LIGHT;
 
+            // Live preview: render module content faintly inside its box
+            if (rw > 0 && rh > 0) {
+                g.enableScissor(rx, ry, rx + rw, ry + rh);
+                g.pose().pushMatrix();
+                g.pose().translate(rx, ry);
+                try { mod.render(g, minecraft, deltaTracker(delta)); } catch (Exception ignored) {}
+                g.pose().popMatrix();
+                g.disableScissor();
+                g.fill(rx, ry, rx + rw, ry + rh, ColorUtil.withAlpha(Theme.GLASS_BG, 90));
+            }
+
+            int borderCol = selected ? ColorUtil.lerpARGB(Theme.BORDER_LIGHT, Theme.getAnimatedAccent(), selectAnim.get())
+                                     : Theme.BORDER_LIGHT;
             Panel.drawHollowRect(g, rx - 2, ry - 2, rw + 4, rh + 4, borderCol);
 
             if (selected) {
-                // Resize handle (bottom-right corner)
                 int hx = rx + rw + 4 - HANDLE;
                 int hy = ry + rh + 4 - HANDLE;
-                g.fill(hx, hy, hx + HANDLE, hy + HANDLE, ColorUtil.withAlpha(accent, 220));
-                g.fill(hx + 2, hy + 2, hx + HANDLE - 2, hy + 2 + 1, 0xFFFFFFFF);
-                g.fill(hx + 2, hy + 5, hx + HANDLE - 2, hy + 5 + 1, 0xFFFFFFFF);
-                g.fill(hx + 2, hy + 2, hx + 2 + 1, hy + HANDLE - 2, 0xFFFFFFFF);
-                g.fill(hx + 5, hy + 2, hx + 5 + 1, hy + HANDLE - 2, 0xFFFFFFFF);
+                int ha = (int) (220 * handleAnim.get());
+                Panel.draw(g, hx, hy, HANDLE, HANDLE, ColorUtil.withAlpha(Theme.getAnimatedAccent(), ha));
+                g.fill(hx + 3, hy + 3, hx + HANDLE - 3, hy + 3 + 2, Theme.FOREGROUND);
+                g.fill(hx + 3, hy + 6, hx + HANDLE - 3, hy + 6 + 2, Theme.FOREGROUND);
+                g.fill(hx + 3, hy + 3, hx + 3 + 2, hy + HANDLE - 3, Theme.FOREGROUND);
+                g.fill(hx + 6, hy + 3, hx + 6 + 2, hy + HANDLE - 3, Theme.FOREGROUND);
             }
 
             String modeSuffix = mod instanceof ArmorHudModule a ? " [" + a.getModeLabel() + "]" : "";
-            String modLabel = "[" + mod.getName() + "]" + modeSuffix;
+            String anchor = mod.getX() < 0 ? " \u2190" : "";
+            String modLabel = "[" + mod.getName() + "]" + modeSuffix + anchor;
             Component label = Component.literal(modLabel);
             int lw = font.width(label);
-            int labelY = Math.max(0, ry - 11);
-            int labelBg = selected ? ColorUtil.withAlpha(accent, 200) : ColorUtil.withAlpha(Theme.GLASS_BG, 220);
-            g.fillGradient(rx, labelY, rx + lw + 4, labelY + 10, labelBg, ColorUtil.withAlpha(labelBg, 120));
-            Panel.drawHollowRect(g, rx, labelY, lw + 4, 10, Theme.BORDER_LIGHT);
-            g.text(font, label, rx + 2, labelY + 1, Theme.FOREGROUND);
+            int labelY = Math.max(0, ry - 13);
+            int labelBg = selected ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 220) : ColorUtil.withAlpha(Theme.GLASS_BG, 220);
+            Panel.draw(g, rx, labelY, lw + 6, 11, labelBg);
+            Panel.drawHollowRect(g, rx, labelY, lw + 6, 11, Theme.BORDER_LIGHT);
+            g.text(font, label, rx + 3, labelY + 2, Theme.FOREGROUND);
         }
 
         if (!hasEnabled) {
@@ -85,8 +120,29 @@ public class HudEditScreen extends Screen {
             g.centeredText(font, msg, width / 2, height / 2 - 10, Theme.ON_SURFACE_VARIANT);
         }
 
+        if (selectedId != null) drawToolbar(g);
+
         Component hint = Component.literal("Click + drag to move  |  drag corner to resize  |  ESC to save & close");
         g.text(font, hint, (width - font.width(hint)) / 2, height - 16, Theme.TEXT_FAINT);
+    }
+
+    private void drawToolbar(GuiGraphicsExtractor g) {
+        HudModule mod = findModule(selectedId);
+        if (mod == null) return;
+        String[] labels = {"Reset", CrestModules.isEnabled(mod.getId()) ? "Hide" : "Show", "Front",
+                snapEnabled ? "Snap: On" : "Snap: Off", "Reset All"};
+        int bw = 72, bh = 24, gap = Spacing.S2;
+        int total = bw * labels.length + gap * (labels.length - 1);
+        int bx = (width - total) / 2;
+        int by = height - 46;
+        for (int i = 0; i < labels.length; i++) {
+            int x = bx + i * (bw + gap);
+            boolean hover = mx >= x && mx <= x + bw && my >= by && my <= by + bh;
+            int fill = hover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 220) : ColorUtil.withAlpha(Theme.CARD, 230);
+            Panel.draw(g, x, by, bw, bh, fill);
+            Panel.drawHollowRect(g, x, by, bw, bh, Theme.BORDER_LIGHT);
+            g.text(font, Component.literal(labels[i]), x + (bw - font.width(labels[i])) / 2, by + (bh - font.lineHeight) / 2, Theme.FOREGROUND);
+        }
     }
 
     @Override
@@ -96,7 +152,23 @@ public class HudEditScreen extends Screen {
         int btn = event.buttonInfo().input();
         if (btn != 0) return super.mouseClicked(event, doubleClick);
 
-        // Selected module's resize handle takes priority
+        if (selectedId != null) {
+            // Toolbar
+            String[] labels = {"Reset", CrestModules.isEnabled(selectedId) ? "Hide" : "Show", "Front",
+                    snapEnabled ? "Snap: On" : "Snap: Off", "Reset All"};
+            int bw = 72, bh = 24, gap = Spacing.S2;
+            int total = bw * labels.length + gap * (labels.length - 1);
+            int bx = (width - total) / 2;
+            int by = height - 46;
+            for (int i = 0; i < labels.length; i++) {
+                int x = bx + i * (bw + gap);
+                if (mx >= x && mx <= x + bw && my >= by && my <= by + bh) {
+                    handleToolbar(i);
+                    return true;
+                }
+            }
+        }
+
         HudModule sel = selectedId != null ? findModule(selectedId) : null;
         if (sel != null && CrestModules.isEnabled(sel.getId())) {
             int rx = rx(sel);
@@ -118,15 +190,50 @@ public class HudEditScreen extends Screen {
             int rw = mod.getRenderWidth();
             int rh = mod.getRenderHeight();
             if (mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh) {
-                selectedId = mod.getId();
+                if (!mod.getId().equals(selectedId)) {
+                    selectedId = mod.getId();
+                    selectAnim.set(1f);
+                    handleAnim.set(1f);
+                }
                 dragging = true;
                 dragOffX = (int) (mx - rx);
                 dragOffY = (int) (my - ry);
+                HudSettings.bringToFront(mod.getId());
                 return true;
             }
         }
         selectedId = null;
+        selectAnim.set(0f);
+        handleAnim.set(0f);
         return super.mouseClicked(event, doubleClick);
+    }
+
+    private void handleToolbar(int i) {
+        HudModule mod = findModule(selectedId);
+        if (mod == null) return;
+        switch (i) {
+            case 0 -> { // Reset position + size
+                HudSettings.setPosition(selectedId, 10, 10);
+                HudSettings.setSize(selectedId, null, null);
+                mod.setX(10); mod.setY(10); mod.setSize(null, null);
+                changed = true;
+            }
+            case 1 -> CrestModules.setEnabled(selectedId, !CrestModules.isEnabled(selectedId));
+            case 2 -> HudSettings.bringToFront(selectedId);
+            case 3 -> snapEnabled = !snapEnabled; // Toggle snap-to-grid
+            case 4 -> { // Reset All HUD positions
+                for (HudModule m : getHudModules()) {
+                    HudSettings.setPosition(m.getId(), 10, 10);
+                    HudSettings.setSize(m.getId(), null, null);
+                    m.setX(10); m.setY(10); m.setSize(null, null);
+                }
+                changed = true;
+            }
+        }
+    }
+
+    private static int snap(int v) {
+        return snapEnabled ? (v / SNAP) * SNAP : v;
     }
 
     @Override
@@ -136,8 +243,8 @@ public class HudEditScreen extends Screen {
             if (mod != null) {
                 int rx = rx(mod);
                 int ry = mod.getY();
-                int newW = (int) Math.max(MIN_SIZE, Math.min(width - rx, event.x() - rx));
-                int newH = (int) Math.max(MIN_SIZE, Math.min(height - ry, event.y() - ry));
+                int newW = snap((int) Math.max(MIN_SIZE, Math.min(width - rx, event.x() - rx)));
+                int newH = snap((int) Math.max(MIN_SIZE, Math.min(height - ry, event.y() - ry)));
                 mod.setSize(newW, newH);
                 HudSettings.setSize(selectedId, newW, newH);
                 changed = true;
@@ -147,8 +254,9 @@ public class HudEditScreen extends Screen {
         if (dragging && selectedId != null) {
             HudModule mod = findModule(selectedId);
             if (mod != null) {
-                int newX = (int) Math.max(0, event.x() - dragOffX);
-                int newY = (int) Math.max(0, event.y() - dragOffY);
+                int newX = snap((int) Math.max(0, event.x() - dragOffX));
+                int newY = snap((int) Math.max(0, event.y() - dragOffY));
+                if (mod.getX() < 0) newX = -(mod.getRenderWidth() + 10);
                 mod.setX(newX);
                 mod.setY(newY);
                 HudSettings.setPosition(selectedId, newX, newY);
@@ -197,5 +305,14 @@ public class HudEditScreen extends Screen {
     private HudModule findModule(String id) {
         CrestModule m = CrestModules.get(id);
         return m instanceof HudModule h ? h : null;
+    }
+
+    private static DeltaTracker deltaTracker(float delta) {
+        float d = delta;
+        return new DeltaTracker() {
+            @Override public float getGameTimeDeltaTicks() { return d; }
+            @Override public float getGameTimeDeltaPartialTick(boolean ignore) { return d; }
+            @Override public float getRealtimeDeltaTicks() { return d; }
+        };
     }
 }

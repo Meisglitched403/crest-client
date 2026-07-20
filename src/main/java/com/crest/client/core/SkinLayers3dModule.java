@@ -4,6 +4,9 @@ import com.crest.client.core.setting.BooleanSetting;
 import com.crest.client.core.setting.FloatSetting;
 import com.crest.client.core.setting.Setting;
 import java.util.List;
+import java.util.Set;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 public class SkinLayers3dModule implements CrestModule {
     private final BooleanSetting enabled = new BooleanSetting("Enabled", true);
@@ -11,6 +14,16 @@ public class SkinLayers3dModule implements CrestModule {
     private final FloatSetting bodyThickness = new FloatSetting("Body Thickness", 0f, 1f, 0.5f);
     private final FloatSetting armsThickness = new FloatSetting("Arms Thickness", 0f, 1f, 0.3f);
     private final FloatSetting legsThickness = new FloatSetting("Legs Thickness", 0f, 1f, 0.3f);
+
+    private final BooleanSetting hat = new BooleanSetting("Hat Layer", true);
+    private final BooleanSetting jacket = new BooleanSetting("Jacket Layer", true);
+    private final BooleanSetting leftSleeve = new BooleanSetting("Left Sleeve", true);
+    private final BooleanSetting rightSleeve = new BooleanSetting("Right Sleeve", true);
+    private final BooleanSetting leftPants = new BooleanSetting("Left Pants", true);
+    private final BooleanSetting rightPants = new BooleanSetting("Right Pants", true);
+
+    public static final Set<Item> HIDE_HEAD_LAYERS = Set.of(Items.ZOMBIE_HEAD, Items.CREEPER_HEAD,
+            Items.DRAGON_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL);
 
     @Override public String getId() { return "skin_layers_3d"; }
     @Override public String getName() { return "3D Skin Layers"; }
@@ -20,7 +33,24 @@ public class SkinLayers3dModule implements CrestModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(enabled, headThickness, bodyThickness, armsThickness, legsThickness);
+        return List.of(enabled, headThickness, bodyThickness, armsThickness, legsThickness,
+                hat, jacket, leftSleeve, rightSleeve, leftPants, rightPants);
+    }
+
+    public boolean isLayerEnabled(String layer) {
+        return switch (layer) {
+            case "hat" -> hat.get();
+            case "jacket" -> jacket.get();
+            case "leftSleeve" -> leftSleeve.get();
+            case "rightSleeve" -> rightSleeve.get();
+            case "leftPants" -> leftPants.get();
+            case "rightPants" -> rightPants.get();
+            default -> true;
+        };
+    }
+
+    public static Set<Item> hideHeadLayers() {
+        return HIDE_HEAD_LAYERS;
     }
 
     public static float getHeadThickness() {

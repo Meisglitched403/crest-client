@@ -60,7 +60,7 @@ public class MusicScreen extends Screen {
         float open = openAnim.get();
         if (open < 0.01) return;
 
-        g.fill(0, 0, width, height, ColorUtil.withAlpha(0xCC000000, (int) (220 * open)));
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * open)));
 
         int wy = (int) ((1 - open) * -20);
         g.pose().pushMatrix();

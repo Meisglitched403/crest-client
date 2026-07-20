@@ -96,6 +96,40 @@ public class CrestModules {
         setEnabled(id, !isEnabled(id));
     }
 
+    /** Re-read every setting's persisted value from the config into the live objects. */
+    public static void reloadSettings() {
+        for (CrestModule mod : modules.values()) {
+            for (Setting<?> setting : mod.getSettings()) {
+                setting.load(configManager, mod.getId());
+            }
+            mod.loadSettings();
+        }
+    }
+
+    /** Curated default-enabled set for first-time users (competitive-friendly, low-risk). */
+    private static final String[] DEFAULT_ENABLED = {
+        "fps", "coords", "potions", "armor_hud", "cps", "reach", "crosshair",
+        "keystrokes", "combo", "scoreboard", "zoom", "chat_timestamp",
+        "entity_culling", "no_fog", "no_hurtcam", "block_outline", "pvp_info",
+        "hitbox", "item_counter", "waypoints", "server_address", "toggle_sneak",
+        "dynamic_fov", "low_fire", "skin_layers_3d"
+    };
+
+    public static void applyDefaults() {
+        for (String id : DEFAULT_ENABLED) {
+            if (modules.containsKey(id)) setEnabled(id, true);
+        }
+    }
+
+    public static boolean isFirstRun() {
+        return !configManager.has("_meta", "initialized");
+    }
+
+    public static void markInitialized() {
+        configManager.set("_meta", "initialized", true);
+        configManager.save();
+    }
+
     public static List<CrestModule> getByCategory(String category) {
         return modules.values().stream()
             .filter(m -> category.equals(m.getCategory()))

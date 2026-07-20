@@ -35,7 +35,7 @@ public class ModuleDetailScreen extends Screen {
     private String keybindCaptureModule;
 
     // color picker
-    private ColorPickerState colorPicker;
+    private ColorPicker colorPicker;
     private final Animated colorPickerAnim = new Animated(0f, 12f);
 
     // animations
@@ -72,7 +72,7 @@ public class ModuleDetailScreen extends Screen {
             else if (s instanceof ModeSetting ms) w = new ModeRow(ms);
             else if (s instanceof ColorSetting cs) {
                 ColorRow cr = new ColorRow(cs);
-                cr.setOnPick(cs2 -> colorPicker = new ColorPickerState(cs2));
+                cr.setOnPick(cs2 -> colorPicker = new ColorPicker().setValue(cs2.get()).setOnPick(rgb -> { cs2.set(rgb); CrestModules.getConfigManager().markDirty(); }));
                 w = cr;
             } else if (s instanceof KeybindSetting ks) {
                 KeybindRow kr = new KeybindRow(ks);
@@ -98,7 +98,7 @@ public class ModuleDetailScreen extends Screen {
         colorPickerAnim.tick(delta);
         float open = openAnim.get();
 
-        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (220 * open)));
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * open)));
 
         int wy = (int) ((1 - open) * 24);
         g.pose().pushMatrix();
@@ -123,7 +123,7 @@ public class ModuleDetailScreen extends Screen {
         ta.set(enabled ? 1f : 0f);
         ta.tick(0.016f);
 
-        g.fillGradient(0, 0, width, HEADER_H, 0x80141218, 0x40141218);
+        g.fillGradient(0, 0, width, HEADER_H, Theme.GLASS_BG, ColorUtil.withAlpha(Theme.GLASS_BG, 110));
         int accent = Theme.getAnimatedAccent();
 
         // Back button
@@ -329,97 +329,28 @@ public class ModuleDetailScreen extends Screen {
     }
 
     private void renderColorPicker(GuiGraphicsExtractor g, int mx, int my) {
-        int pw = 200, ph = 200;
+        int pw = 220, ph = 260;
         int px = Math.min(width / 2 - pw / 2, width - pw - Spacing.S2);
         int py = HEADER_H + Spacing.S3;
         int a = (int) (255 * colorPickerAnim.get());
         int accent = Theme.getAnimatedAccent();
 
-        Panel.drawElevated(g, px, py, pw, ph, ColorUtil.withAlpha(0x141218, a), Theme.ELEVATION_3);
-        g.fill(px + 2, py, px + pw - 2, py + 1, ColorUtil.withAlpha(accent, 100));
+        Panel.drawElevated(g, px, py, pw, ph, ColorUtil.withAlpha(Theme.CARD, a), Theme.ELEVATION_3);
+        g.fill(px + 2, py, px + pw - 2, py + 1, ColorUtil.withAlpha(accent, Theme.topStripAlpha));
 
-        int sq = 130, sx = px + Spacing.S3, sy = py + Spacing.S8;
-        int hueBarX = sx + sq + Spacing.S3, hueBarW = 14, hueBarH = sq;
-
-        for (int yy = 0; yy < sq; yy += 2) {
-            for (int xx = 0; xx < sq; xx += 2) {
-                float sat = xx / (float) sq, val = 1 - yy / (float) sq;
-                int col = ColorUtil.hsvToInt(colorPicker.h / 360f, sat, val, 1f);
-                g.fill(sx + xx, sy + yy, sx + xx + 2, sy + yy + 2, col);
-            }
-        }
-
-        for (int yy = 0; yy < hueBarH; yy += 2) {
-            float hh = 1 - yy / (float) hueBarH;
-            g.fill(hueBarX, sy + yy, hueBarX + hueBarW, sy + yy + 2, ColorUtil.hsvToInt(hh, 1, 1, 1f));
-        }
-
-        int selX = sx + (int) (colorPicker.s / 100f * sq) - 3;
-        int selY = sy + (int) ((1 - colorPicker.v / 100f) * sq) - 3;
-        g.fill(selX, selY, selX + 6, selY + 6, 0xFFFFFFFF);
-        int hueY = sy + (int) ((1 - colorPicker.h / 360f) * hueBarH) - 2;
-        g.fill(hueBarX - 2, hueY, hueBarX + hueBarW + 2, hueY + 4, 0xFFFFFFFF);
-
-        g.text(font, Component.literal("Pick a color"), px + Spacing.S3, py + Spacing.S3, Theme.FOREGROUND);
-        g.text(font, Component.literal("[Done]"), px + pw - Spacing.S4, py + ph - Spacing.S4, accent);
-
-        colorPicker._sx = sx; colorPicker._sy = sy; colorPicker._sq = sq;
-        colorPicker._hx = hueBarX; colorPicker._hy = sy; colorPicker._hh = hueBarH;
+        colorPicker.layout(px, py, pw, ph);
+        colorPicker.render(g, font, mx, my, a);
     }
 
     private boolean handleColorPickerClick(double mx, double my) {
-        ColorPickerState st = colorPicker;
-        int pw = 200, ph = 200;
-        int px = Math.min(width / 2 - pw / 2, width - pw - Spacing.S2);
-        int py = HEADER_H + Spacing.S3;
-        if (mx >= px + pw - Spacing.S4 && mx <= px + pw - Spacing.S2 && my >= py + ph - Spacing.S5 && my <= py + ph - Spacing.S2) { closeColorPicker(); return true; }
-        if (mx >= st._hx && mx <= st._hx + 14 && my >= st._hy && my <= st._hy + st._hh) {
-            st.h = (int) ((1 - (my - st._hy) / (float) st._hh) * 360); applyColor(); return true;
-        }
-        if (mx >= st._sx && mx <= st._sx + st._sq && my >= st._sy && my <= st._sy + st._sq) {
-            st.s = (int) ((mx - st._sx) / (float) st._sq * 100);
-            st.v = (int) ((1 - (my - st._sy) / (float) st._sq) * 100);
-            applyColor(); return true;
+        if (colorPicker.handleClick(mx, my)) {
+            CrestModules.getConfigManager().markDirty();
+            return true;
         }
         return false;
     }
 
-    private void applyColor() {
-        ColorPickerState st = colorPicker;
-        int rgb = ColorUtil.hsvToInt(st.h / 360f, st.s / 100f, st.v / 100f, 1f);
-        st.setting.set(rgb);
-        CrestModules.getConfigManager().markDirty();
-    }
-
     private void closeColorPicker() { colorPicker = null; CrestModules.getConfigManager().save(); }
-
-    private static final class ColorPickerState {
-        final ColorSetting setting;
-        int h, s = 100, v = 100;
-        int _sx, _sy, _sq, _hx, _hy, _hh;
-        ColorPickerState(ColorSetting cs) {
-            this.setting = cs;
-            int rgb = cs.getRGB();
-            float[] hsv = rgbToHsv((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
-            h = (int) (hsv[0] * 360);
-            s = (int) (hsv[1] * 100);
-            v = (int) (hsv[2] * 100);
-        }
-    }
-
-    private static float[] rgbToHsv(int r, int g, int b) {
-        float rf = r / 255f, gf = g / 255f, bf = b / 255f;
-        float max = Math.max(rf, Math.max(gf, bf)), min = Math.min(rf, Math.min(gf, bf));
-        float h, s, v = max, d = max - min;
-        s = max == 0 ? 0 : d / max;
-        if (d == 0) h = 0;
-        else if (max == rf) h = ((gf - bf) / d) % 6;
-        else if (max == gf) h = (bf - rf) / d + 2;
-        else h = (rf - gf) / d + 4;
-        h /= 6;
-        if (h < 0) h += 1;
-        return new float[]{h, s, v};
-    }
 
     @Override
     public boolean isPauseScreen() { return false; }

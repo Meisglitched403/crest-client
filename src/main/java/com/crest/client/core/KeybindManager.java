@@ -66,10 +66,23 @@ public class KeybindManager {
     private static void rebuildCache() {
         if (!entriesDirty) return;
         keybindEntries.clear();
+        Map<Integer, String> seen = new HashMap<>();
         for (CrestModule mod : CrestModules.getAll().values()) {
             for (Setting<?> s : mod.getSettings()) {
                 if (s instanceof KeybindSetting ks && ks.get() != GLFW.GLFW_KEY_UNKNOWN) {
-                    keybindEntries.add(new KeybindEntry(ks.get(), mod.getId()));
+                    int key = ks.get();
+                    String prev = seen.put(key, mod.getId());
+                    if (prev != null && !prev.equals(mod.getId())) {
+                        String name = "key#" + key;
+                        String warn = "[Crest] Keybind conflict on '" + name + "' (" + prev + " / " + mod.getId() + ")";
+                        System.err.println(warn);
+                        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                        if (mc.player != null) {
+                            mc.player.sendSystemMessage(
+                                    net.minecraft.network.chat.Component.literal(warn));
+                        }
+                    }
+                    keybindEntries.add(new KeybindEntry(key, mod.getId()));
                 }
             }
         }

@@ -8,6 +8,7 @@ public class ChatHeadsModule implements CrestModule {
     private final IntegerSetting headSize = new IntegerSetting("Head Size", 6, 20, 10);
     private final BooleanSetting showOverlay = new BooleanSetting("Show in Overlay", true);
     private final BooleanSetting showChat = new BooleanSetting("Show in Fullscreen", true);
+    private final BooleanSetting showTabList = new BooleanSetting("Show in Tab List", true);
 
     @Override public String getId() { return "chat_heads"; }
     @Override public String getName() { return "Chat Heads"; }
@@ -17,7 +18,7 @@ public class ChatHeadsModule implements CrestModule {
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(headSize, showOverlay, showChat);
+        return List.of(headSize, showOverlay, showChat, showTabList);
     }
 
     public static int getHeadSize() {
@@ -31,6 +32,10 @@ public class ChatHeadsModule implements CrestModule {
     public static boolean showInChat() {
         ChatHeadsModule m = getModule();
         return m == null || m.showChat.get();
+    }
+    public static boolean showInTabList() {
+        ChatHeadsModule m = getModule();
+        return m == null || m.showTabList.get();
     }
 
     private static ChatHeadsModule getModule() {

@@ -16,13 +16,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class CrestMenu extends Screen {
-    private static final int MARGIN = 40;
-    private static final int SIDEBAR_W = 200;
-    private static final int CARD_H = 90;
-    private static final int CARD_GAP = 12;
-    private static final int SEARCH_H = 36;
-    private static final int TOGGLE_W = 44;
-    private static final int TOGGLE_H = 24;
+    private static int MARGIN = 40;
+    private static int SIDEBAR_W = 200;
+    private static int CARD_H = 90;
+    private static int CARD_GAP = 12;
+    private static int SEARCH_H = 36;
+    private static int TOGGLE_W = 44;
+    private static int TOGGLE_H = 24;
+
+    private static final String FAV_CAT = "Favorites";
 
     private String selectedCategory;
     private int hoveredIndex = -1;
@@ -31,6 +33,13 @@ public class CrestMenu extends Screen {
     private int maxScroll = 0;
     private String scrollFilter = "";
 
+    private float sideScroll = 0;
+    private float sideScrollTarget = 0;
+    private static final int BOTTOM_ZONE = 180;
+    private static final int TAB_H = 30;
+    private static final int TAB_STEP = 35;
+    private int sideMaxScroll = 0;
+
     private int pX, pY, pW, pH;
     private int contentX, contentY, contentW;
     private int gridY, gridH, cols;
@@ -38,6 +47,7 @@ public class CrestMenu extends Screen {
     private final Animated openAnim = new Animated(0f, 12f);
     private final Map<String, Animated> cardHoverAnims = new HashMap<>();
     private final Map<String, Animated> toggleAnims = new HashMap<>();
+    private final Map<String, Animated> cardOpenAnims = new HashMap<>();
     private int mx, my;
 
     protected CrestMenu() { super(Component.literal("")); }
@@ -59,6 +69,8 @@ public class CrestMenu extends Screen {
         gridY = contentY + SEARCH_H + 16;
         gridH = pH - (gridY - pY) - 16;
         cols = Math.max(2, contentW / 200);
+        CARD_H = Theme.ROW_H() + 64;
+        CARD_GAP = Theme.density == Theme.Density.COMPACT ? 8 : 12;
 
         openAnim.setImmediate(0f);
         openAnim.set(1f);
@@ -74,7 +86,7 @@ public class CrestMenu extends Screen {
         float open = openAnim.get();
         if (open < 0.01) return;
 
-        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (220 * open)));
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * open)));
 
         int wy = (int) ((1 - open) * -12);
         g.pose().pushMatrix();
@@ -99,60 +111,77 @@ public class CrestMenu extends Screen {
         g.text(font, ".", pX + 20 + crestW, pY + 30, accent);
 
         List<String> cats = Cats();
-        int tabY = pY + 70;
+        int tabAreaTop = pY + 56;
+        int tabAreaBottom = pY + pH - BOTTOM_ZONE;
+
+        int contentH = cats.size() * TAB_STEP;
+        int areaH = Math.max(0, tabAreaBottom - tabAreaTop);
+        sideMaxScroll = Math.max(0, contentH - areaH);
+        sideScrollTarget = Anim.clamp(sideScrollTarget, 0, sideMaxScroll);
+        sideScroll += (sideScrollTarget - sideScroll) * 0.35f;
+        if (Math.abs(sideScroll - sideScrollTarget) < 0.01f) sideScroll = sideScrollTarget;
+        int scroll = (int) sideScroll;
+
+        // Clip the tab list to the available area
+        g.enableScissor(pX, tabAreaTop, pX + SIDEBAR_W, tabAreaBottom);
+        int tabY = tabAreaTop - scroll;
         for (int i = 0; i < cats.size(); i++) {
             String cat = cats.get(i);
-            int th = 30;
             boolean selected = cat.equals(selectedCategory);
             boolean hover = mx >= pX + 20 && mx <= pX + SIDEBAR_W - 20
-                         && my >= tabY && my <= tabY + th;
+                         && my >= tabY && my <= tabY + TAB_H;
 
             if (selected) {
-                g.fill(pX + 20, tabY, pX + SIDEBAR_W - 20, tabY + th, ColorUtil.withAlpha(accent, 38));
-                g.fill(pX + 20, tabY, pX + 23, tabY + th, accent);
+                g.fill(pX + 20, tabY, pX + SIDEBAR_W - 20, tabY + TAB_H, ColorUtil.withAlpha(accent, 38));
+                g.fill(pX + 20, tabY, pX + 23, tabY + TAB_H, accent);
             } else if (hover) {
-                g.fill(pX + 20, tabY, pX + SIDEBAR_W - 20, tabY + th, 0x08FFFFFF);
+                g.fill(pX + 20, tabY, pX + SIDEBAR_W - 20, tabY + TAB_H, Theme.hoverTint());
             }
 
             int textColor = selected ? accent : (hover ? Theme.FOREGROUND : Theme.MUTED_FOREGROUND);
             g.text(font, Component.literal(cat), pX + 35, tabY + 9, textColor);
-            tabY += 35;
+            tabY += TAB_STEP;
+        }
+        g.disableScissor();
+
+        if (sideMaxScroll > 0) {
+            int thumbH = Math.max(20, (int) ((float) areaH / contentH * areaH));
+            int thumbY = tabAreaTop + (int) ((float) scroll / sideMaxScroll * (areaH - thumbH));
+            g.fill(pX + SIDEBAR_W - 4, thumbY, pX + SIDEBAR_W - 2, thumbY + thumbH,
+                    ColorUtil.withAlpha(Theme.BORDER_LIGHT, 180));
         }
 
-        // Music button
-        int musicY = pY + pH - 90;
-        boolean musicHover = mx >= pX + 20 && mx <= pX + SIDEBAR_W - 20
-                         && my >= musicY && my <= musicY + 26;
-        if (musicHover) {
-            g.fill(pX + 20, musicY, pX + SIDEBAR_W - 20, musicY + 26, ColorUtil.withAlpha(accent, 30));
+        // Action buttons pinned to the bottom, evenly spaced and never overlapping tabs
+        int[] bY = new int[6];
+        int gap = 6;
+        int bh = (BOTTOM_ZONE - gap * 5) / 6;
+        for (int i = 0; i < 6; i++) {
+            bY[i] = pY + pH - BOTTOM_ZONE + i * (bh + gap) + 4;
         }
-        g.text(font, "\u266B Music", pX + 20, musicY + 6, musicHover ? accent : Theme.MUTED_FOREGROUND);
+        int closeY = bY[0], hudY = bY[1], packsY = bY[2], musicY = bY[3], themeY = bY[4], profY = bY[5];
 
-        // HUD Edit button (draggable GUI)
-        int hudY = pY + pH - 60;
-        boolean hudHover = mx >= pX + 20 && mx <= pX + SIDEBAR_W - 20
-                        && my >= hudY && my <= hudY + 26;
-        if (hudHover) {
-            g.fill(pX + 20, hudY, pX + SIDEBAR_W - 20, hudY + 26, ColorUtil.withAlpha(accent, 30));
-        }
-        String hudText = "\u2699 Edit HUD";
-        g.text(font, hudText, pX + 20, hudY + 6, hudHover ? accent : Theme.MUTED_FOREGROUND);
+        drawSideButton(g, accent, "\u25B3 Resource Packs", packsY, bh);
+        drawSideButton(g, accent, "\u25A3 Profiles", profY, bh);
+        drawSideButton(g, accent, "\u25A4 Theme", themeY, bh);
+        drawSideButton(g, accent, "\u266B Music", musicY, bh);
+        drawSideButton(g, accent, "\u2699 Edit HUD", hudY, bh);
+        drawSideButton(g, Theme.DESTRUCTIVE, "\u00D7 Close", closeY, bh);
+    }
 
-        // Close button
-        int closeY = pY + pH - 30;
-        boolean closeH = mx >= pX + 20 && mx <= pX + SIDEBAR_W - 20
-                      && my >= closeY && my <= closeY + 26;
-        if (closeH) {
-            g.fill(pX + 20, closeY, pX + SIDEBAR_W - 20, closeY + 26, ColorUtil.withAlpha(Theme.DESTRUCTIVE, 30));
+    private void drawSideButton(GuiGraphicsExtractor g, int accent, String label, int y, int bh) {
+        boolean hover = mx >= pX + 20 && mx <= pX + SIDEBAR_W - 20 && my >= y && my <= y + bh;
+        int col = label.equals("\u00D7 Close") ? Theme.DESTRUCTIVE : accent;
+        if (hover) {
+            g.fill(pX + 20, y, pX + SIDEBAR_W - 20, y + bh, ColorUtil.withAlpha(col, 30));
         }
-        g.text(font, "\u00D7", pX + 20, closeY + 6, closeH ? Theme.DESTRUCTIVE : Theme.MUTED_FOREGROUND);
+        g.text(font, Component.literal(label), pX + 20, y + bh / 2 - 4, hover ? accent : Theme.MUTED_FOREGROUND);
     }
 
     private void renderContent(GuiGraphicsExtractor g, float delta) {
         renderSearchBar(g);
 
         if (selectedCategory == null) return;
-        List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
+        List<CrestModule> mods = filterBySearch(modulesForCategory());
         int total = mods.size();
 
         int cardW = (contentW - (cols - 1) * CARD_GAP) / cols;
@@ -186,8 +215,11 @@ public class CrestMenu extends Screen {
         if (maxScroll > 0) {
             float thumbH = (float) maxVis / gridRows * gridH;
             float thumbY = (scrollOffset / Math.max(1, maxScroll)) * (gridH - thumbH);
-            g.fill(contentX + contentW - 5, gridY + (int) thumbY,
-                   contentX + contentW - 3, gridY + (int) (thumbY + thumbH), Theme.getAnimatedAccent());
+            int tx = contentX + contentW - 5;
+            int ty = gridY + (int) thumbY;
+            int th = (int) thumbH;
+            g.fill(tx - 1, ty - 1, tx + 3, ty + th + 1, ColorUtil.withAlpha(Theme.GLASS_BG, 180));
+            g.fill(tx, ty, tx + 2, ty + th, Theme.getAnimatedAccent());
         }
 
         if (!scrollFilter.isEmpty()) {
@@ -197,11 +229,18 @@ public class CrestMenu extends Screen {
 
     private void renderSearchBar(GuiGraphicsExtractor g) {
         int sbY = contentY;
-        g.fillGradient(contentX, sbY, contentX + contentW, sbY + SEARCH_H, 0x4D000000, 0x26000000);
+        g.fillGradient(contentX, sbY, contentX + contentW, sbY + SEARCH_H,
+            ColorUtil.withAlpha(Theme.SIDEBAR_BG, 200), ColorUtil.withAlpha(Theme.SIDEBAR_BG, 110));
         Panel.drawHollowRect(g, contentX, sbY, contentW, SEARCH_H, Theme.BORDER_LIGHT);
         String placeholder = scrollFilter.isEmpty() ? "Search modules..." : scrollFilter;
         int fg = scrollFilter.isEmpty() ? Theme.MUTED_FOREGROUND : Theme.FOREGROUND;
         g.text(font, Component.literal(placeholder), contentX + 15, sbY + 12, fg);
+        if (!scrollFilter.isEmpty()) {
+            int cx = contentX + contentW - 22, cy = sbY + 8;
+            boolean ch = mx >= cx && mx <= cx + 16 && my >= cy && my <= cy + 16;
+            g.fill(cx, cy, cx + 16, cy + 16, ch ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 60) : 0);
+            g.text(font, Component.literal("\u00D7"), cx + 4, cy + 3, Theme.FOREGROUND);
+        }
     }
 
     private void renderCard(GuiGraphicsExtractor g, CrestModule mod, int idx, int cx, int cy, int cw, int ch, float delta) {
@@ -220,6 +259,18 @@ public class CrestMenu extends Screen {
         Animated ta = toggleAnims.computeIfAbsent(id, k -> new Animated(0f, 12f));
         ta.set(enabled ? 1f : 0f);
         ta.tick(delta);
+
+        // Staggered entrance: starts after openAnim and offsets by column position
+        Animated oa = cardOpenAnims.computeIfAbsent(id, k -> new Animated(0f, 14f));
+        oa.set(1f);
+        oa.tick(delta);
+        float enter = Anim.clamp(openAnim.get() * 1.4f - (idx % cols) * 0.06f, 0f, 1f) * oa.get();
+        if (enter < 0.01f) return;
+
+        g.pose().pushMatrix();
+        g.pose().translate(cx + cw / 2f, cy + ch / 2f);
+        g.pose().scale(0.92f + 0.08f * enter);
+        g.pose().translate(-(cx + cw / 2f), -(cy + ch / 2f));
         float toggleAmt = ta.get();
 
         int accent = Theme.getAnimatedAccent();
@@ -263,6 +314,22 @@ public class CrestMenu extends Screen {
 
         // Toggle switch
         drawToggle(g, cx + cw - TOGGLE_W - 12, cy + 8, enabled, toggleAmt);
+
+        // Favorite (star) toggle, bottom-left
+        int[] sr = starRect(cx, cy, cw, ch);
+        boolean starHover = mx >= sr[0] && mx <= sr[0] + sr[2] && my >= sr[1] && my <= sr[1] + sr[3];
+        int starCol = isFavorite(mod.getId())
+                ? ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.getAnimatedAccent(), 1f)
+                : (starHover ? Theme.FOREGROUND : Theme.MUTED_FOREGROUND);
+        g.text(font, Component.literal(isFavorite(mod.getId()) ? "\u2605" : "\u2606"),
+                sr[0], sr[1], starCol);
+
+        g.pose().popMatrix();
+    }
+
+    private int[] starRect(int cx, int cy, int cw, int ch) {
+        int s = 16;
+        return new int[]{ cx + 4, cy + ch - s - 4, s, s };
     }
 
     private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
@@ -305,7 +372,7 @@ public class CrestMenu extends Screen {
         }
         if (key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN ||
             key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT) {
-            List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
+            List<CrestModule> mods = filterBySearch(modulesForCategory());
             int total = mods.size();
             if (total == 0) return true;
             int row = hoveredIndex >= 0 ? hoveredIndex / cols : 0;
@@ -330,7 +397,7 @@ public class CrestMenu extends Screen {
             return true;
         }
         if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
-            List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
+            List<CrestModule> mods = filterBySearch(modulesForCategory());
             if (hoveredIndex >= 0 && hoveredIndex < mods.size()) {
                 CrestModules.setEnabled(mods.get(hoveredIndex).getId(), !CrestModules.isEnabled(mods.get(hoveredIndex).getId()));
             }
@@ -355,45 +422,71 @@ public class CrestMenu extends Screen {
         int btn = event.buttonInfo().input();
         if (btn != 0) return super.mouseClicked(event, doubleClick);
 
-        // Close button
-        int closeY = pY + pH - 30;
-        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= closeY && myy <= closeY + 26) {
+        // Search clear button
+        if (!scrollFilter.isEmpty()) {
+            int cx = contentX + contentW - 22, cy = contentY + 8;
+            if (mxx >= cx && mxx <= cx + 16 && myy >= cy && myy <= cy + 16) {
+                scrollFilter = "";
+                scrollTarget = scrollOffset = 0;
+                return true;
+            }
+        }
+
+        // Action buttons pinned to the bottom (same layout as renderSidebar)
+        int[] bY = new int[6];
+        int gap = 6;
+        int bh = (BOTTOM_ZONE - gap * 5) / 6;
+        for (int i = 0; i < 6; i++) {
+            bY[i] = pY + pH - BOTTOM_ZONE + i * (bh + gap) + 4;
+        }
+        int closeY = bY[0], hudY = bY[1], packsY = bY[2], musicY = bY[3], themeY = bY[4], profY = bY[5];
+
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= closeY && myy <= closeY + bh) {
             onClose();
             return true;
         }
-
-        // Music button
-        int musicY = pY + pH - 90;
-        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= musicY && myy <= musicY + 26) {
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= themeY && myy <= themeY + bh) {
+            minecraft.setScreen(new ThemeEditorScreen(this));
+            return true;
+        }
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= profY && myy <= profY + bh) {
+            minecraft.setScreen(new ProfileScreen(this));
+            return true;
+        }
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= musicY && myy <= musicY + bh) {
             minecraft.setScreen(new MusicScreen(MusicModule.getPlayer()));
             return true;
         }
-
-        // HUD Edit button
-        int hudY = pY + pH - 60;
-        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= hudY && myy <= hudY + 26) {
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= packsY && myy <= packsY + bh) {
+            minecraft.setScreen(new ResourcePackBrowserScreen(this));
+            return true;
+        }
+        if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= hudY && myy <= hudY + bh) {
             minecraft.setScreen(new HudEditScreen());
             return true;
         }
 
-        // Sidebar tabs
+        // Sidebar tabs (scrollable, clipped to the area above the action buttons)
         List<String> cats = Cats();
-        int tabY = pY + 70;
+        int tabAreaTop = pY + 56;
+        int tabAreaBottom = pY + pH - BOTTOM_ZONE;
+        int scroll = (int) sideScroll;
+        int tabY = tabAreaTop - scroll;
         for (int i = 0; i < cats.size(); i++) {
-            int th = 30;
-            if (mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= tabY && myy <= tabY + th) {
+            if (tabY >= tabAreaTop && tabY + TAB_H <= tabAreaBottom
+                && mxx >= pX + 20 && mxx <= pX + SIDEBAR_W - 20 && myy >= tabY && myy <= tabY + TAB_H) {
                 if (!cats.get(i).equals(selectedCategory)) {
                     selectedCategory = cats.get(i);
                     scrollTarget = scrollOffset = hoveredIndex = 0;
                 }
                 return true;
             }
-            tabY += 35;
+            tabY += TAB_STEP;
         }
 
         // Cards
         if (selectedCategory != null) {
-            List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
+            List<CrestModule> mods = filterBySearch(modulesForCategory());
             int cardW = (contentW - (cols - 1) * CARD_GAP) / cols;
             int baseY = gridY - (int) (scrollOffset * (CARD_H + CARD_GAP));
 
@@ -404,6 +497,11 @@ public class CrestMenu extends Screen {
                 int cy = baseY + r * (CARD_H + CARD_GAP);
 
                 if (mxx >= cx && mxx <= cx + cardW && myy >= cy && myy <= cy + CARD_H) {
+                    int[] sr = starRect(cx, cy, cardW, CARD_H);
+                    if (mxx >= sr[0] && mxx <= sr[0] + sr[2] && myy >= sr[1] && myy <= sr[1] + sr[3]) {
+                        toggleFavorite(mods.get(i).getId());
+                        return true;
+                    }
                     int toggleX = cx + cardW - TOGGLE_W - 12;
                     int toggleY = cy + 8;
                     if (mxx >= toggleX && mxx <= toggleX + TOGGLE_W && myy >= toggleY && myy <= toggleY + TOGGLE_H) {
@@ -422,8 +520,14 @@ public class CrestMenu extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        boolean overSidebar = mouseX >= pX && mouseX <= pX + SIDEBAR_W
+                           && mouseY >= pY && mouseY <= pY + pH;
+        if (overSidebar) {
+            sideScrollTarget = Anim.clamp(sideScrollTarget - (float) deltaY * TAB_STEP, 0, sideMaxScroll);
+            return true;
+        }
         if (selectedCategory == null) return false;
-        List<CrestModule> mods = filterBySearch(CrestModules.getByCategory(selectedCategory));
+        List<CrestModule> mods = filterBySearch(modulesForCategory());
         int total = mods.size();
         if (total == 0) { maxScroll = 0; return true; }
         int gridRows = (total + cols - 1) / cols;
@@ -434,7 +538,30 @@ public class CrestMenu extends Screen {
         return true;
     }
 
-    private List<String> Cats() { return CrestModules.getCategories(); }
+    private List<String> Cats() {
+        List<String> cats = new ArrayList<>(CrestModules.getCategories());
+        cats.add(0, FAV_CAT);
+        return cats;
+    }
+
+    private static boolean isFavorite(String id) {
+        return CrestModules.getConfigManager().getBoolean("crest_client", "fav:" + id);
+    }
+
+    private static void toggleFavorite(String id) {
+        boolean next = !isFavorite(id);
+        CrestModules.getConfigManager().set("crest_client", "fav:" + id, next);
+        CrestModules.getConfigManager().save();
+    }
+
+    private List<CrestModule> modulesForCategory() {
+        if (FAV_CAT.equals(selectedCategory)) {
+            return CrestModules.getAll().values().stream()
+                    .filter(m -> isFavorite(m.getId()))
+                    .collect(Collectors.toList());
+        }
+        return CrestModules.getByCategory(selectedCategory);
+    }
 
     private List<CrestModule> filterBySearch(List<CrestModule> mods) {
         if (scrollFilter.isEmpty()) return mods;

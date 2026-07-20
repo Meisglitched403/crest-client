@@ -1,5 +1,6 @@
 package com.crest.client.core;
 
+import com.crest.client.core.SkinChanger;
 import com.crest.client.bongocat.BongoCatModule;
 import com.crest.client.core.event.TickEvent;
 import com.crest.client.music.MusicModule;
@@ -9,17 +10,20 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class CrestClient implements ClientModInitializer {
     private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-client", "hud_renderer");
+    private static boolean firstRunOpen = CrestModules.isFirstRun();
 
     @Override
     public void onInitializeClient() {
@@ -91,9 +95,21 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ChatHeadsModule());
         CrestModules.register(new ShieldStatusModule());
 
+        CrestModules.register(new KeystrokesModule());
+        CrestModules.register(new ComboModule());
+        CrestModules.register(new ChatTimestampModule());
+        CrestModules.register(new ToggleSneakModule());
+
+        SkinChanger.loadPersisted();
+
         MusicModule.init();
 
         KeybindManager.registerAction(GLFW.GLFW_KEY_F7, HudEditScreen::open);
+
+        if (CrestModules.isFirstRun()) {
+            CrestModules.applyDefaults();
+            CrestModules.markInitialized();
+        }
 
         KeybindManager.registerAction(GLFW.GLFW_KEY_M, () -> {
             Minecraft mc = Minecraft.getInstance();
@@ -106,7 +122,18 @@ public class CrestClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             CrestModules.getEventBus().post(new TickEvent(client));
+            CpsTracker.tick();
+            ComboTracker.tick();
             KeybindManager.processTick();
+            if (firstRunOpen) {
+                firstRunOpen = false;
+                if (client.player != null && client.screen == null) {
+                    client.setScreen(new CrestMenu());
+                    client.player.sendSystemMessage(
+                            net.minecraft.network.chat.Component.literal(
+                                    "[Crest] Welcome! Press the grave key (`) to open the menu. F7 to edit HUD."));
+                }
+            }
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
@@ -147,6 +174,18 @@ public class CrestClient implements ClientModInitializer {
                 })
             );
         });
+
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (ShieldStatusModule.isActive()
+                    && player instanceof Player attacker && entity instanceof Player victim) {
+                boolean axe = attacker.getMainHandItem().getItem() instanceof net.minecraft.world.item.AxeItem
+                        || attacker.getOffhandItem().getItem() instanceof net.minecraft.world.item.AxeItem;
+                if (axe && victim.isBlocking()) {
+                    ShieldDisableTracker.markDisabled(victim);
+                }
+            }
+            return net.minecraft.world.InteractionResult.PASS;
+        });
     }
 
     private static void renderHud(GuiGraphicsExtractor g, DeltaTracker d) {
@@ -162,7 +201,15 @@ public class CrestClient implements ClientModInitializer {
                     renderable.render(g, mc, d);
                 }
             } catch (Exception e) {
-                System.err.println("[Crest] HUD render error: " + e);
+                String id = renderable instanceof CrestModule cm ? cm.getId() : renderable.getClass().getSimpleName();
+                System.err.println("[Crest] HUD render error in '" + id + "', disabling: " + e);
+                e.printStackTrace();
+                CrestModules.setEnabled(id, false);
+                if (mc.player != null) {
+                    mc.player.sendSystemMessage(
+                            net.minecraft.network.chat.Component.literal(
+                                    "[Crest] Disabled '" + id + "' due to a render error. Check logs."));
+                }
             }
         }
     }

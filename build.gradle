@@ -33,6 +33,9 @@ dependencies {
     // targets Sodium internals, so it must be on the compile classpath. compileOnly
     // on the local mod jar includes it for compilation but does NOT bundle/shade it.
     compileOnly files("run/mods/sodium-fabric-0.9.1+mc26.1.2.jar")
+
+    compileOnly "io.github.llamalad7:mixinextras-fabric:0.5.4"
+    implementation "io.github.llamalad7:mixinextras-fabric:0.5.4"
 }
 
 shadowJar {

@@ -1,0 +1,30 @@
+[
+  {
+    "project_id": "AATdY5hB",
+    "slug": "faithful-32x",
+    "title": "Faithful 32x",
+    "description": "The classic Faithful texture pack upscaled to 32x32 resolution.",
+    "author": "Faithful Team"
+  },
+  {
+    "project_id": "E3c6hEJv",
+    "slug": "vanilla-tweaks",
+    "title": "Vanilla Tweaks",
+    "description": "A collection of vanilla-style tweaks and quality-of-life texture changes.",
+    "author": "Vanilla Tweaks"
+  },
+  {
+    "project_id": "xZPHQUCB",
+    "slug": "stay-true",
+    "title": "Stay True",
+    "description": "A vanilla-style 16x pack that adds more detail while staying true to the original look.",
+    "author": "Hozz"
+  },
+  {
+    "project_id": "hWxrInzj",
+    "slug": "classic-3d-resources",
+    "title": "Classic 3D Resources",
+    "description": "Adds subtle 3D depth to blocks while keeping the vanilla aesthetic.",
+    "author": "Classic 3D"
+  }
+]

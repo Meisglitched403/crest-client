@@ -64,7 +64,7 @@ public class CornerTextConfigScreen extends Screen {
         float open = openAnim.get();
         if (open < 0.01f) return;
 
-        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (210 * open)));
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * open)));
 
         int wy = (int) ((1 - open) * -14);
         g.pose().pushMatrix();
@@ -290,14 +290,13 @@ public class CornerTextConfigScreen extends Screen {
         if (editingColor == null) return;
         if (cpAnim.get() < 0.01f) return;
         float open = cpAnim.get();
-        int alpha = (int) (220 * open);
+        int alpha = (int) (Theme.glassOpacity * open);
 
         int pw = 260, ph = 250;
         int px = (width - pw) / 2;
         int py = (height - ph) / 2;
 
         g.fill(0, 0, width, height, ColorUtil.withAlpha(0x000000, (int) (110 * open)));
-
         int wy = (int) ((1 - open) * -12);
         g.pose().pushMatrix();
         g.pose().translate(0, wy);

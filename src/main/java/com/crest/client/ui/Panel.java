@@ -15,21 +15,23 @@ import java.util.function.Supplier;
  */
 public final class Panel {
     private static final int TEX = 32;
-    private static final int R = Theme.RADIUS;
     private static final Identifier ID = Identifier.fromNamespaceAndPath("crest-client", "gui/panel");
     private static boolean registered = false;
+    private static int builtRadius = -1;
 
     private Panel() {}
 
     private static void ensureTexture() {
-        if (registered) return;
+        int r = Math.min(Theme.RADIUS, 15);
+        if (registered && builtRadius == r) return;
+        builtRadius = r;
         registered = true;
         DynamicTexture tex = new DynamicTexture("crest-panel", TEX, TEX, true);
         NativeImage img = tex.getPixels();
         // White rounded mask: alpha 255 inside, AA falloff at corners.
         for (int y = 0; y < TEX; y++) {
             for (int x = 0; x < TEX; x++) {
-                int alpha = roundAlpha(x, y);
+                int alpha = roundAlpha(x, y, r);
                 img.setPixel(x, y, ColorUtil.rgba(255, 255, 255, alpha));
             }
         }
@@ -37,7 +39,7 @@ public final class Panel {
         Minecraft.getInstance().getTextureManager().register(ID, tex);
     }
 
-    private static int roundAlpha(int x, int y) {
+    private static int roundAlpha(int x, int y, int R) {
         int cx = Math.min(x, TEX - 1 - x);
         int cy = Math.min(y, TEX - 1 - y);
         if (cx >= R && cy >= R) return 255;
@@ -54,7 +56,8 @@ public final class Panel {
     /** Draw a rounded panel. tint is ARGB; alpha controls glass opacity. */
     public static void draw(GuiGraphicsExtractor g, int x, int y, int w, int h, int tint) {
         ensureTexture();
-        int r = Math.min(R, Math.min(w, h) / 2);
+        int r = Math.min(Theme.RADIUS, Math.min(w, h) / 2);
+        if (r < 0) r = 0;
         if (w <= 0 || h <= 0) return;
 
         // clang-format off
@@ -80,7 +83,7 @@ public final class Panel {
     public static void drawGlass(GuiGraphicsExtractor g, int x, int y, int w, int h, int tint, int accent) {
         draw(g, x, y, w, h, tint);
         g.fill(x + 3, y + 2, x + w - 3, y + 3, ColorUtil.withAlpha(0xFFFFFFFF, 18));
-        g.fill(x + 4, y + 1, x + w - 4, y + 2, ColorUtil.withAlpha(accent, 160));
+        g.fill(x + 4, y + 1, x + w - 4, y + 2, ColorUtil.withAlpha(accent, Theme.topStripAlpha));
     }
 
     /** Draw an elevated card with MD-style drop shadow. elevation in pixels (use Theme.ELEVATION_*). */
@@ -93,7 +96,7 @@ public final class Panel {
     public static void drawGlassElevated(GuiGraphicsExtractor g, int x, int y, int w, int h, int tint, int accent, int elevation) {
         drawElevated(g, x, y, w, h, tint, elevation);
         g.fill(x + 3, y + 2, x + w - 3, y + 3, ColorUtil.withAlpha(0xFFFFFFFF, 18));
-        g.fill(x + 4, y + 1, x + w - 4, y + 2, ColorUtil.withAlpha(accent, 160));
+        g.fill(x + 4, y + 1, x + w - 4, y + 2, ColorUtil.withAlpha(accent, Theme.topStripAlpha));
     }
 
     /** Glass card with gradient fill and hollow border. Hover brightens. */

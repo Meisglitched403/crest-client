@@ -19,7 +19,19 @@ public class HudSettings {
 
     public Map<String, HudPosition> positions = new HashMap<>();
     public Map<String, HudSize> sizes = new HashMap<>();
+    public Map<String, Integer> order = new HashMap<>();
     public Map<String, Map<String, Object>> moduleSettings = new HashMap<>();
+
+    public static int getOrder(String moduleId) {
+        return getInstance().order.getOrDefault(moduleId, 0);
+    }
+
+    public static void bringToFront(String moduleId) {
+        int max = 0;
+        for (int v : getInstance().order.values()) max = Math.max(max, v);
+        getInstance().order.put(moduleId, max + 1);
+        dirty = true;
+    }
 
     public static HudSettings getInstance() {
         if (instance == null) instance = load();
