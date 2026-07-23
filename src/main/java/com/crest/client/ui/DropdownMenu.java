@@ -45,7 +45,7 @@ public class DropdownMenu {
         return this;
     }
 
-    public void addSeparator() { items.add(new Item("", () -> {}).separator()); }
+    public DropdownMenu addSeparator() { items.add(new Item("", () -> {}).separator()); return this; }
 
     public void toggle(int x, int y, int w) {
         open = !open;

@@ -94,6 +94,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new CornerTextModule());
         CrestModules.register(new ChatHeadsModule());
         CrestModules.register(new ShieldStatusModule());
+        CrestModules.register(new BackgroundResourceLoaderModule());
 
         CrestModules.register(new KeystrokesModule());
         CrestModules.register(new ComboModule());
@@ -192,6 +193,8 @@ public class CrestClient implements ClientModInitializer {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getWindow() == null) return;
         if (mc.screen instanceof CrestMenu) return;
+
+        NotificationToast.render(g, mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
 
         for (RenderableModule renderable : CrestModules.getRenderableModules()) {
             try {

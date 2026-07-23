@@ -1,30 +1,58 @@
 [
-  {
-    "project_id": "AATdY5hB",
-    "slug": "faithful-32x",
-    "title": "Faithful 32x",
-    "description": "The classic Faithful texture pack upscaled to 32x32 resolution.",
-    "author": "Faithful Team"
-  },
-  {
-    "project_id": "E3c6hEJv",
-    "slug": "vanilla-tweaks",
-    "title": "Vanilla Tweaks",
-    "description": "A collection of vanilla-style tweaks and quality-of-life texture changes.",
-    "author": "Vanilla Tweaks"
-  },
-  {
-    "project_id": "xZPHQUCB",
-    "slug": "stay-true",
-    "title": "Stay True",
-    "description": "A vanilla-style 16x pack that adds more detail while staying true to the original look.",
-    "author": "Hozz"
-  },
-  {
-    "project_id": "hWxrInzj",
-    "slug": "classic-3d-resources",
-    "title": "Classic 3D Resources",
-    "description": "Adds subtle 3D depth to blocks while keeping the vanilla aesthetic.",
-    "author": "Classic 3D"
-  }
+    {
+        "project_id": "LLhT7m",
+        "slug": "sodium",
+        "title": "Sodium",
+        "description": "AMinecraft performance optimization mod focusing on rendering speed and memory usage.",
+        "author": "ofili",
+        "icon_url": "https://ogmc.r2.nostyling.dev/projects/sodium.webp"
+    },
+    {
+        "project_id": "mK0S15Rn",
+        "slug": "sodium-enhanced",
+        "title": "Sodium Enhanced",
+        "description": "Enhanced version of Sodium with additional optimizations and features.",
+        "author": "RedstoneWizard",
+        "icon_url": "https://i.imgur.com/6ZQb6gq.png"
+    },
+    {
+        "project_id": "Ha0v",
+        "slug": "modernfix",
+        "title": "ModernFix",
+        "description": "Fixes and optimization for modern Minecraft versions. Includes memory, entity, and world chunk fixes.",
+        "author": "McAfando",
+        "icon_url": "https://i.imgur.com/fy5F5Qm.png"
+    },
+    {
+        "project_id": "m0x4uqPQ",
+        "slug": "raspberriemod",
+        "title": "RasberryMod",
+        "description": "A versatile mod with various utility features for game improvement.",
+        "author": "RasberryDeveloper",
+        "icon_url": "https://i.imgur.com/4gPqWzW.png"
+    },
+    {
+        "project_id": "Hy8wJqT",
+        "slug": "oxia",
+        "title": "Oxia",
+        "description": "A lightweight performance mod that focuses on reducing lag and improving FPS.",
+        "author": "Hexeption",
+        "icon_url": "https://i.imgur.com/7xKj5Hn.png"
+    },
+    {
+        "project_id": "kVrbJxP",
+        "slug": "clear-ui",
+        "title": "Clear UI",
+        "description": "Improves the Minecraft UI for better readability and performance.",
+        "author": "Stivais",
+        "icon_url": "https://i.imgur.com/9hNk9Pd.png"
+    },
+    {
+        "project_id": "Vx9mK3r",
+        "slug": "sodium-levels",
+        "title": "Sodium Levels",
+        "description": "Visual enhancements for Sodium with better lighting and shadow quality.",
+        "author": "SomeDevs",
+        "icon_url": "https://i.imgur.com/XoG3dQe.png"
+    }
 ]

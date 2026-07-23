@@ -17,4 +17,17 @@ public final class Spacing {
     public static final int S10 = 40;
     public static final int S11 = 44;
     public static final int S12 = 48;
+
+    public static int scaled(int base) {
+        return (int) (base * Theme.fontScale);
+    }
+
+    public static int densityAdjusted(int base) {
+        float factor = switch (Theme.density) {
+            case COMPACT -> 0.85f;
+            case COMFORTABLE -> 1.25f;
+            default -> 1.0f;
+        };
+        return (int) (base * factor * Theme.fontScale);
+    }
 }

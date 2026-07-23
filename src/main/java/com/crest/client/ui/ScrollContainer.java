@@ -5,7 +5,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.List;
 
-public class ScrollContainer {
+public class ScrollContainer implements Widget {
     public float scrollOffset, scrollTarget;
     public int x, y, w, h;
     public int rowH;
@@ -13,22 +13,45 @@ public class ScrollContainer {
     public List<? extends Widget> children;
     public int hoverColor;
 
-    public ScrollContainer set(int x, int y, int w, int h, int rowH, List<? extends Widget> children) {
-        this.x = x; this.y = y; this.w = w; this.h = h;
-        this.rowH = rowH;
-        setChildren(children);
+    private final Animated scrollbarAlpha = new Animated(0f, 10f);
+    private long lastScrollTime;
+
+    public ScrollContainer rowHeight(int rh) { this.rowH = rh; return this; }
+
+    public ScrollContainer children(List<? extends Widget> children) {
+        this.children = children;
+        contentH = children != null ? children.size() * rowH + 8 : 0;
         return this;
     }
 
-    public void setChildren(List<? extends Widget> children) {
-        this.children = children;
-        contentH = children.size() * rowH + 8;
+    @Override
+    public int getHeight() { return h > 0 ? h : contentH; }
+
+    @Override
+    public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
+        this.x = x; this.y = y; this.w = w;
+        if (h <= 0) h = Math.min(contentH + 8, 400);
+        render(g, font, mx, my, delta);
     }
 
     public void render(GuiGraphicsExtractor g, Font font, int mx, int my, float delta) {
         int maxH = Math.max(0, contentH - h);
         scrollTarget = Anim.clamp(scrollTarget, 0, maxH);
         scrollOffset += (scrollTarget - scrollOffset) * Anim.smooth(delta, 18f);
+
+        boolean hovering = mx >= x && mx <= x + w && my >= y && my <= y + h;
+        boolean hasScroll = maxH > 0;
+        if (hasScroll) {
+            if (hovering) {
+                scrollbarAlpha.set(1f);
+                lastScrollTime = System.currentTimeMillis();
+            } else if (System.currentTimeMillis() - lastScrollTime > 1500) {
+                scrollbarAlpha.set(0f);
+            }
+        } else {
+            scrollbarAlpha.set(0f);
+        }
+        scrollbarAlpha.tick(delta);
 
         g.enableScissor(x, y, x + w, y + h);
         int sy = y - (int) scrollOffset;
@@ -44,12 +67,16 @@ public class ScrollContainer {
         }
         g.disableScissor();
 
-        if (maxH > 0) {
-            int trackX = x + w - 4;
-            float thumbH = (float) h / contentH * h;
-            float thumbY = scrollOffset / contentH * h;
-            g.fill(trackX, y, trackX + 2, y + h, ColorUtil.withAlpha(Theme.BG_BASE, 200));
-            g.fill(trackX, y + (int) thumbY, trackX + 2, y + (int) (thumbY + thumbH), Theme.getAnimatedAccent());
+        if (hasScroll) {
+            float alpha = scrollbarAlpha.get();
+            if (alpha > 0.01f) {
+                int trackX = x + w - 4;
+                float thumbH = (float) h / contentH * h;
+                float thumbY = scrollOffset / contentH * h;
+                g.fill(trackX, y, trackX + 2, y + h, ColorUtil.withAlpha(Theme.BG_BASE, (int) (200 * alpha)));
+                g.fill(trackX, y + (int) thumbY, trackX + 2, y + (int) (thumbY + thumbH),
+                    ColorUtil.withAlpha(Theme.getAnimatedAccent(), (int) (255 * alpha)));
+            }
         }
     }
 
@@ -59,6 +86,7 @@ public class ScrollContainer {
         return null;
     }
 
+    @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (!(mx >= x && mx <= x + w && my >= y && my <= y + h)) return false;
         Widget child = childAt(my);
@@ -66,6 +94,7 @@ public class ScrollContainer {
         return false;
     }
 
+    @Override
     public boolean mouseDragged(double mx, double my) {
         if (!(mx >= x && mx <= x + w && my >= y && my <= y + h)) return false;
         Widget child = childAt(my);
@@ -76,5 +105,6 @@ public class ScrollContainer {
     public void mouseScrolled(double deltaY) {
         int maxH = Math.max(0, contentH - h);
         scrollTarget = Anim.clamp(scrollTarget - (float) deltaY * 3, 0, maxH);
+        lastScrollTime = System.currentTimeMillis();
     }
 }

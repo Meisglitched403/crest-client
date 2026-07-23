@@ -16,7 +16,7 @@ import java.util.*;
 public class ModuleDetailScreen extends Screen {
     private static final int HEADER_H = 48;
     private static final int ROW_H = 26;
-    private static final int PANEL_MIN_W = 300;
+    private static final int PANEL_MIN_W = 280;
     private static final int PANEL_MAX_W = 480;
 
     private final CrestModule module;
@@ -24,23 +24,23 @@ public class ModuleDetailScreen extends Screen {
     private final List<Setting<?>> settings;
 
     private int panelX, panelY, panelW, panelH;
+    private Breakpoints.Size currentSize = Breakpoints.Size.MD;
 
     private final Map<Setting<?>, Widget> widgetCache = new HashMap<>();
     private final Map<String, Animated> toggleAnim = new HashMap<>();
     private Widget activeWidget;
     private final ScrollContainer scroll = new ScrollContainer();
 
-    // keybind capture
     private boolean keybindCapture;
     private String keybindCaptureModule;
 
-    // color picker
     private ColorPicker colorPicker;
     private final Animated colorPickerAnim = new Animated(0f, 12f);
 
-    // animations
     private final Animated openAnim = new Animated(0f, 10f);
     private int hoveredRow = -1;
+
+    private final Theme.ThemeChangeListener themeListener = () -> { if (minecraft != null && minecraft.screen == this) init(); };
 
     public ModuleDetailScreen(CrestModule module, Screen parent) {
         super(Component.literal(module.getName()));
@@ -53,7 +53,24 @@ public class ModuleDetailScreen extends Screen {
 
     @Override
     protected void init() {
-        panelW = Math.max(PANEL_MIN_W, Math.min(width - Spacing.S10, PANEL_MAX_W));
+        currentSize = Breakpoints.getCurrentSize(width);
+        computePanelSize();
+        Theme.addListener(themeListener);
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        Theme.removeListener(themeListener);
+    }
+
+    private void computePanelSize() {
+        Breakpoints.Size size = Breakpoints.getCurrentSize(width);
+        if (size == Breakpoints.Size.XS || size == Breakpoints.Size.SM) {
+            panelW = Math.max(PANEL_MIN_W, Math.min(width - Spacing.S3 * 2, width));
+        } else {
+            panelW = Math.max(PANEL_MIN_W, Math.min(width - Spacing.S10, PANEL_MAX_W));
+        }
         panelX = (width - panelW) / 2;
         panelY = HEADER_H + Spacing.S2;
         panelH = height - panelY - Spacing.S2;
@@ -96,6 +113,13 @@ public class ModuleDetailScreen extends Screen {
         Theme.tick(delta);
         openAnim.tick(delta);
         colorPickerAnim.tick(delta);
+
+        Breakpoints.Size newSize = Breakpoints.getCurrentSize(width);
+        if (newSize != currentSize) {
+            currentSize = newSize;
+            computePanelSize();
+        }
+
         float open = openAnim.get();
 
         g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * open)));
@@ -119,14 +143,10 @@ public class ModuleDetailScreen extends Screen {
 
     private void renderHeader(GuiGraphicsExtractor g, int mx, int my) {
         boolean enabled = CrestModules.isEnabled(module.getId());
-        Animated ta = toggleFor(module.getId() + "_toggle");
-        ta.set(enabled ? 1f : 0f);
-        ta.tick(0.016f);
 
         g.fillGradient(0, 0, width, HEADER_H, Theme.GLASS_BG, ColorUtil.withAlpha(Theme.GLASS_BG, 110));
         int accent = Theme.getAnimatedAccent();
 
-        // Back button
         String back = "\u2190";
         int backW = font.width(back) + Spacing.S2;
         boolean backHover = mx >= Spacing.S3 && mx <= Spacing.S3 + backW && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2;
@@ -136,42 +156,30 @@ public class ModuleDetailScreen extends Screen {
         g.text(font, Component.literal(back), Spacing.S3, (HEADER_H - font.lineHeight) / 2,
             backHover ? accent : Theme.FOREGROUND);
 
-        // Module name
         int nameX = Spacing.S3 + backW + Spacing.S3;
         g.text(font, Component.literal(module.getName()), nameX, (HEADER_H - font.lineHeight) / 2, Theme.FOREGROUND);
 
-        // Description
         String desc = module.getDescription();
         if (!desc.isEmpty()) {
-            g.text(font, Component.literal(desc), nameX, (HEADER_H - font.lineHeight) / 2 + font.lineHeight + 1,
+            int descMaxW = Math.max(panelW - nameX - 100, 50);
+            String truncated = font.width(desc) > descMaxW
+                ? font.plainSubstrByWidth(desc, descMaxW - 4) + "\u2026"
+                : desc;
+            g.text(font, Component.literal(truncated), nameX, (HEADER_H - font.lineHeight) / 2 + font.lineHeight + 1,
                 ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 180));
         }
 
-        // Settings count
         int count = settings.size();
         String countStr = count + " setting" + (count != 1 ? "s" : "");
-        int countW = font.width(countStr);
-        int countX = width - Spacing.S3 - countW - 44 - Spacing.S3;
-        g.text(font, Component.literal(countStr), countX, HEADER_H - font.lineHeight - Spacing.S1,
-            ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 100));
+        if (currentSize != Breakpoints.Size.XS) {
+            int countW = font.width(countStr);
+            int countX = width - Spacing.S3 - countW - ToggleSwitch.W - Spacing.S3;
+            g.text(font, Component.literal(countStr), countX, HEADER_H - font.lineHeight - Spacing.S1,
+                ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 100));
+        }
 
-        // Toggle
-        int toggleX = width - Spacing.S3 - 44;
-        drawToggle(g, toggleX, (HEADER_H - 24) / 2, enabled, ta.get());
-    }
-
-    private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
-        int w = 44, h = 24;
-        int trackColor = on
-            ? ColorUtil.lerpARGB(0x1AFFFFFF, Theme.getAnimatedAccent(), anim)
-            : ColorUtil.lerpARGB(0x1AFFFFFF, 0x2AFFFFFF, anim);
-        g.fillGradient(x, y, x + w, y + h, trackColor, ColorUtil.withAlpha(trackColor, 80));
-        Panel.drawHollowRect(g, x, y, w, h, Theme.BORDER_LIGHT);
-        int knobMinX = x + 3;
-        int knobMaxX = x + w - 19;
-        int knobX = (int) Anim.lerp(knobMinX, knobMaxX, anim);
-        int knobColor = ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.PRIMARY, anim);
-        g.fill(knobX, y + 3, knobX + 16, y + h - 3, knobColor);
+        int toggleX = width - Spacing.S3 - ToggleSwitch.W;
+        ToggleSwitch.render(g, toggleX, (HEADER_H - ToggleSwitch.H) / 2, enabled, enabled ? 1f : 0f);
     }
 
     private void renderBody(GuiGraphicsExtractor g, int mx, int my, float delta) {
@@ -182,28 +190,30 @@ public class ModuleDetailScreen extends Screen {
         Panel.drawElevated(g, panelX, panelY, panelW, bh, ColorUtil.withAlpha(Theme.CARD, 200), Theme.ELEVATION_1);
         g.fill(panelX + 2, panelY, panelX + panelW - 2, panelY + 1, ColorUtil.withAlpha(Theme.getAnimatedAccent(), 80));
 
-        scroll.set(panelX + Spacing.S3, panelY + Spacing.S2, panelW - Spacing.S3 * 2, bh - Spacing.S4, ROW_H, widgets);
+        scroll.rowHeight(ROW_H).children(widgets);
         scroll.hoverColor = ColorUtil.withAlpha(Theme.MUTED, 100);
 
-        // Draw dividers between rows
+        int sx = panelX + Spacing.S3;
+        int sy = panelY + Spacing.S2;
+        int sw = panelW - Spacing.S3 * 2;
+
         for (int i = 1; i < widgets.size(); i++) {
-            int dy = scroll.y + i * ROW_H - (int) scroll.scrollOffset;
-            if (dy >= scroll.y && dy <= scroll.y + scroll.h) {
-                g.fill(scroll.x, dy - 1, scroll.x + scroll.w, dy, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40));
+            int dy = sy + i * ROW_H - (int) scroll.scrollOffset;
+            if (dy >= sy && dy <= sy + scroll.h) {
+                g.fill(sx, dy - 1, sx + sw, dy, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40));
             }
         }
 
-        scroll.render(g, font, mx, my, delta);
+        scroll.render(g, font, sx, sy, sw, mx, my, delta);
         hoveredRow = -1;
         for (int i = 0; i < widgets.size(); i++) {
-            int cy = scroll.y + i * ROW_H - (int) scroll.scrollOffset;
-            if (mx >= scroll.x && mx <= scroll.x + scroll.w && my >= cy && my <= cy + ROW_H) {
+            int cy = sy + i * ROW_H - (int) scroll.scrollOffset;
+            if (mx >= sx && mx <= sx + sw && my >= cy && my <= cy + ROW_H) {
                 hoveredRow = i;
                 break;
             }
         }
 
-        // Hover tooltip for setting description
         if (hoveredRow >= 0 && hoveredRow < settings.size()) {
             Setting<?> s = settings.get(hoveredRow);
             String sdesc = s.getDescription();
@@ -219,8 +229,6 @@ public class ModuleDetailScreen extends Screen {
             }
         }
     }
-
-    // --- Input ---
 
     @Override
     public boolean charTyped(CharacterEvent event) {
@@ -268,7 +276,6 @@ public class ModuleDetailScreen extends Screen {
             return super.mouseClicked(event, doubleClick);
         }
 
-        // back button
         String back = "\u2190";
         int backW = font.width(back) + Spacing.S2;
         if (btn == 0 && mx >= Spacing.S3 && mx <= Spacing.S3 + backW && my >= Spacing.S2 && my <= HEADER_H - Spacing.S2) {
@@ -276,16 +283,15 @@ public class ModuleDetailScreen extends Screen {
             return true;
         }
 
-        // toggle in header
         if (btn == 0) {
-            int toggleX = width - Spacing.S3 - 44;
-            if (mx >= toggleX && mx <= toggleX + 44 && my >= (HEADER_H - 24) / 2 && my <= (HEADER_H + 24) / 2) {
+            int toggleX = width - Spacing.S3 - ToggleSwitch.W;
+            int toggleY = (HEADER_H - ToggleSwitch.H) / 2;
+            if (mx >= toggleX && mx <= toggleX + ToggleSwitch.W && my >= toggleY && my <= toggleY + ToggleSwitch.H) {
                 CrestModules.setEnabled(module.getId(), !CrestModules.isEnabled(module.getId()));
                 return true;
             }
         }
 
-        // settings inside panel
         if (scroll.mouseClicked(mx, my, btn)) {
             Widget child = scroll.childAt(my);
             if (child != null) {
@@ -329,8 +335,9 @@ public class ModuleDetailScreen extends Screen {
     }
 
     private void renderColorPicker(GuiGraphicsExtractor g, int mx, int my) {
-        int pw = 220, ph = 260;
-        int px = Math.min(width / 2 - pw / 2, width - pw - Spacing.S2);
+        int pw = Breakpoints.isXsOrSmaller(width) ? Math.min(200, width - Spacing.S2 * 2) : 220;
+        int ph = 260;
+        int px = Math.max(Spacing.S2, Math.min(width / 2 - pw / 2, width - pw - Spacing.S2));
         int py = HEADER_H + Spacing.S3;
         int a = (int) (255 * colorPickerAnim.get());
         int accent = Theme.getAnimatedAccent();

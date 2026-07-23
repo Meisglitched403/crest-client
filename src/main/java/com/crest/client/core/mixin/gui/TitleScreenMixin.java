@@ -24,6 +24,9 @@ public class TitleScreenMixin {
     @Unique private boolean modulesHovered;
     @Unique private boolean crestHovered;
     @Unique private boolean packsHovered;
+    @Unique private boolean lastModulesHovered;
+    @Unique private boolean lastCrestHovered;
+    @Unique private boolean lastPacksHovered;
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void crest$drawButtons(GuiGraphicsExtractor g, int mx, int my, float delta, CallbackInfo ci) {
@@ -39,6 +42,13 @@ public class TitleScreenMixin {
         modulesHovered = mx >= modulesX && mx <= modulesX + BTN_W && my >= y && my <= y + BTN_H;
         packsHovered = mx >= packsX && mx <= packsX + BTN_W && my >= y && my <= y + BTN_H;
         crestHovered = mx >= crestX && mx <= crestX + BTN_W && my >= y && my <= y + BTN_H;
+
+        if (modulesHovered && !lastModulesHovered) com.crest.client.ui.UiSounds.hover();
+        if (packsHovered && !lastPacksHovered) com.crest.client.ui.UiSounds.hover();
+        if (crestHovered && !lastCrestHovered) com.crest.client.ui.UiSounds.hover();
+        lastModulesHovered = modulesHovered;
+        lastPacksHovered = packsHovered;
+        lastCrestHovered = crestHovered;
 
         int btnBase = ColorUtil.lerpARGB(Theme.BACKGROUND, Theme.FOREGROUND, 0.10f);
         int btnHover = ColorUtil.lerpARGB(Theme.BACKGROUND, Theme.FOREGROUND, 0.22f);
@@ -59,14 +69,17 @@ public class TitleScreenMixin {
     private void crest$onClick(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> ci) {
         if (event.button() != 0) return;
         if (modulesHovered) {
+            com.crest.client.ui.UiSounds.click();
             CrestMenu.open();
             ci.cancel();
             ci.setReturnValue(true);
         } else if (packsHovered) {
+            com.crest.client.ui.UiSounds.click();
             Minecraft.getInstance().setScreen(new ResourcePackBrowserScreen((TitleScreen)(Object)this));
             ci.cancel();
             ci.setReturnValue(true);
         } else if (crestHovered) {
+            com.crest.client.ui.UiSounds.click();
             Minecraft.getInstance().setScreen(new StreamerSettingsScreen((TitleScreen)(Object)this));
             ci.cancel();
             ci.setReturnValue(true);

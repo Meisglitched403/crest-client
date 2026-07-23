@@ -1,33 +1,69 @@
 package com.crest.client.ui;
 
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
-public final class ToggleSwitch {
-    public static final int W = 32;
-    public static final int H = 14;
+import java.util.function.Consumer;
 
-    public static void render(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
-        // Track
-        g.fill(x, y, x + W, y + H, ColorUtil.withAlpha(Theme.MUTED, 220));
-        // Fill (accent) proportional to anim
-        int bw = (int) (W * 0.8f + W * 0.2f * anim);
-        int bx = x + (W - bw) / 2;
-        int accent = Theme.getAnimatedAccent();
-        g.fill(bx, y + 2, bx + bw, y + H - 2, on ? accent : ColorUtil.withAlpha(accent, 120));
-        // Knob
-        int kd = H - 4;
-        int kx = on ? x + W - kd - 2 : x + 2;
-        g.fill(kx, y + 2, kx + kd, y + kd + 2, Theme.FOREGROUND);
+public class ToggleSwitch implements Widget {
+    public static final int W = 44;
+    public static final int H = 24;
+
+    private boolean on;
+    private final Consumer<Boolean> onChange;
+    private final Animated anim = new Animated(0f, 12f);
+    private int lastX, lastY;
+
+    public ToggleSwitch(boolean initial, Consumer<Boolean> onChange) {
+        this.on = initial;
+        this.onChange = onChange;
+        anim.setImmediate(on ? 1f : 0f);
     }
 
-    public static boolean hit(double mx, double my, int x, int y) {
-        return mx >= x && mx <= x + W && my >= y && my <= y + H;
+    public boolean isOn() { return on; }
+    public void setOn(boolean on) {
+        this.on = on;
+        anim.set(on ? 1f : 0f);
     }
 
-    public static int knobCenterX(int x, boolean on, float anim) {
-        int bw = (int) (W * 0.8f + W * 0.2f * anim);
-        int bx = x + (W - bw) / 2;
-        if (on) return bx + bw - (H - 2);
-        return bx + 2 + (H - 4) / 2;
+    @Override
+    public int getHeight() { return H; }
+
+    @Override
+    public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
+        lastX = x; lastY = y;
+        anim.set(on ? 1f : 0f);
+        anim.tick(delta);
+        renderStatic(g, x, y, W, on, anim.get());
+    }
+
+    /** Static drawing helper for legacy callers that pass animation amount directly. */
+    public static void render(GuiGraphicsExtractor g, int x, int y, boolean on, float animAmt) {
+        renderStatic(g, x, y, W, on, animAmt);
+    }
+
+    private static void renderStatic(GuiGraphicsExtractor g, int x, int y, int w, boolean on, float t) {
+        int trackColor = ColorUtil.lerpARGB(0x1AFFFFFF, Theme.getAnimatedAccent(), t);
+        g.fillGradient(x, y, x + w, y + H, trackColor, ColorUtil.withAlpha(trackColor, 80));
+        Panel.drawHollowRect(g, x, y, w, H, Theme.BORDER_LIGHT);
+
+        int knobMinX = x + 3;
+        int knobMaxX = x + w - 19;
+        int knobX = (int) Anim.lerp(knobMinX, knobMaxX, t);
+        int knobColor = ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.PRIMARY, t);
+        g.fill(knobX, y + 3, knobX + 16, y + H - 3, knobColor);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        if (button == 0 && mx >= lastX && mx <= lastX + W && my >= lastY && my <= lastY + H) {
+            on = !on;
+            anim.set(on ? 1f : 0f);
+            if (onChange != null) onChange.accept(on);
+            UiSounds.click();
+            return true;
+        }
+        return false;
     }
 }

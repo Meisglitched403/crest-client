@@ -3,6 +3,7 @@ package com.crest.client.ui;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import com.crest.client.ui.UiSounds;
 
 public class Button implements Widget {
     public enum Variant { PRIMARY, SECONDARY, OUTLINE, GHOST, DESTRUCTIVE, LINK }
@@ -14,6 +15,7 @@ public class Button implements Widget {
     private final int accent;
     private final Runnable onClick;
     private int lastX, lastY, lastW, lastH;
+    private boolean wasHovered;
 
     public Button(String text, Runnable onClick) {
         this(text, Variant.PRIMARY, Size.DEFAULT, Theme.getAnimatedAccent(), onClick);
@@ -59,6 +61,8 @@ public class Button implements Widget {
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
         lastX = x; lastY = y; lastW = w; lastH = getHeight();
         boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + lastH;
+        if (hover && !wasHovered) UiSounds.hover();
+        wasHovered = hover;
 
         int bg, fg;
         boolean outline = false;
@@ -116,6 +120,7 @@ public class Button implements Widget {
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0 && mx >= lastX && mx <= lastX + lastW && my >= lastY && my <= lastY + lastH) {
+            UiSounds.click();
             onClick.run();
             return true;
         }

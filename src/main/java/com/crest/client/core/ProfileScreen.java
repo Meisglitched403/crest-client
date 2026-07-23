@@ -1,5 +1,7 @@
 package com.crest.client.core;
 
+import com.crest.client.ui.*;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -7,37 +9,54 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
-
-import com.crest.client.ui.Theme;
-import com.crest.client.ui.Panel;
-import com.crest.client.ui.ColorUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
-/**
- * ponytail: Settings profiles screen. Type a name + Save to snapshot the current
- * config; click a profile to Apply it; right-click (or Del) to delete. Built with
- * the same low-level drawing style as HudEditScreen for consistency.
- */
 public class ProfileScreen extends Screen {
     private final Screen parent;
-    private String nameInput = "";
-    private boolean inputFocused;
+    private TextInput nameInput;
+    private final ScrollContainer profileList;
+
     private int mx, my;
-    private int scroll;
 
     protected ProfileScreen(Screen parent) {
         super(Component.literal("Profiles"));
         this.parent = parent;
+
+        nameInput = new TextInput("", this::onNameChanged);
+
+        profileList = new ScrollContainer()
+            .rowHeight(30)
+            .children(buildProfileWidgets());
     }
 
     public static void open(Screen parent) {
         Minecraft.getInstance().setScreen(new ProfileScreen(parent));
     }
 
-    private int rowY(int i) { return 70 + i * 34 - scroll; }
+    private List<Widget> buildProfileWidgets() {
+        List<Widget> list = new ArrayList<>();
+        for (String name : Profiles.names()) {
+            list.add(new ProfileRow(name, p -> {
+                Profiles.apply(p);
+                Minecraft.getInstance().player.sendSystemMessage(
+                    Component.literal("[Crest] Applied profile '" + p + "'"));
+            }, p -> {
+                Profiles.delete(p);
+                refreshList();
+            }));
+        }
+        return list;
+    }
+
+    private void refreshList() {
+        profileList.children(buildProfileWidgets());
+    }
+
+    private void onNameChanged(String name) {
+    }
 
     @Override
     protected void init() {
@@ -46,54 +65,36 @@ public class ProfileScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
-        this.mx = mx; this.my = my;
+        this.mx = mx;
+        this.my = my;
         Theme.tick(delta);
+
+        int pX = 40, pY = 40, pW = width - 80, pH = height - 80;
+
         g.fill(0, 0, width, height, Theme.GLASS_BG);
-        Panel.draw(g, 40, 40, width - 80, height - 80, Theme.GLASS_BG);
-        Panel.drawHollowRect(g, 40, 40, width - 80, height - 80, Theme.BORDER_LIGHT);
+        Panel.draw(g, pX, pY, pW, pH, Theme.GLASS_BG);
+        Panel.drawHollowRect(g, pX, pY, pW, pH, Theme.BORDER_LIGHT);
 
         g.text(font, Component.literal("Config Profiles"), 60, 56, Theme.FOREGROUND);
 
-        // Name input
         int inX = 60, inY = 84, inW = 260, inH = 28;
-        g.fill(inX, inY, inX + inW, inY + inH,
-                inputFocused ? ColorUtil.withAlpha(Theme.PRIMARY, 60) : ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 80));
-        Panel.drawHollowRect(g, inX, inY, inW, inH, Theme.BORDER_LIGHT);
-        String shown = inputFocused ? nameInput : (nameInput.isEmpty() ? "Profile name..." : nameInput);
-        g.text(font, Component.literal(shown), inX + 6, inY + 8,
-                nameInput.isEmpty() && !inputFocused ? Theme.MUTED_FOREGROUND : Theme.ON_SURFACE);
-        if (inputFocused && (int) (delta * 2) % 2 == 0) {
-            int cx = inX + 6 + font.width(nameInput);
-            g.fill(cx, inY + 6, cx + 1, inY + 22, Theme.PRIMARY);
-        }
+        nameInput.render(g, font, inX, inY, inW, mx, my, delta);
 
-        // Save button
         drawButton(g, "Save", inX + inW + 12, inY, 90, inH, true);
 
-        // Profile list
-        List<String> names = new ArrayList<>(Profiles.names());
-        int listX = 60, listW = width - 160;
-        for (int i = 0; i < names.size(); i++) {
-            int y = rowY(i);
-            if (y < 130 || y > height - 70) continue;
-            String n = names.get(i);
-            boolean hover = mx >= listX && mx <= listX + listW && my >= y && my <= y + 28;
-            g.fill(listX, y, listX + listW, y + 28, hover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 40)
-                    : ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 60));
-            Panel.drawHollowRect(g, listX, y, listW, 28, Theme.BORDER_LIGHT);
-            g.text(font, Component.literal(n), listX + 10, y + 9, Theme.FOREGROUND);
-            g.text(font, Component.literal("Apply"), listX + listW - 120, y + 9, Theme.getAnimatedAccent());
-            g.text(font, Component.literal("Delete"), listX + listW - 50, y + 9, Theme.DESTRUCTIVE);
-        }
+        int listX = 60, listY = inY + inH + 12, listW = pX + pW - listX - 40, listH = pY + pH - listY - 40;
+        profileList.hoverColor = ColorUtil.withAlpha(Theme.MUTED, 100);
+        profileList.render(g, font, listX, listY, listW, mx, my, delta);
 
         g.text(font, Component.literal("ESC to go back  |  click a profile to Apply, Delete to remove"),
-                60, height - 56, Theme.MUTED_FOREGROUND);
+            60, height - 56, Theme.MUTED_FOREGROUND);
     }
 
-    private void drawButton(GuiGraphicsExtractor g, String label, int x, int y, int w, int h, boolean enabled) {
+    private void drawButton(GuiGraphicsExtractor g, String label, int x, int y, int w, int h, boolean primary) {
         boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + h;
-        g.fill(x, y, x + w, y + h, hover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 200)
-                : ColorUtil.withAlpha(Theme.getAnimatedAccent(), 150));
+        int fill = hover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 200)
+                        : ColorUtil.withAlpha(Theme.getAnimatedAccent(), 150);
+        g.fill(x, y, x + w, y + h, fill);
         Panel.drawHollowRect(g, x, y, w, h, Theme.BORDER_LIGHT);
         g.text(font, Component.literal(label), x + (w - font.width(label)) / 2, y + (h - font.lineHeight) / 2, Theme.FOREGROUND);
     }
@@ -101,81 +102,121 @@ public class ProfileScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         double mxx = event.x(), myy = event.y();
+        int btn = event.buttonInfo().input();
+        if (btn != 0) return super.mouseClicked(event, doubleClick);
+
         int inX = 60, inY = 84, inW = 260, inH = 28;
+
         if (mxx >= inX && mxx <= inX + inW && myy >= inY && myy <= inY + inH) {
-            inputFocused = true;
+            nameInput.mouseClicked(mxx, myy, 0);
             return true;
         }
-        inputFocused = false;
+        nameInput.blur();
 
-        // Save
         if (mxx >= inX + inW + 12 && mxx <= inX + inW + 102 && myy >= inY && myy <= inY + inH) {
-            if (!nameInput.trim().isEmpty()) {
-                Profiles.save(nameInput.trim());
-                nameInput = "";
+            if (!nameInput.getText().trim().isEmpty()) {
+                Profiles.save(nameInput.getText().trim());
+                nameInput = new TextInput("", this::onNameChanged);
+                refreshList();
             }
             return true;
         }
 
-        List<String> names = new ArrayList<>(Profiles.names());
-        int listX = 60, listW = width - 160;
-        for (int i = 0; i < names.size(); i++) {
-            int y = rowY(i);
-            if (y < 130 || y > height - 70) continue;
-            if (mxx >= listX && mxx <= listX + listW && myy >= y && myy <= y + 28) {
-                String n = names.get(i);
-                if (mxx >= listX + listW - 120 && mxx <= listX + listW - 55) {
-                    Profiles.apply(n);
-                    Minecraft.getInstance().player.sendSystemMessage(
-                            Component.literal("[Crest] Applied profile '" + n + "'"));
-                } else if (mxx >= listX + listW - 50 && mxx <= listX + listW) {
-                    Profiles.delete(n);
-                } else {
-                    Profiles.apply(n);
-                    Minecraft.getInstance().player.sendSystemMessage(
-                            Component.literal("[Crest] Applied profile '" + n + "'"));
-                }
-                return true;
-            }
-        }
+        int listX = 60, listY = inY + inH + 12;
+        if (profileList.mouseClicked(mxx, myy, btn)) return true;
+
         return super.mouseClicked(event, doubleClick);
     }
 
     @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (profileList.mouseDragged(event.x(), event.y())) return true;
+        return super.mouseDragged(event, dx, dy);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        profileList.mouseScrolled(deltaY);
+        return true;
+    }
+
+    @Override
     public boolean charTyped(CharacterEvent event) {
-        if (inputFocused) {
-            int cp = event.codepoint();
-            if (cp >= 32 && cp < 127) nameInput += event.codepointAsString();
-            return true;
-        }
-        return false;
+        if (nameInput.charTyped(event.codepoint(), 0)) return true;
+        return super.charTyped(event);
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
         int key = event.key();
-        if (key == GLFW.GLFW_KEY_ESCAPE) { onClose(); return true; }
-        if (inputFocused) {
-            if (key == GLFW.GLFW_KEY_BACKSPACE && !nameInput.isEmpty()) {
-                nameInput = nameInput.substring(0, nameInput.length() - 1);
-                return true;
-            }
-            if (key == GLFW.GLFW_KEY_ENTER) { inputFocused = false; return true; }
-        } else if (key == GLFW.GLFW_KEY_DELETE) {
-            List<String> names = new ArrayList<>(Profiles.names());
-            for (int i = 0; i < names.size(); i++) {
-                int y = rowY(i);
-                if (y < 130 || y > height - 70) continue;
-                if (mx >= 60 && mx <= width - 100 && my >= y && my <= y + 28) {
-                    Profiles.delete(names.get(i));
-                    return true;
-                }
-            }
+        if (key == 256) {
+            nameInput.blur();
+            onClose();
+            return true;
         }
+        if (nameInput.keyPressed(key, 0, 0)) return true;
         return super.keyPressed(event);
     }
 
     @Override
-    public void onClose() { minecraft.setScreen(parent); }
-    @Override public boolean isPauseScreen() { return false; }
+    public void onClose() {
+        minecraft.setScreen(parent);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    private static class ProfileRow implements Widget {
+        private final String name;
+        private final Consumer<String> onApply;
+        private final Consumer<String> onDelete;
+        private int lastX, lastY, lastW;
+
+        ProfileRow(String name, Consumer<String> onApply, Consumer<String> onDelete) {
+            this.name = name;
+            this.onApply = onApply;
+            this.onDelete = onDelete;
+        }
+
+        @Override
+        public int getHeight() {
+            return 28;
+        }
+
+        @Override
+        public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
+            lastX = x;
+            lastY = y;
+            lastW = w;
+
+            boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + 28;
+            g.fill(x, y, x + w, y + 28,
+                hover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 40)
+                     : ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 60));
+            Panel.drawHollowRect(g, x, y, w, 28, Theme.BORDER_LIGHT);
+
+            g.text(font, Component.literal(name), x + 10, y + 9, Theme.FOREGROUND);
+            g.text(font, Component.literal("Apply"), x + w - 120, y + 9, Theme.getAnimatedAccent());
+            g.text(font, Component.literal("Delete"), x + w - 50, y + 9, Theme.DESTRUCTIVE);
+        }
+
+        @Override
+        public boolean mouseClicked(double mx, double my, int button) {
+            if (mx >= lastX && mx <= lastX + lastW && my >= lastY && my <= lastY + 28) {
+                if (mx >= lastX + lastW - 120 && mx <= lastX + lastW - 55) {
+                    onApply.accept(name);
+                    return true;
+                }
+                if (mx >= lastX + lastW - 50 && mx <= lastX + lastW) {
+                    onDelete.accept(name);
+                    return true;
+                }
+                onApply.accept(name);
+                return true;
+            }
+            return false;
+        }
+    }
 }

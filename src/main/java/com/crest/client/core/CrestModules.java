@@ -90,6 +90,10 @@ public class CrestModules {
             eventBus.post(new ModuleToggleEvent(m, enabled));
         }
         renderCacheDirty = true;
+        if (m != null) {
+            NotificationToast.show((enabled ? "\u2713 " : "\u2717 ") + m.getName(),
+                enabled ? 0xFF44FF88 : 0xFFFF5B6E);
+        }
     }
 
     public static void toggle(String id) {
@@ -141,5 +145,13 @@ public class CrestModules {
             .map(CrestModule::getCategory)
             .distinct()
             .collect(Collectors.toList());
+    }
+
+    public static void notify(String message) {
+        NotificationToast.show(message);
+    }
+
+    public static void notify(String message, int color) {
+        NotificationToast.show(message, color);
     }
 }

@@ -7,6 +7,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Central theming for Crest Client.
@@ -22,6 +24,11 @@ public final class Theme {
 
     private static ThemeData data = ThemePresets.DARK.clone();
     private static ThemeData pending = data.clone();
+    private static final List<ThemeChangeListener> listeners = new ArrayList<>();
+
+    public interface ThemeChangeListener {
+        void onThemeChanged();
+    }
 
     // --- CSS-variable-style named palette (synced from active data) ---
     public static int BACKGROUND;
@@ -174,6 +181,38 @@ public final class Theme {
         topStripAlpha = (int) (160 * (data.glassOpacity / 255f));
         fontScale = data.fontScale;
         density = data.density;
+
+        fireThemeChanged();
+    }
+
+    private static void fireThemeChanged() {
+        for (ThemeChangeListener l : listeners) {
+            try { l.onThemeChanged(); } catch (Exception ignored) {}
+        }
+    }
+
+    public static void addListener(ThemeChangeListener l) {
+        listeners.add(l);
+    }
+
+    public static void removeListener(ThemeChangeListener l) {
+        listeners.remove(l);
+    }
+
+    public static int scaled(int size) {
+        return (int) (size * fontScale);
+    }
+
+    public static float scaledF(float size) {
+        return size * fontScale;
+    }
+
+    public static int scaledLineHeight() {
+        return scaled(9);
+    }
+
+    public static int scaledTextOffset(int baseY) {
+        return baseY + (scaled(9) - 9) / 2;
     }
 
     public static int getAccent() { return data.accent; }

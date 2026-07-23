@@ -12,4 +12,5 @@ public interface Widget {
     default boolean mouseDragged(double mx, double my) { return false; }
     default boolean keyPressed(int key, int scan, int mods) { return false; }
     default boolean charTyped(int codepoint, int mods) { return false; }
+    default void onLayout(int x, int y, int width, int height) {}
 }

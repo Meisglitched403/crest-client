@@ -1,6 +1,8 @@
 package com.crest.client.core;
 
 import com.crest.client.ui.*;
+import com.crest.client.ui.layout.ColumnLayout;
+import com.crest.client.ui.layout.LayoutNode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.DeltaTracker;
@@ -31,6 +33,7 @@ public class HudEditScreen extends Screen {
     private final Animated selectAnim = new Animated(0f, 12f);
     private final Animated handleAnim = new Animated(0f, 12f);
     private int mx, my;
+    private Breakpoints.Size currentSize = Breakpoints.Size.MD;
 
     protected HudEditScreen() {
         super(Component.literal("Edit HUD"));
@@ -51,6 +54,7 @@ public class HudEditScreen extends Screen {
         openAnim.set(1f);
         selectAnim.set(0f);
         handleAnim.set(0f);
+        currentSize = Breakpoints.getCurrentSize(width);
     }
 
     @Override
@@ -60,6 +64,11 @@ public class HudEditScreen extends Screen {
         openAnim.tick(delta);
         selectAnim.tick(delta);
         handleAnim.tick(delta);
+
+        Breakpoints.Size newSize = Breakpoints.getCurrentSize(width);
+        if (newSize != currentSize) {
+            currentSize = newSize;
+        }
 
         int open = (int) (Theme.glassOpacity * openAnim.get());
         g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, open));
@@ -77,7 +86,6 @@ public class HudEditScreen extends Screen {
             int rh = mod.getRenderHeight();
             boolean selected = mod.getId().equals(selectedId);
 
-            // Live preview: render module content faintly inside its box
             if (rw > 0 && rh > 0) {
                 g.enableScissor(rx, ry, rx + rw, ry + rh);
                 g.pose().pushMatrix();
@@ -129,12 +137,25 @@ public class HudEditScreen extends Screen {
     private void drawToolbar(GuiGraphicsExtractor g) {
         HudModule mod = findModule(selectedId);
         if (mod == null) return;
-        String[] labels = {"Reset", CrestModules.isEnabled(mod.getId()) ? "Hide" : "Show", "Front",
-                snapEnabled ? "Snap: On" : "Snap: Off", "Reset All"};
-        int bw = 72, bh = 24, gap = Spacing.S2;
+
+        boolean isXs = currentSize == Breakpoints.Size.XS;
+        String[] labels;
+        int bw;
+
+        if (isXs) {
+            labels = new String[]{"\u21BA", "\u2413", "\u25B2", "\u25A1", "\u21BB"};
+            bw = 40;
+        } else {
+            labels = new String[]{"Reset", CrestModules.isEnabled(mod.getId()) ? "Hide" : "Show", "Front",
+                    snapEnabled ? "Snap:On" : "Snap:Off", "Reset All"};
+            bw = 66;
+        }
+        int bh = 24;
+        int gap = Math.min(Spacing.S2, 4);
         int total = bw * labels.length + gap * (labels.length - 1);
-        int bx = (width - total) / 2;
+        int bx = Math.max(Spacing.S2, (width - total) / 2);
         int by = height - 46;
+
         for (int i = 0; i < labels.length; i++) {
             int x = bx + i * (bw + gap);
             boolean hover = mx >= x && mx <= x + bw && my >= by && my <= by + bh;
@@ -153,13 +174,24 @@ public class HudEditScreen extends Screen {
         if (btn != 0) return super.mouseClicked(event, doubleClick);
 
         if (selectedId != null) {
-            // Toolbar
-            String[] labels = {"Reset", CrestModules.isEnabled(selectedId) ? "Hide" : "Show", "Front",
-                    snapEnabled ? "Snap: On" : "Snap: Off", "Reset All"};
-            int bw = 72, bh = 24, gap = Spacing.S2;
+            boolean isXs = currentSize == Breakpoints.Size.XS;
+            String[] labels;
+            int bw;
+
+            if (isXs) {
+                labels = new String[]{"\u21BA", "\u2413", "\u25B2", "\u25A1", "\u21BB"};
+                bw = 40;
+            } else {
+                labels = new String[]{"Reset", CrestModules.isEnabled(selectedId) ? "Hide" : "Show", "Front",
+                        snapEnabled ? "Snap:On" : "Snap:Off", "Reset All"};
+                bw = 66;
+            }
+            int bh = 24;
+            int gap = Math.min(Spacing.S2, 4);
             int total = bw * labels.length + gap * (labels.length - 1);
-            int bx = (width - total) / 2;
+            int bx = Math.max(Spacing.S2, (width - total) / 2);
             int by = height - 46;
+
             for (int i = 0; i < labels.length; i++) {
                 int x = bx + i * (bw + gap);
                 if (mx >= x && mx <= x + bw && my >= by && my <= by + bh) {
@@ -212,7 +244,7 @@ public class HudEditScreen extends Screen {
         HudModule mod = findModule(selectedId);
         if (mod == null) return;
         switch (i) {
-            case 0 -> { // Reset position + size
+            case 0 -> {
                 HudSettings.setPosition(selectedId, 10, 10);
                 HudSettings.setSize(selectedId, null, null);
                 mod.setX(10); mod.setY(10); mod.setSize(null, null);
@@ -220,8 +252,8 @@ public class HudEditScreen extends Screen {
             }
             case 1 -> CrestModules.setEnabled(selectedId, !CrestModules.isEnabled(selectedId));
             case 2 -> HudSettings.bringToFront(selectedId);
-            case 3 -> snapEnabled = !snapEnabled; // Toggle snap-to-grid
-            case 4 -> { // Reset All HUD positions
+            case 3 -> snapEnabled = !snapEnabled;
+            case 4 -> {
                 for (HudModule m : getHudModules()) {
                     HudSettings.setPosition(m.getId(), 10, 10);
                     HudSettings.setSize(m.getId(), null, null);

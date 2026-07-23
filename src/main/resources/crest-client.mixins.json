@@ -71,7 +71,8 @@
         "ShieldSpecialRendererMixin",
         "ShieldLayerRenderStateMixin",
         "PlayerItemInHandLayerMixin",
-        "GuiRendererShieldMixin"
+        "GuiRendererShieldMixin",
+        "BackgroundLoadingOverlayMixin"
     ],
     "injectors": {
         "defaultRequire": 1
