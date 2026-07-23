@@ -9,9 +9,14 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
+import java.io.File;
+import java.io.FilenameFilter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +46,11 @@ public class CornerTextConfigScreen extends Screen {
     private float cpHue = 0f, cpSat = 1f, cpVal = 1f, cpAlpha = 1f;
     private int cpDrag = -1; // 0 = SV square, 1 = hue bar, 2 = alpha bar
     private final Animated cpAnim = new Animated(0f, 12f);
+
+    private boolean imagePickerOpen;
+    private List<String> imageFiles;
+    private int imagePickerScroll;
+    private final List<String> imageFileCache = new ArrayList<>();
 
     private final Map<Integer, Animated> rowHover = new HashMap<>();
     private final Map<String, Animated> toggleAnim = new HashMap<>();
@@ -75,6 +85,7 @@ public class CornerTextConfigScreen extends Screen {
         renderPreviewPanel(g, mx, my);
 
         renderColorPicker(g, mx, my);
+        renderImagePicker(g, mx, my, delta);
 
         g.pose().popMatrix();
     }
@@ -177,6 +188,18 @@ public class CornerTextConfigScreen extends Screen {
         int vy = ry + (ROW_H - 16) / 2;
 
         if (s instanceof StringSetting ss) {
+            if ("Image Path".equals(s.getName())) {
+                String path = ss.get();
+                String label = (path == null || path.isEmpty()) ? "Browse..." : font.plainSubstrByWidth(path, SLIDER_W - 12) + "\u2026";
+                int bw = SLIDER_W, bh = 22;
+                int bx = vx, by = ry + (ROW_H - bh) / 2;
+                boolean btnHover = mx >= bx && mx <= bx + bw && my >= by && my <= by + bh;
+                g.fill(bx, by, bx + bw, by + bh, btnHover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 40) : ColorUtil.withAlpha(Theme.MUTED, 80));
+                Panel.drawHollowRect(g, bx, by, bw, bh, btnHover ? Theme.getAnimatedAccent() : Theme.BORDER_LIGHT);
+                g.text(font, Component.literal(label), bx + Spacing.S2, by + (bh - font.lineHeight) / 2,
+                    btnHover ? Theme.getAnimatedAccent() : Theme.MUTED_FOREGROUND);
+                return;
+            }
             String val = ss.get();
             if (activeTextIdx == idx && editBuffer != null) val = editBuffer + "\u258C";
             int maxW = SLIDER_W;
@@ -251,6 +274,37 @@ public class CornerTextConfigScreen extends Screen {
         g.fill(innerX, innerY, innerX + innerW, innerY + innerH, 0xFF0E0E18);
         Panel.drawHollowRect(g, innerX, innerY, innerW, innerH, Theme.BORDER_LIGHT);
 
+        Font f = Minecraft.getInstance().font;
+        String corner = CornerTextModule.getCorner();
+
+        // Draw image preview
+        if (CornerTextModule.isImageEnabled()) {
+            Identifier texId = CornerTextModule.getImageTexture();
+            if (texId != null) {
+                int iw = CornerTextModule.getImageWidth();
+                int ih = CornerTextModule.getImageHeight();
+                float is = CornerTextModule.getImageScale();
+                int ioX = CornerTextModule.getImageOffsetX();
+                int ioY = CornerTextModule.getImageOffsetY();
+                int dw = (int) (iw * is);
+                int dh = (int) (ih * is);
+
+                // Clamp to preview bounds
+                if (dw > innerW - 8) { dh = dh * (innerW - 8) / dw; dw = innerW - 8; }
+                if (dh > innerH - 8) { dw = dw * (innerH - 8) / dh; dh = innerH - 8; }
+
+                int ix, iy;
+                switch (corner) {
+                    case "Top Left" -> { ix = innerX + 4 + ioX; iy = innerY + 4 + ioY; }
+                    case "Top Right" -> { ix = innerX + innerW - 4 - dw - ioX; iy = innerY + 4 + ioY; }
+                    case "Bottom Left" -> { ix = innerX + 4 + ioX; iy = innerY + innerH - 4 - dh - ioY; }
+                    default -> { ix = innerX + innerW - 4 - dw - ioX; iy = innerY + innerH - 4 - dh - ioY; }
+                }
+
+                g.blit(RenderPipelines.GUI_TEXTURED, texId, ix, iy, 0f, 0f, dw, dh, iw, ih, 0xFFFFFFFF);
+            }
+        }
+
         String text = CornerTextModule.getText();
         if (text == null || text.isEmpty()) return;
 
@@ -259,10 +313,8 @@ public class CornerTextConfigScreen extends Screen {
         boolean bg = CornerTextModule.isBackgroundEnabled();
         int offX = CornerTextModule.getOffsetX();
         int offY = CornerTextModule.getOffsetY();
-        String corner = CornerTextModule.getCorner();
         float s = CornerTextModule.getScale();
 
-        Font f = Minecraft.getInstance().font;
         int tw = f.width(text);
         int lh = f.lineHeight;
 
@@ -366,6 +418,64 @@ public class CornerTextConfigScreen extends Screen {
         g.pose().popMatrix();
     }
 
+    private void renderImagePicker(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        if (!imagePickerOpen || imageFiles == null) return;
+
+        int pw = 320, ph = 300;
+        int px = (width - pw) / 2;
+        int py = (height - ph) / 2;
+
+        g.fill(0, 0, width, height, 0xAA000000);
+        Panel.drawGlassElevated(g, px, py, pw, ph, ColorUtil.withAlpha(0x14141F, 250), Theme.getAnimatedAccent(), Theme.ELEVATION_2);
+        g.text(font, Component.literal("Select Image"), px + Spacing.S4, py + Spacing.S3, Theme.FOREGROUND);
+        g.fill(px + Spacing.S4, py + 28, px + pw - Spacing.S4, py + 29, Theme.BORDER_LIGHT);
+
+        if (imageFiles.isEmpty()) {
+            g.text(font, Component.literal("Place .png files in:"), px + Spacing.S4, py + 44, Theme.MUTED_FOREGROUND);
+            String dirPath = "config/crest-client/corner-images/";
+            g.text(font, Component.literal(dirPath), px + Spacing.S4, py + 60, Theme.getAnimatedAccent());
+            boolean openHover = mx >= px + Spacing.S4 && mx <= px + pw - Spacing.S4
+                             && my >= py + 76 && my <= py + 96;
+            g.fill(px + Spacing.S4, py + 76, px + pw - Spacing.S4, py + 96,
+                openHover ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 30) : ColorUtil.withAlpha(Theme.MUTED, 60));
+            g.text(font, Component.literal("Open Folder"), px + Spacing.S4, py + 81,
+                openHover ? Theme.getAnimatedAccent() : Theme.MUTED_FOREGROUND);
+            return;
+        }
+
+        int listY = py + 36;
+        int listH = ph - 46;
+        int itemH = 28;
+        int totalH = imageFiles.size() * itemH;
+        int maxScroll = Math.max(0, totalH - listH);
+        imagePickerScroll = Math.max(0, Math.min(imagePickerScroll, maxScroll));
+
+        g.enableScissor(px, listY, px + pw, listY + listH);
+        int baseY = listY - imagePickerScroll;
+        for (int i = 0; i < imageFiles.size(); i++) {
+            int iy = baseY + i * itemH;
+            String path = imageFiles.get(i);
+            String name = path.substring(path.lastIndexOf(File.separatorChar) + 1);
+            boolean hover = mx >= px + Spacing.S4 && mx <= px + pw - Spacing.S4
+                         && my >= iy && my <= iy + itemH;
+            if (hover) {
+                g.fill(px + Spacing.S4, iy, px + pw - Spacing.S4, iy + itemH,
+                    ColorUtil.withAlpha(Theme.getAnimatedAccent(), 26));
+            }
+            g.text(font, Component.literal(name), px + Spacing.S4 + 4, iy + (itemH - font.lineHeight) / 2,
+                hover ? Theme.getAnimatedAccent() : Theme.FOREGROUND);
+        }
+        g.disableScissor();
+
+        // Close button
+        String close = "\u00D7";
+        int closeX = px + pw - Spacing.S4 - font.width(close);
+        boolean closeHover = mx >= closeX && mx <= closeX + font.width(close)
+                          && my >= py + Spacing.S3 && my <= py + Spacing.S3 + font.lineHeight;
+        g.text(font, Component.literal(close), closeX, py + Spacing.S3,
+            closeHover ? Theme.DESTRUCTIVE : Theme.MUTED_FOREGROUND);
+    }
+
     private void drawGradientH(GuiGraphicsExtractor g, int x, int y, int w, int h, int left, int right) {
         for (int i = 0; i < w; i++) {
             float t = i / (float) w;
@@ -378,6 +488,21 @@ public class CornerTextConfigScreen extends Screen {
             float t = i / (float) h;
             g.fill(x, y + i, x + w, y + i + 1, ColorUtil.lerpARGB(top, bottom, t));
         }
+    }
+
+    private void openFilePicker(StringSetting setting) {
+        File dir = new File(Minecraft.getInstance().gameDirectory, "config/crest-client/corner-images");
+        if (!dir.exists()) dir.mkdirs();
+        imageFiles = new ArrayList<>();
+        File[] files = dir.listFiles((d, name) -> {
+            String lower = name.toLowerCase();
+            return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") || lower.endsWith(".bmp");
+        });
+        if (files != null) {
+            for (File f : files) imageFiles.add(f.getAbsolutePath());
+        }
+        imagePickerScroll = 0;
+        imagePickerOpen = true;
     }
 
     private void openColorPicker(ColorSetting cs) {
@@ -451,6 +576,62 @@ public class CornerTextConfigScreen extends Screen {
             return true;
         }
 
+        if (imagePickerOpen) {
+            int pw = 320, ph = 300;
+            int px = (width - pw) / 2;
+            int py = (height - ph) / 2;
+
+            // Close button
+            String close = "\u00D7";
+            int closeX = px + pw - Spacing.S4 - font.width(close);
+            if (mx >= closeX && mx <= closeX + font.width(close) && my >= py + Spacing.S3 && my <= py + Spacing.S3 + font.lineHeight) {
+                imagePickerOpen = false;
+                return true;
+            }
+
+            if (imageFiles != null && !imageFiles.isEmpty()) {
+                int listY = py + 36;
+                int listH = ph - 46;
+                int itemH = 28;
+                int baseY = listY - imagePickerScroll;
+                for (int i = 0; i < imageFiles.size(); i++) {
+                    int iy = baseY + i * itemH;
+                    if (mx >= px + Spacing.S4 && mx <= px + pw - Spacing.S4 && my >= iy && my <= iy + itemH) {
+                        String path = imageFiles.get(i);
+                        StringSetting imagePathSetting = null;
+                        for (Setting<?> s : settings) {
+                            if ("Image Path".equals(s.getName()) && s instanceof StringSetting ss) {
+                                imagePathSetting = ss;
+                                break;
+                            }
+                        }
+                        if (imagePathSetting != null) {
+                            imagePathSetting.set(path);
+                            CornerTextModule.setImagePath(path);
+                        }
+                        imagePickerOpen = false;
+                        return true;
+                    }
+                }
+            } else if (imageFiles != null) {
+                int openY = py + 76;
+                if (mx >= px + Spacing.S4 && mx <= px + pw - Spacing.S4 && my >= openY && my <= openY + 20) {
+                    try {
+                        File dir = new File(Minecraft.getInstance().gameDirectory, "config/crest-client/corner-images");
+                        Runtime.getRuntime().exec(new String[]{"xdg-open", dir.getAbsolutePath()});
+                    } catch (Exception ignored) {}
+                    imagePickerOpen = false;
+                    return true;
+                }
+            }
+
+            if (mx < px || mx > px + pw || my < py || my > py + ph) {
+                imagePickerOpen = false;
+                return true;
+            }
+            return true;
+        }
+
         int back = Spacing.S2, backB = font.width("\u2190") + Spacing.S2;
         if (mx >= PAD && mx <= PAD + backB && my >= back && my <= HEADER_H - back) {
             onClose();
@@ -499,7 +680,12 @@ public class CornerTextConfigScreen extends Screen {
             Setting<?> s = settings.get(i);
             int vx = rowX + rowW - SLIDER_W - Spacing.S3;
 
-            if (s instanceof StringSetting) {
+            if (s instanceof StringSetting ss2) {
+                if ("Image Path".equals(s.getName())) {
+                    openFilePicker(ss2);
+                    openDropdown = -1;
+                    return true;
+                }
                 activeTextIdx = i;
                 editBuffer = "";
                 openDropdown = -1;
@@ -572,6 +758,16 @@ public class CornerTextConfigScreen extends Screen {
             return true;
         }
         return super.mouseDragged(event, dx, dy);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if (imagePickerOpen && imageFiles != null) {
+            imagePickerScroll = Math.max(0, Math.min(imagePickerScroll - (int) deltaY * 28,
+                Math.max(0, imageFiles.size() * 28 - 254)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
     }
 
     @Override

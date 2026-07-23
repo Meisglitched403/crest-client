@@ -262,6 +262,7 @@ public class CrestMenu extends Screen {
         int lastIdx = Math.min(total - 1, (lastRow + 1) * cols - 1);
 
         hoveredIndex = -1;
+        if (total == 0) { g.disableScissor(); return; }
         for (int i = firstIdx; i <= lastIdx; i++) {
             int r = i / cols;
             int c = i % cols;
