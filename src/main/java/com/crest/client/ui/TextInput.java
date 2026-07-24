@@ -25,6 +25,10 @@ public class TextInput implements Widget {
     public String getText() { return text; }
 
     @Override
+    public int getWidth() {
+        return lastW;
+    }
+
     public int getHeight() { return H; }
 
     @Override

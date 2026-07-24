@@ -20,6 +20,10 @@ public class KeybindRow implements Widget {
     public void setCapturing(boolean v) { capturing = v; }
 
     @Override
+    public int getWidth() {
+        return 0;
+    }
+
     public int getHeight() { return H; }
 
     @Override

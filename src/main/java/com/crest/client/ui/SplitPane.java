@@ -28,6 +28,10 @@ public class SplitPane implements Widget {
     public SplitPane dividerPos(float p) { this.dividerPos = Math.max(0.01f, Math.min(0.99f, p)); return this; }
 
     @Override
+    public int getWidth() {
+        return width;
+    }
+
     public int getHeight() {
         return 200;
     }

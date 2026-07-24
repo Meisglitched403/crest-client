@@ -101,9 +101,10 @@ public final class Panel {
     }
 
     public static void drawHollowRect(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);
+        if (w <= 0 || h <= 0) return;
+        g.fill(x, y, x + Math.min(w, 1), y + h, color);
         g.fill(x, y + h - 1, x + w, y + h, color);
-        g.fill(x, y, x + 1, y + h, color);
+        g.fill(x, y, x + w, y + Math.min(h, 1), color);
         g.fill(x + w - 1, y, x + w, y + h, color);
     }
 

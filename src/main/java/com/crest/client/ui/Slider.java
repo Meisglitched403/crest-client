@@ -24,6 +24,10 @@ public class Slider implements Widget {
     public void setValue(float v) { value = Anim.clamp(v, min, max); }
 
     @Override
+    public int getWidth() {
+        return lastBarW;
+    }
+
     public int getHeight() { return H; }
 
     @Override

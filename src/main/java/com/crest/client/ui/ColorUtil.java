@@ -25,22 +25,32 @@ public final class ColorUtil {
         return (c & 0x00FFFFFF) | ((a & 0xFF) << 24);
     }
 
-    /** Linear interpolate between two packed ARGB colors (alpha lerped too). */
+    /** Linearly interpolate between two packed ARGB colors in premultiplied alpha space for correct blending. */
     public static int lerpARGB(int a, int b, float t) {
-        int ar = getR(a), ag = getG(a), ab = getB(a), aa = getA(a);
-        int br = getR(b), bg = getG(b), bb = getB(b), ba = getA(b);
-        int r = Math.round(ar + (br - ar) * t);
-        int g = Math.round(ag + (bg - ag) * t);
-        int bch = Math.round(ab + (bb - ab) * t);
-        int al = Math.round(aa + (ba - aa) * t);
-        return rgba(r, g, bch, al);
+        int aA = getA(a), aR = getR(a), aG = getG(a), aB = getB(a);
+        int bA = getA(b), bR = getR(b), bG = getG(b), bB = getB(b);
+        float aA_n = aA / 255f;
+        float bA_n = bA / 255f;
+        float paR = aA_n * aR, paG = aA_n * aG, paB = aA_n * aB;
+        float pbR = bA_n * bR, pbG = bA_n * bG, pbB = bA_n * bB;
+        float lerpR = paR + (pbR - paR) * t;
+        float lerpG = paG + (pbG - paG) * t;
+        float lerpB = paB + (pbB - paB) * t;
+        float lerpA = aA_n + (bA_n - aA_n) * t;
+        int outA = Math.round(lerpA * 255);
+        if (outA <= 0) return 0;
+        int outR = Math.round(lerpR / lerpA);
+        int outG = Math.round(lerpG / lerpA);
+        int outB = Math.round(lerpB / lerpA);
+        return rgba(Math.min(255, outR), Math.min(255, outG), Math.min(255, outB), Math.min(255, outA));
     }
 
     /** Subtle hue rotation for animated accents. t in [0,1) loops. */
     public static int hueShift(int base, float t) {
         float h = (float) (t % 1.0f);
         if (h < 0) h += 1f;
-        return hsvToInt(h, 0.7f, 1.0f, getA(base) / 255f);
+        float[] hsv = toHSV(base);
+        return hsvToInt(h, hsv[1], hsv[2], getA(base) / 255f);
     }
 
     public static int hsvToInt(float h, float s, float v, float a) {

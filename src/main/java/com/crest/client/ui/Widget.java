@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public interface Widget {
     int H = 20;
 
+    int getWidth();
     int getHeight();
     void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta);
     boolean mouseClicked(double mx, double my, int button);

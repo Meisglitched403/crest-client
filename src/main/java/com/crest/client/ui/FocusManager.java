@@ -91,6 +91,10 @@ public class FocusManager {
             if ((mods & 1) != 0) return focusPrevious();
             return focusNext();
         }
+        if (key == 256) {
+            clearFocus();
+            return true;
+        }
         return false;
     }
 

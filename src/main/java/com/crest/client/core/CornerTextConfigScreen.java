@@ -286,22 +286,23 @@ public class CornerTextConfigScreen extends Screen {
                 float is = CornerTextModule.getImageScale();
                 int ioX = CornerTextModule.getImageOffsetX();
                 int ioY = CornerTextModule.getImageOffsetY();
-                int dw = (int) (iw * is);
-                int dh = (int) (ih * is);
 
-                // Clamp to preview bounds
-                if (dw > innerW - 8) { dh = dh * (innerW - 8) / dw; dw = innerW - 8; }
-                if (dh > innerH - 8) { dw = dw * (innerH - 8) / dh; dh = innerH - 8; }
+                int scaledIoX = (int) (ioX * is);
+                int scaledIoY = (int) (ioY * is);
 
                 int ix, iy;
                 switch (corner) {
-                    case "Top Left" -> { ix = innerX + 4 + ioX; iy = innerY + 4 + ioY; }
-                    case "Top Right" -> { ix = innerX + innerW - 4 - dw - ioX; iy = innerY + 4 + ioY; }
-                    case "Bottom Left" -> { ix = innerX + 4 + ioX; iy = innerY + innerH - 4 - dh - ioY; }
-                    default -> { ix = innerX + innerW - 4 - dw - ioX; iy = innerY + innerH - 4 - dh - ioY; }
+                    case "Top Left" -> { ix = innerX + 4 + scaledIoX; iy = innerY + 4 + scaledIoY; }
+                    case "Top Right" -> { ix = innerX + innerW - 4 - iw - scaledIoX; iy = innerY + 4 + scaledIoY; }
+                    case "Bottom Left" -> { ix = innerX + 4 + scaledIoX; iy = innerY + innerH - 4 - ih - scaledIoY; }
+                    default -> { ix = innerX + innerW - 4 - iw - scaledIoX; iy = innerY + innerH - 4 - ih - scaledIoY; }
                 }
 
-                g.blit(RenderPipelines.GUI_TEXTURED, texId, ix, iy, 0f, 0f, dw, dh, iw, ih, 0xFFFFFFFF);
+                g.pose().pushMatrix();
+                g.pose().translate(ix, iy);
+                g.pose().scale(is);
+                g.blit(RenderPipelines.GUI_TEXTURED, texId, 0, 0, 0f, 0f, iw, ih, iw, ih, 0xFFFFFFFF);
+                g.pose().popMatrix();
             }
         }
 
@@ -366,9 +367,9 @@ public class CornerTextConfigScreen extends Screen {
         // SV square background (hue base)
         g.fill(svX, svY, svX + svW, svY + svH, ColorUtil.hsv(cpHue, 1f, 1f));
         // white->saturation horizontal
-        drawGradientH(g, svX, svY, svW, svH, 0xFFFFFFFF, 0x00FFFFFF);
+        g.fillGradient(svX, svY, svX + svW, svY + svH, 0xFFFFFFFF, ColorUtil.withAlpha(0x00FFFFFF, 0));
         // black vertical bottom
-        drawGradientV(g, svX, svY, svW, svH, 0x00000000, 0xFF000000);
+        g.fillGradient(svX, svY, svX + svW, svY + svH, ColorUtil.withAlpha(0x00000000, 0), 0xFF000000);
         Panel.drawHollowRect(g, svX, svY, svW, svH, Theme.BORDER_LIGHT);
 
         // SV knob
@@ -377,22 +378,23 @@ public class CornerTextConfigScreen extends Screen {
         g.fill(kx - 3, ky - 3, kx + 3, ky + 3, 0xFFFFFFFF);
         g.fill(kx - 2, ky - 2, kx + 2, ky + 2, 0xFF000000);
 
-        // Hue bar
-        for (int i = 0; i < hueH; i++) {
-            float h = (i / (float) hueH);
-            g.fill(hueX, hueY + i, hueX + hueW, hueY + i + 1, ColorUtil.hsv(h, 1f, 1f));
+        // Hue bar — draw 6 fillGradient segments for the full hue spectrum
+        int segH = hueH / 6;
+        for (int s = 0; s < 6; s++) {
+            float h0 = 1f - (s / 6f);
+            float h1 = 1f - ((s + 1) / 6f);
+            g.fillGradient(hueX, hueY + s * segH, hueX + hueW, hueY + (s + 1) * segH,
+                ColorUtil.hsv(h0, 1f, 1f), ColorUtil.hsv(h1, 1f, 1f));
         }
         Panel.drawHollowRect(g, hueX, hueY, hueW, hueH, Theme.BORDER_LIGHT);
         int hSel = hueY + (int) (cpHue * hueH);
         g.fill(hueX - 2, hSel - 2, hueX + hueW + 2, hSel + 2, 0xFFFFFFFF);
 
-        // Alpha bar
+        // Alpha bar — gradient from transparent to opaque for the current color
         int base = ColorUtil.hsv(cpHue, cpSat, cpVal) & 0x00FFFFFF;
-        for (int i = 0; i < alphaH; i++) {
-            float a = i / (float) alphaH;
-            g.fill(alphaX, alphaY + i, alphaX + alphaW, alphaY + i + 1,
-                ColorUtil.withAlpha(base, (int) (a * 255)));
-        }
+        g.fillGradient(alphaX, alphaY, alphaX + alphaW, alphaY + alphaH,
+            ColorUtil.withAlpha(base, 0), base);
+        g.fill(alphaX, alphaY, alphaX + alphaW, alphaY + alphaH, base);
         Panel.drawHollowRect(g, alphaX, alphaY, alphaW, alphaH, Theme.BORDER_LIGHT);
         int aSel = alphaY + (int) (cpAlpha * alphaH);
         g.fill(alphaX - 2, aSel - 2, alphaX + alphaW + 2, aSel + 2, 0xFFFFFFFF);
@@ -474,20 +476,6 @@ public class CornerTextConfigScreen extends Screen {
                           && my >= py + Spacing.S3 && my <= py + Spacing.S3 + font.lineHeight;
         g.text(font, Component.literal(close), closeX, py + Spacing.S3,
             closeHover ? Theme.DESTRUCTIVE : Theme.MUTED_FOREGROUND);
-    }
-
-    private void drawGradientH(GuiGraphicsExtractor g, int x, int y, int w, int h, int left, int right) {
-        for (int i = 0; i < w; i++) {
-            float t = i / (float) w;
-            g.fill(x + i, y, x + i + 1, y + h, ColorUtil.lerpARGB(left, right, t));
-        }
-    }
-
-    private void drawGradientV(GuiGraphicsExtractor g, int x, int y, int w, int h, int top, int bottom) {
-        for (int i = 0; i < h; i++) {
-            float t = i / (float) h;
-            g.fill(x, y + i, x + w, y + i + 1, ColorUtil.lerpARGB(top, bottom, t));
-        }
     }
 
     private void openFilePicker(StringSetting setting) {

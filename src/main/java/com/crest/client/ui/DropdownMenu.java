@@ -1,5 +1,6 @@
 package com.crest.client.ui;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -14,7 +15,7 @@ public class DropdownMenu {
 
     public boolean open;
 
-    private int anchorX, anchorY, anchorW;
+    private int anchorX, anchorY, anchorW, anchorH;
     private int mx, my;
 
     public final List<Item> items = new ArrayList<>();
@@ -47,9 +48,9 @@ public class DropdownMenu {
 
     public DropdownMenu addSeparator() { items.add(new Item("", () -> {}).separator()); return this; }
 
-    public void toggle(int x, int y, int w) {
+    public void toggle(int x, int y, int w, int h) {
         open = !open;
-        anchorX = x; anchorY = y; anchorW = w;
+        anchorX = x; anchorY = y; anchorW = w; anchorH = h;
     }
 
     public void close() { open = false; }
@@ -61,7 +62,10 @@ public class DropdownMenu {
         int menuW = Math.max(anchorW, 140);
         int menuH = items.size() * ITEM_H + Spacing.S1;
         int menuX = Math.min(anchorX, anchorX + anchorW - menuW);
-        int menuY = anchorY + anchorW > 0 ? anchorY + 4 : anchorY - menuH - 2;
+        int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        int menuY = anchorY + anchorH + menuH <= screenH
+                ? anchorY + anchorH + 4
+                : Math.max(0, anchorY - menuH - 2);
 
         Panel.drawElevated(g, menuX, menuY, menuW, menuH, ColorUtil.withAlpha(Theme.POPOVER, 240), Theme.ELEVATION_2);
 
@@ -89,7 +93,10 @@ public class DropdownMenu {
         int menuW = Math.max(anchorW, 140);
         int menuH = items.size() * ITEM_H + Spacing.S1;
         int menuX = Math.min(anchorX, anchorX + anchorW - menuW);
-        int menuY = anchorY + anchorW > 0 ? anchorY + 4 : anchorY - menuH - 2;
+        int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        int menuY = anchorY + anchorH + menuH <= screenH
+                ? anchorY + anchorH + 4
+                : Math.max(0, anchorY - menuH - 2);
 
         int iy = menuY + Spacing.S1 / 2;
         for (Item item : items) {
@@ -105,6 +112,26 @@ public class DropdownMenu {
         // Click outside closes
         if (mouseX < menuX || mouseX > menuX + menuW || mouseY < menuY || mouseY > menuY + menuH) {
             open = false;
+        }
+        return false;
+    }
+
+    /** Returns true if the key was consumed. */
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (!open) return false;
+        if (key == 264 || key == 258 && (mods & 1) != 0) { // Down or Shift+Tab
+            return true;
+        }
+        if (key == 265 || key == 258 && (mods & 1) == 0) { // Up or Tab
+            return true;
+        }
+        if (key == 257) { // Enter - activate selected item
+            open = false;
+            return true;
+        }
+        if (key == 256) { // Escape
+            open = false;
+            return true;
         }
         return false;
     }

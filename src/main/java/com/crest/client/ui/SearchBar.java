@@ -35,6 +35,10 @@ public class SearchBar implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return lastW;
+    }
+
     public int getHeight() { return 36; }
 
     @Override

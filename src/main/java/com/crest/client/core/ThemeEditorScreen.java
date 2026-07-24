@@ -21,7 +21,6 @@ public class ThemeEditorScreen extends Screen {
 
     private ThemeData work = Theme.get().clone();
     private ColorPicker colorPicker;
-
     private int panelX, panelY, panelW, panelH;
     private int railX, railY, railW, railH;
     private int listX, listY, listW, listH;
@@ -319,7 +318,11 @@ public class ThemeEditorScreen extends Screen {
         private final String text;
         ThemeHeader(String t) { this.text = t; }
         @Override
-        public int getHeight() { return Spacing.S6; }
+        public int getWidth() {
+        return 0;
+    }
+
+    public int getHeight() { return Spacing.S6; }
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
             int ay = y + Spacing.S2;
@@ -341,7 +344,11 @@ public class ThemeEditorScreen extends Screen {
         }
 
         @Override
-        public int getHeight() { return Theme.ROW_H(); }
+        public int getWidth() {
+        return 0;
+    }
+
+    public int getHeight() { return Theme.ROW_H(); }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
@@ -387,7 +394,11 @@ public class ThemeEditorScreen extends Screen {
         }
 
         @Override
-        public int getHeight() { return Theme.ROW_H(); }
+        public int getWidth() {
+        return 0;
+    }
+
+    public int getHeight() { return Theme.ROW_H(); }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
@@ -440,7 +451,11 @@ public class ThemeEditorScreen extends Screen {
         }
 
         @Override
-        public int getHeight() { return Theme.ROW_H(); }
+        public int getWidth() {
+        return 0;
+    }
+
+    public int getHeight() { return Theme.ROW_H(); }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {

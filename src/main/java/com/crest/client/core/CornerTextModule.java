@@ -11,15 +11,14 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.Util;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 public class CornerTextModule implements CrestModule {
     private final StringSetting text = new StringSetting("Text", "Crest Client");
@@ -119,54 +118,48 @@ public class CornerTextModule implements CrestModule {
     // ── Image texture cache ───────────────────────────────────────────────
 
     private static final Map<String, ImageEntry> imageCache = new HashMap<>();
-    private static String loadingPath = null;
 
     private record ImageEntry(Identifier id, DynamicTexture tex, int width, int height) {}
 
     static void clearCachedImage() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null) return;
         for (var entry : imageCache.values()) {
-            Minecraft.getInstance().getTextureManager().release(entry.id());
+            mc.getTextureManager().release(entry.id());
             entry.tex().close();
         }
         imageCache.clear();
     }
 
-    public static Identifier getImageTexture() {
+    private static Identifier loadImageTexture() {
         String path = getImagePath();
         if (path == null || path.isEmpty()) return null;
 
         ImageEntry cached = imageCache.get(path);
         if (cached != null) return cached.id();
 
-        if (loadingPath != null && loadingPath.equals(path)) return null;
-        loadingPath = path;
-
         File file = new File(path);
-        if (!file.exists() || !file.isFile()) {
-            loadingPath = null;
+        if (!file.exists() || !file.isFile()) return null;
+
+        try (InputStream in = new FileInputStream(file)) {
+            NativeImage img = NativeImage.read(in);
+            if (img == null) return null;
+            Identifier id = Identifier.fromNamespaceAndPath("crest-client",
+                "corner_image/" + UUID.randomUUID().toString().replace("-", ""));
+            DynamicTexture tex = new DynamicTexture(id::toDebugFileName, img);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc == null) return null;
+            mc.getTextureManager().register(id, tex);
+            imageCache.put(path, new ImageEntry(id, tex, img.getWidth(), img.getHeight()));
+            return id;
+        } catch (Exception e) {
             return null;
         }
+    }
 
-        CompletableFuture.supplyAsync(() -> {
-            try (FileInputStream in = new FileInputStream(file)) {
-                NativeImage img = NativeImage.read(in);
-                if (img == null) return (ImageEntry) null;
-                Identifier id = Identifier.fromNamespaceAndPath("crest-client",
-                    "corner_image/" + UUID.randomUUID().toString().replace("-", ""));
-                DynamicTexture tex = new DynamicTexture(id::toDebugFileName, img);
-                return new ImageEntry(id, tex, img.getWidth(), img.getHeight());
-            } catch (Exception e) {
-                return (ImageEntry) null;
-            }
-        }, Util.nonCriticalIoPool()).thenAccept(entry -> {
-            loadingPath = null;
-            if (entry != null) {
-                Minecraft.getInstance().getTextureManager().register(entry.id(), entry.tex());
-                imageCache.put(path, entry);
-            }
-        });
-
-        return null;
+    public static Identifier getImageTexture() {
+        if (!CrestModules.isEnabled("corner_text")) return null;
+        return loadImageTexture();
     }
 
     public static int getImageWidth() {
@@ -194,7 +187,6 @@ public class CornerTextModule implements CrestModule {
         int guiH = g.guiHeight();
         String corner = getCorner();
 
-        // Draw image if enabled
         if (isImageEnabled()) {
             Identifier texId = getImageTexture();
             if (texId != null) {
@@ -203,18 +195,23 @@ public class CornerTextModule implements CrestModule {
                 float is = getImageScale();
                 int ioX = getImageOffsetX();
                 int ioY = getImageOffsetY();
-                int dw = (int) (iw * is);
-                int dh = (int) (ih * is);
+
+                int scaledIoX = (int) (ioX * is);
+                int scaledIoY = (int) (ioY * is);
 
                 int ix, iy;
                 switch (corner) {
-                    case "Top Left" -> { ix = ioX; iy = ioY; }
-                    case "Top Right" -> { ix = guiW - dw - ioX; iy = ioY; }
-                    case "Bottom Left" -> { ix = ioX; iy = guiH - dh - ioY; }
-                    default -> { ix = guiW - dw - ioX; iy = guiH - dh - ioY; }
+                    case "Top Left" -> { ix = scaledIoX; iy = scaledIoY; }
+                    case "Top Right" -> { ix = guiW - iw - scaledIoX; iy = scaledIoY; }
+                    case "Bottom Left" -> { ix = scaledIoX; iy = guiH - ih - scaledIoY; }
+                    default -> { ix = guiW - iw - scaledIoX; iy = guiH - ih - scaledIoY; }
                 }
 
-                g.blit(RenderPipelines.GUI_TEXTURED, texId, ix, iy, 0f, 0f, dw, dh, iw, ih, 0xFFFFFFFF);
+                g.pose().pushMatrix();
+                g.pose().translate(ix, iy);
+                g.pose().scale(is);
+                g.blit(RenderPipelines.GUI_TEXTURED, texId, 0, 0, 0f, 0f, iw, ih, iw, ih, 0xFFFFFFFF);
+                g.pose().popMatrix();
             }
         }
 
@@ -246,7 +243,8 @@ public class CornerTextModule implements CrestModule {
             HudBackground.draw(g, rx - 2, ry - 2, tw + 8, lh + 8);
         }
         if (hasShadow()) {
-            g.text(font, Component.literal(t), rx + 1, ry + 1, (col & 0x00FFFFFF) | 0x80000000);
+            int shadowAlpha = Math.max(40, (int) ((col >> 24 & 0xFF) * 0.5f));
+            g.text(font, Component.literal(t), rx + 1, ry + 1, (col & 0x00FFFFFF) | (shadowAlpha << 24));
         }
         g.text(font, Component.literal(t), rx, ry, col);
 

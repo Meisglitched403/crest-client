@@ -88,13 +88,17 @@ public class QuickSettingsDrawer implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return DRAWER_W;
+    }
+
     public int getHeight() { return h; }
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
         this.x = x;
         this.y = y;
-        this.h = w;
+        this.h = h;
         this.mx = mx;
         this.my = my;
         slideAnim.tick(delta);

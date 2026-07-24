@@ -66,27 +66,23 @@ public final class ColorPicker {
         int a = animAlpha;
         int accent = Theme.getAnimatedAccent();
 
-        // saturation/value square
-        for (int yy = 0; yy < sq; yy += 2) {
-            for (int xx = 0; xx < sq; xx += 2) {
-                float s = xx / (float) sq;
-                float v = 1 - yy / (float) sq;
-                int col = ColorUtil.hsvToInt(hue / 360f, s, v, 1f);
-                g.fill(sx + xx, sy + yy, sx + xx + 2, sy + yy + 2, col);
-            }
+        // saturation/value square — horizontal gradient rows (X=saturation, Y=value)
+        for (int row = 0; row < sq; row += 2) {
+            float v = 1f - row / (float) sq;
+            int leftCol = ColorUtil.hsvToInt(hue / 360f, 0f, v, 1f);
+            int rightCol = ColorUtil.hsvToInt(hue / 360f, 1f, v, 1f);
+            g.fillGradient(sx, sy + row, sx + sq, sy + row + 2, leftCol, rightCol);
         }
         // hue bar
         for (int yy = 0; yy < hueH; yy += 2) {
             float hh = 1 - yy / (float) hueH;
-            g.fill(hueX, sy + yy, hueX + hueW, sy + yy + 2, ColorUtil.hsvToInt(hh, 1, 1, 1f));
+            int col = ColorUtil.hsvToInt(hh, 1, 1, 1f);
+            g.fill(hueX, sy + yy, hueX + hueW, sy + yy + 2, col);
         }
         // alpha bar (gradient of current hue -> transparent)
         int cur = getColor();
-        for (int xx = 0; xx < alphaW; xx += 2) {
-            float t = xx / (float) alphaW;
-            int c = ColorUtil.lerpARGB(ColorUtil.withAlpha(cur, 0), cur, t);
-            g.fill(alphaX + xx, alphaY, alphaX + xx + 2, alphaY + alphaH, c);
-        }
+        g.fillGradient(alphaX, alphaY, alphaX + alphaW, alphaY + alphaH,
+            ColorUtil.withAlpha(cur, 0), cur);
         Panel.drawHollowRect(g, alphaX, alphaY, alphaW, alphaH, Theme.BORDER_LIGHT);
 
         // selectors

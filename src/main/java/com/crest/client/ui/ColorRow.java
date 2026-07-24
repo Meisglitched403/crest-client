@@ -18,6 +18,10 @@ public class ColorRow implements Widget {
     public void setOnPick(Consumer<ColorSetting> onPick) { this.onPick = onPick; }
 
     @Override
+    public int getWidth() {
+        return 0;
+    }
+
     public int getHeight() { return H; }
 
     @Override

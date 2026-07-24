@@ -49,6 +49,10 @@ public class AdaptiveToolbar implements Widget {
     public AdaptiveToolbar iconsOnly(boolean b) { this.iconsOnly = b; return this; }
 
     @Override
+    public int getWidth() {
+        return width;
+    }
+
     public int getHeight() {
         return itemHeight;
     }

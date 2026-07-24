@@ -10,11 +10,14 @@ public final class Card {
 
     public static int draw(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h,
                            String title, int accent, int elevation) {
+        int pad = Spacing.densityAdjusted(12);
+        int titlePad = Spacing.densityAdjusted(8);
+        int lineH = Spacing.densityAdjusted(9);
         Panel.drawGlassElevated(g, x, y, w, h, ColorUtil.withAlpha(Theme.CARD, 235), accent, elevation);
         if (title != null && !title.isEmpty()) {
-            g.text(font, Component.literal(title), x + Spacing.S3, y + Spacing.S2, Theme.MUTED_FOREGROUND);
-            return y + Spacing.S2 + font.lineHeight + Spacing.S1;
+            g.text(font, Component.literal(title), x + pad, y + titlePad, Theme.MUTED_FOREGROUND);
+            return y + titlePad + lineH + Spacing.densityAdjusted(4);
         }
-        return y + Spacing.S2;
+        return y + pad;
     }
 }

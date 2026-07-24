@@ -45,6 +45,10 @@ public class ResponsiveGrid implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return width;
+    }
+
     public int getHeight() {
         return computedHeight;
     }

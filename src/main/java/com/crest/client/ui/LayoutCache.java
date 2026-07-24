@@ -8,6 +8,7 @@ import java.util.Map;
 public class LayoutCache {
     private static final Map<String, CachedLayout> cache = new HashMap<>();
     private static int frameCounter = 0;
+    private static int dirtyCounter = 0;
 
     private static class CachedLayout {
         final int x, y, width, height;
@@ -24,6 +25,7 @@ public class LayoutCache {
     public static boolean isValid(String key, LayoutNode node, int screenW, int screenH) {
         CachedLayout cached = cache.get(key);
         if (cached == null) return false;
+        if (dirtyCounter != cached.frame) return false;
         return cached.x == node.x && cached.y == node.y
             && cached.width == node.width && cached.height == node.height
             && cached.screenWidth == screenW && cached.screenHeight == screenH;
@@ -42,6 +44,11 @@ public class LayoutCache {
         if (frameCounter > 1000) {
             cache.clear();
             frameCounter = 0;
+            dirtyCounter = 0;
         }
+    }
+
+    public static void invalidate() {
+        dirtyCounter++;
     }
 }

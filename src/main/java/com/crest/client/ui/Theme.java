@@ -181,7 +181,8 @@ public final class Theme {
         topStripAlpha = (int) (160 * (data.glassOpacity / 255f));
         fontScale = data.fontScale;
         density = data.density;
-
+        LayoutCache.invalidate();
+        Panel.clearCache();
         fireThemeChanged();
     }
 

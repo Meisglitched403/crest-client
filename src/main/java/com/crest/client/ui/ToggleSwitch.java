@@ -28,6 +28,10 @@ public class ToggleSwitch implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return W;
+    }
+
     public int getHeight() { return H; }
 
     @Override

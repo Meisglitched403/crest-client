@@ -443,6 +443,9 @@ public class CrestMenu extends Screen {
             scrollOffset = 0;
             return true;
         }
+        if (filterMenu.open && filterMenu.keyPressed(key, 0, event.modifiers())) {
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN ||
             key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_RIGHT) {
             List<CrestModule> mods = filterBySearch(modulesForCategory());
@@ -505,7 +508,7 @@ public class CrestMenu extends Screen {
 
         if (mxx >= filterBtnX && mxx <= filterBtnX + 36 && myy >= filterBtnY && myy <= filterBtnY + 36) {
             UiSounds.click();
-            filterMenu.toggle(filterBtnX, filterBtnY + 36, 36);
+            filterMenu.toggle(filterBtnX, filterBtnY + 36, 36, 36);
             return true;
         }
         if (mxx >= gearBtnX && mxx <= gearBtnX + 36 && myy >= filterBtnY && myy <= filterBtnY + 36) {

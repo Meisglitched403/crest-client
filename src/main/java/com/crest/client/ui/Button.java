@@ -8,7 +8,6 @@ import com.crest.client.ui.UiSounds;
 public class Button implements Widget {
     public enum Variant { PRIMARY, SECONDARY, OUTLINE, GHOST, DESTRUCTIVE, LINK }
     public enum Size { SM, DEFAULT, LG, ICON }
-
     private final String text;
     private final Variant variant;
     private final Size size;
@@ -38,6 +37,10 @@ public class Button implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return lastW;
+    }
+
     public int getHeight() {
         return switch (size) {
             case SM -> 24;

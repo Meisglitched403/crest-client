@@ -18,7 +18,6 @@ public class ProfileScreen extends Screen {
     private final Screen parent;
     private TextInput nameInput;
     private final ScrollContainer profileList;
-
     private int mx, my;
 
     protected ProfileScreen(Screen parent) {
@@ -181,7 +180,11 @@ public class ProfileScreen extends Screen {
         }
 
         @Override
-        public int getHeight() {
+        public int getWidth() {
+        return 0;
+    }
+
+    public int getHeight() {
             return 28;
         }
 

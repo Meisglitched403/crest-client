@@ -53,6 +53,10 @@ public class Container implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return width;
+    }
+
     public int getHeight() {
         if (height > 0) return height;
         return computeContentHeight();

@@ -25,12 +25,16 @@ public class ScrollContainer implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return w;
+    }
+
     public int getHeight() { return h > 0 ? h : contentH; }
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
         this.x = x; this.y = y; this.w = w;
-        if (h <= 0) h = Math.min(contentH + 8, 400);
+        if (h <= 0) h = Math.min(contentH + 8, 500);
         render(g, font, mx, my, delta);
     }
 
@@ -71,10 +75,10 @@ public class ScrollContainer implements Widget {
             float alpha = scrollbarAlpha.get();
             if (alpha > 0.01f) {
                 int trackX = x + w - 4;
-                float thumbH = (float) h / contentH * h;
-                float thumbY = scrollOffset / contentH * h;
+                int thumbH = Math.max(8, Math.round((float) h / contentH * h));
+                int thumbY = Math.round(scrollOffset / contentH * h);
                 g.fill(trackX, y, trackX + 2, y + h, ColorUtil.withAlpha(Theme.BG_BASE, (int) (200 * alpha)));
-                g.fill(trackX, y + (int) thumbY, trackX + 2, y + (int) (thumbY + thumbH),
+                g.fill(trackX, y + thumbY, trackX + 2, y + thumbY + thumbH,
                     ColorUtil.withAlpha(Theme.getAnimatedAccent(), (int) (255 * alpha)));
             }
         }

@@ -17,6 +17,10 @@ public class TextRow implements Widget {
     }
 
     @Override
+    public int getWidth() {
+        return 0;
+    }
+
     public int getHeight() { return H; }
 
     @Override
