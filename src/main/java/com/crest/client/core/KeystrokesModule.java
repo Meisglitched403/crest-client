@@ -33,7 +33,7 @@ public class KeystrokesModule extends HudModule {
     }
 
     @Override public String getId() { return "keystrokes"; }
-    @Override public String getName() { return "Keystrokes"; }
+    @Override public String getName() { return "CatStrokes"; }
     @Override public String getDescription() { return "Shows WASD and mouse buttons, highlighting while held."; }
     @Override public boolean isEnabled() { return false; }
 

@@ -1,4 +1,4 @@
-package com.crest.client.bongocat;
+package com.crest.client.catstrokes;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -9,14 +9,14 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 
-public class BongoCatConfig {
-    private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("bongocat.json");
+public class CatStrokesConfig {
+    private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("catstrokes.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static BongoCatConfig instance;
+    private static CatStrokesConfig instance;
 
     public float scale = 1.0f;
 
-    public static BongoCatConfig getInstance() {
+    public static CatStrokesConfig getInstance() {
         if (instance == null) instance = load();
         return instance;
     }
@@ -25,15 +25,15 @@ public class BongoCatConfig {
         instance = load();
     }
 
-    private static BongoCatConfig load() {
+    private static CatStrokesConfig load() {
         if (CONFIG_PATH.toFile().exists()) {
             try (FileReader reader = new FileReader(CONFIG_PATH.toFile())) {
-                return GSON.fromJson(reader, BongoCatConfig.class);
+                return GSON.fromJson(reader, CatStrokesConfig.class);
             } catch (IOException e) {
-                return new BongoCatConfig();
+                return new CatStrokesConfig();
             }
         }
-        return new BongoCatConfig();
+        return new CatStrokesConfig();
     }
 
     public void save() {

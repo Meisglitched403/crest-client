@@ -25,7 +25,9 @@ public class CrestMenu extends Screen {
     private static final int TOGGLE_W = 44;
     private static final int TOGGLE_H = 24;
     private static final int SECTION_HEADER_H = 40;
-    private static final int MODULE_ROW_H = 44;
+    private static final int MODULE_CARD_H = 80;
+    private static final int MODULE_CARD_GAP = 6;
+    private static final int GRID_COLS = 3;
     private static final int SECTION_GAP = 10;
     private static final int BOTTOM_ZONE = 180;
     private static final int TAB_H = 30;
@@ -36,6 +38,8 @@ public class CrestMenu extends Screen {
     private final Set<String> expandedCategories = new HashSet<>();
     private int hoveredSection = -1;
     private int hoveredModInSection = -1;
+    private static final float SCROLL_MULT = 25f;
+    private static final float SCROLL_SPEED = 25f;
     private float scrollOffset = 0;
     private float scrollTarget = 0;
     private int maxScroll = 0;
@@ -163,7 +167,7 @@ public class CrestMenu extends Screen {
         int areaH = Math.max(0, tabAreaBottom - tabAreaTop);
         sideMaxScroll = Math.max(0, contentH - areaH);
         sideScrollTarget = Anim.clamp(sideScrollTarget, 0, sideMaxScroll);
-        sideScroll += (sideScrollTarget - sideScroll) * 0.35f;
+        sideScroll += (sideScrollTarget - sideScroll) * Anim.smooth(delta, SCROLL_SPEED);
         if (Math.abs(sideScroll - sideScrollTarget) < 0.01f) sideScroll = sideScrollTarget;
         int scroll = (int) sideScroll;
 
@@ -252,7 +256,7 @@ public class CrestMenu extends Screen {
             scrollTarget = Anim.clamp(scrollTarget, 0, maxScroll);
             scrollOffset = Anim.clamp(scrollOffset, 0, maxScroll);
         }
-        scrollOffset += (scrollTarget - scrollOffset) * 0.35f;
+        scrollOffset += (scrollTarget - scrollOffset) * Anim.smooth(delta, SCROLL_SPEED);
         if (Math.abs(scrollOffset - scrollTarget) < 0.01f) scrollOffset = scrollTarget;
 
         g.enableScissor(contentX, gridY, contentX + contentW, gridY + gridH);
@@ -267,7 +271,8 @@ public class CrestMenu extends Screen {
             String cat = cats.get(si);
             List<CrestModule> mods = getVisibleModules(cat);
             boolean expanded = expandedCategories.contains(cat);
-            int bodyH = expanded ? mods.size() * MODULE_ROW_H : 0;
+            int rows = expanded ? gridRows(mods.size()) : 0;
+            int bodyH = rows * MODULE_CARD_H + Math.max(0, rows - 1) * MODULE_CARD_GAP;
             int totalH = SECTION_HEADER_H + bodyH + 8;
             if (totalH <= 0) continue;
 
@@ -276,13 +281,18 @@ public class CrestMenu extends Screen {
                 if (mx >= contentX && mx <= contentX + contentW && my >= sectionY && my <= sectionY + totalH) {
                     hoveredSection = si;
                     if (expanded) {
-                        int modY = sectionY + SECTION_HEADER_H + 4;
+                        int cols = Math.min(GRID_COLS, mods.size());
+                        int colW = (contentW - 12 - (cols - 1) * MODULE_CARD_GAP) / cols;
+                        int gridY = sectionY + SECTION_HEADER_H + 4;
                         for (int mi = 0; mi < mods.size(); mi++) {
-                            if (my >= modY && my <= modY + MODULE_ROW_H) {
+                            int ci = mi % cols;
+                            int ri = mi / cols;
+                            int mcx = contentX + 6 + ci * (colW + MODULE_CARD_GAP);
+                            int mcy = gridY + ri * (MODULE_CARD_H + MODULE_CARD_GAP);
+                            if (mx >= mcx && mx <= mcx + colW && my >= mcy && my <= mcy + MODULE_CARD_H) {
                                 hoveredModInSection = mi;
                                 break;
                             }
-                            modY += MODULE_ROW_H;
                         }
                     }
                 }
@@ -327,11 +337,16 @@ public class CrestMenu extends Screen {
         return mx >= tx - 3 && mx <= tx + 7 && my >= gridY + thumbY && my <= gridY + thumbY + thumbH;
     }
 
+    private int gridRows(int count) {
+        return count == 0 ? 0 : (count - 1) / GRID_COLS + 1;
+    }
+
     private int computeContentHeight() {
         int h = 0;
         for (String cat : Cats()) {
             List<CrestModule> mods = getVisibleModules(cat);
-            int bodyH = expandedCategories.contains(cat) ? mods.size() * MODULE_ROW_H : 0;
+            int rows = expandedCategories.contains(cat) ? gridRows(mods.size()) : 0;
+            int bodyH = rows * MODULE_CARD_H + Math.max(0, rows - 1) * MODULE_CARD_GAP;
             int totalH = SECTION_HEADER_H + bodyH + 8;
             if (totalH <= 0) continue;
             h += totalH + SECTION_GAP;
@@ -365,58 +380,75 @@ public class CrestMenu extends Screen {
 
         if (!expanded || mods.isEmpty()) return;
 
-        int rowY = cardY + SECTION_HEADER_H + 4;
+        int cols = Math.min(GRID_COLS, mods.size());
+        int colW = (cardW - 12 - (cols - 1) * MODULE_CARD_GAP) / cols;
+        int gridY = cardY + SECTION_HEADER_H + 4;
         for (int mi = 0; mi < mods.size(); mi++) {
-            renderModuleRow(g, mods.get(mi), rowY, cardW, accent, delta);
-            rowY += MODULE_ROW_H;
+            int ci = mi % cols;
+            int ri = mi / cols;
+            int cx = cardX + 6 + ci * (colW + MODULE_CARD_GAP);
+            int cy = gridY + ri * (MODULE_CARD_H + MODULE_CARD_GAP);
+            renderModuleCard(g, mods.get(mi), cx, cy, colW, accent, delta);
         }
     }
 
-    private void renderModuleRow(GuiGraphicsExtractor g, CrestModule mod, int y, int cardW, int accent, float delta) {
+    private void renderModuleCard(GuiGraphicsExtractor g, CrestModule mod, int cx, int cy, int cw, int accent, float delta) {
         String id = mod.getId();
         boolean enabled = CrestModules.isEnabled(id);
-        boolean hover = mx >= contentX && mx <= contentX + contentW && my >= y && my <= y + MODULE_ROW_H;
+        boolean hover = mx >= cx && mx <= cx + cw && my >= cy && my <= cy + MODULE_CARD_H;
 
         Animated ha = rowHoverAnims.computeIfAbsent(id, k -> new Animated(0f, 12f));
         ha.set(hover ? 1f : 0f);
         ha.tick(delta);
         float hoverAmt = ha.get();
 
+        int tint = enabled ? ColorUtil.withAlpha(Theme.CARD, 210) : ColorUtil.withAlpha(Theme.SIDEBAR_BG, 190);
         if (hoverAmt > 0.01f) {
-            g.fill(contentX + 4, y, contentX + contentW - 4, y + MODULE_ROW_H,
-                ColorUtil.withAlpha(Theme.MUTED, (int) (hoverAmt * 80)));
+            tint = ColorUtil.lerpARGB(tint, ColorUtil.withAlpha(Theme.MUTED, 150), hoverAmt * 0.4f);
         }
+        Panel.drawElevated(g, cx, cy, cw, MODULE_CARD_H, tint, enabled ? Theme.ELEVATION_1 : Theme.ELEVATION_0);
 
-        int lx = contentX + 16;
-        g.text(font, Component.literal(mod.getName()), lx, y + 6,
+        int borderCol = enabled ? ColorUtil.withAlpha(accent, 60) : ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40);
+        Panel.drawHollowRect(g, cx, cy, cw, MODULE_CARD_H, borderCol);
+
+        // accent left border
+        int stripe = enabled ? accent : (hover ? ColorUtil.withAlpha(accent, 100) : ColorUtil.withAlpha(accent, 30));
+        g.fill(cx, cy, cx + 2, cy + MODULE_CARD_H, stripe);
+
+        int lx = cx + 8;
+        g.text(font, Component.literal(mod.getName()), lx, cy + 10,
             enabled ? Theme.FOREGROUND : Theme.MUTED_FOREGROUND);
 
         String desc = mod.getDescription();
         if (desc != null && !desc.isEmpty()) {
-            int descMaxW = cardW - 200;
+            int descMaxW = cw - 16;
             String truncated = font.width(desc) > descMaxW
                 ? font.plainSubstrByWidth(desc, descMaxW - 4) + "\u2026"
                 : desc;
-            g.text(font, Component.literal(truncated), lx, y + 24,
+            g.text(font, Component.literal(truncated), lx, cy + 26,
                 ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 140));
         }
 
-        int starX = contentX + contentW - TOGGLE_W - 48;
-        boolean starHover = hover && mx >= starX - 6 && mx <= starX + 18 && my >= y + 8 && my <= y + 36;
+        // category label at bottom
+        String cat = mod.getCategory();
+        g.text(font, Component.literal(cat), lx, cy + MODULE_CARD_H - 12,
+            ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 80));
+
+        // star
+        int starX = cx + cw - TOGGLE_W - 4;
+        boolean starHover = hover && mx >= starX - 6 && mx <= starX + 18 && my >= cy + 6 && my <= cy + 30;
         int starCol = isFavorite(id)
             ? ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, accent, 1f)
             : (starHover ? accent : Theme.MUTED_FOREGROUND);
-        g.text(font, Component.literal(isFavorite(id) ? "\u2605" : "\u2606"), starX, y + 13, starCol);
-        if (starHover) {
-            g.fill(starX - 4, y + 8, starX + 18, y + 36,
-                ColorUtil.withAlpha(accent, 16));
-        }
+        g.text(font, Component.literal(isFavorite(id) ? "\u2605" : "\u2606"), starX, cy + 10, starCol);
 
+        // toggle
         Animated ta = toggleAnims.computeIfAbsent(id, k -> new Animated(0f, 12f));
         ta.set(enabled ? 1f : 0f);
         ta.tick(delta);
-        int toggleX = contentX + contentW - TOGGLE_W - 12;
-        drawToggle(g, toggleX, y + (MODULE_ROW_H - TOGGLE_H) / 2, enabled, ta.get());
+        int toggleX = cx + cw - TOGGLE_W - 4;
+        int toggleY = cy + MODULE_CARD_H - TOGGLE_H - 6;
+        drawToggle(g, toggleX, toggleY, enabled, ta.get());
     }
 
     private List<CrestModule> getVisibleModules(String cat) {
@@ -654,7 +686,8 @@ public class CrestMenu extends Screen {
                 String cat = cats.get(si);
                 List<CrestModule> mods = getVisibleModules(cat);
                 boolean expanded = expandedCategories.contains(cat);
-                int bodyH = expanded ? mods.size() * MODULE_ROW_H : 0;
+                int rows = expanded ? gridRows(mods.size()) : 0;
+                int bodyH = rows * MODULE_CARD_H + Math.max(0, rows - 1) * MODULE_CARD_GAP;
                 int totalH = SECTION_HEADER_H + bodyH + 8;
                 if (totalH <= 0) { secY += totalH + SECTION_GAP; continue; }
 
@@ -666,13 +699,19 @@ public class CrestMenu extends Screen {
                         return true;
                     }
                     if (expanded) {
-                        int modY = secY + SECTION_HEADER_H + 4;
+                        int cols = Math.min(GRID_COLS, mods.size());
+                        int colW = (contentW - 12 - (cols - 1) * MODULE_CARD_GAP) / cols;
+                        int gridY2 = secY + SECTION_HEADER_H + 4;
                         for (int mi = 0; mi < mods.size(); mi++) {
-                            if (myy >= modY && myy <= modY + MODULE_ROW_H) {
-                                int starX = contentX + contentW - TOGGLE_W - 48;
-                                int toggleX = contentX + contentW - TOGGLE_W - 12;
-                                int toggleY = modY + (MODULE_ROW_H - TOGGLE_H) / 2;
-                                if (mxx >= starX - 6 && mxx <= starX + 18 && myy >= modY + 8 && myy <= modY + 36) {
+                            int ci = mi % cols;
+                            int ri = mi / cols;
+                            int mcx = contentX + 6 + ci * (colW + MODULE_CARD_GAP);
+                            int mcy = gridY2 + ri * (MODULE_CARD_H + MODULE_CARD_GAP);
+                            if (mxx >= mcx && mxx <= mcx + colW && myy >= mcy && myy <= mcy + MODULE_CARD_H) {
+                                int starX = mcx + colW - TOGGLE_W - 4;
+                                int toggleX = mcx + colW - TOGGLE_W - 4;
+                                int toggleY = mcy + MODULE_CARD_H - TOGGLE_H - 6;
+                                if (mxx >= starX - 6 && mxx <= starX + 18 && myy >= mcy + 6 && myy <= mcy + 30) {
                                     UiSounds.click();
                                     toggleFavorite(mods.get(mi).getId());
                                     return true;
@@ -688,7 +727,6 @@ public class CrestMenu extends Screen {
                                 minecraft.setScreen(config != null ? config : new ModuleDetailScreen(mod, this));
                                 return true;
                             }
-                            modY += MODULE_ROW_H;
                         }
                     }
                     return true;
@@ -717,13 +755,15 @@ public class CrestMenu extends Screen {
                            && mouseY >= pY && mouseY <= pY + pH;
         if (overSidebar) {
             sideScrollTarget = Anim.clamp(sideScrollTarget - (float) deltaY * TAB_STEP, 0, sideMaxScroll);
+            sideScroll = sideScrollTarget;
             return true;
         }
         if (expandedCategories.isEmpty()) return false;
         int contentH = computeContentHeight();
         maxScroll = Math.max(0, contentH - gridH);
         if (maxScroll == 0) return true;
-        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY, 0, maxScroll);
+        scrollTarget = Anim.clamp(scrollTarget - (float) deltaY * SCROLL_MULT, 0, maxScroll);
+        scrollOffset = scrollTarget;
         return true;
     }
 
@@ -732,7 +772,8 @@ public class CrestMenu extends Screen {
         for (String c : Cats()) {
             if (c.equals(cat)) return sy;
             List<CrestModule> mods = getVisibleModules(c);
-            int bodyH = expandedCategories.contains(c) ? mods.size() * MODULE_ROW_H : 0;
+            int rows = expandedCategories.contains(c) ? gridRows(mods.size()) : 0;
+            int bodyH = rows * MODULE_CARD_H + Math.max(0, rows - 1) * MODULE_CARD_GAP;
             sy += SECTION_HEADER_H + bodyH + 8 + SECTION_GAP;
         }
         return sy;

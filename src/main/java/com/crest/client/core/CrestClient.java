@@ -1,7 +1,7 @@
 package com.crest.client.core;
 
 import com.crest.client.core.SkinChanger;
-import com.crest.client.bongocat.BongoCatModule;
+import com.crest.client.catstrokes.CatStrokesModule;
 import com.crest.client.core.event.TickEvent;
 import com.crest.client.music.MusicModule;
 import com.crest.client.music.MusicScreen;
@@ -46,7 +46,7 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new LowFireModule());
         CrestModules.register(new EntityCullingModule());
         
-        CrestModules.register(new BongoCatModule());
+        CrestModules.register(new CatStrokesModule());
         CrestModules.register(new TimeChangerModule());
         CrestModules.register(new WeatherChangerModule());
         CrestModules.register(new NoOverlayModule());
