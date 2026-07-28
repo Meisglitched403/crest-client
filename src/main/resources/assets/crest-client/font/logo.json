@@ -1,0 +1,11 @@
+{
+    "providers": [
+        {
+            "type": "bitmap",
+            "file": "crest-client:font/nametag_logo.png",
+            "ascent": 14,
+            "height": 16,
+            "chars": ["\uE000"]
+        }
+    ]
+}

@@ -108,25 +108,64 @@ public final class Panel {
         g.fill(x + w - 1, y, x + w, y + h, color);
     }
 
-    private static void drawShadow(GuiGraphicsExtractor g, int x, int y, int w, int h, int elevation) {
-        if (elevation <= 0) return;
-        int baseAlpha = Math.min(40, 8 * elevation);
-        for (int i = 1; i <= elevation; i++) {
-            float t = 1f - (i - 1f) / elevation;
-            int alpha = (int) (baseAlpha * t * t);
-            if (alpha <= 0) continue;
-            g.fill(x + i, y + h, x + w + i, y + h + 1, ColorUtil.withAlpha(0x000000, alpha));
-            g.fill(x + w, y + i, x + w + 1, y + h + i, ColorUtil.withAlpha(0x000000, alpha));
-        }
-        int cornerAlpha = Math.min(20, 4 * elevation);
-        for (int i = 1; i <= Math.min(elevation, 8); i++) {
-            for (int j = 1; j <= Math.min(elevation, 8); j++) {
-                float t = 1f - (Math.max(i, j) - 1f) / elevation;
-                int alpha = (int) (cornerAlpha * t * t);
-                if (alpha <= 0) continue;
-                g.fill(x + w + j - 1, y + h + i - 1, x + w + j, y + h + i, ColorUtil.withAlpha(0x000000, alpha));
+    private static final int SHADOW_TEX = 32;
+    private static final Map<Integer, TextureEntry> shadowCache = new HashMap<>();
+
+    private static Identifier shadowTexId(int elevation) {
+        return Identifier.fromNamespaceAndPath("crest-client", "gui/shadow_e" + elevation);
+    }
+
+    private static void ensureShadowTexture(int elevation) {
+        if (shadowCache.containsKey(elevation)) return;
+        int R = Math.min(elevation, SHADOW_TEX / 2);
+        double sigma = R * 0.4;
+        NativeImage img = new NativeImage(SHADOW_TEX, SHADOW_TEX, false);
+        for (int y = 0; y < SHADOW_TEX; y++) {
+            for (int x = 0; x < SHADOW_TEX; x++) {
+                int dx = Math.min(x, SHADOW_TEX - 1 - x);
+                int dy = Math.min(y, SHADOW_TEX - 1 - y);
+                double dist = Math.sqrt(dx * dx + dy * dy);
+                double falloff = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+                int alpha = (int) (falloff * 255 * 0.35);
+                img.setPixel(x, y, ColorUtil.rgba(0, 0, 0, Math.min(255, alpha)));
             }
         }
+        DynamicTexture tex = new DynamicTexture(() -> "crest-shadow-e" + elevation, img);
+        Identifier id = shadowTexId(elevation);
+        Minecraft.getInstance().getTextureManager().register(id, tex);
+        shadowCache.put(elevation, new TextureEntry(id, tex));
+    }
+
+    private static void drawShadow(GuiGraphicsExtractor g, int x, int y, int w, int h, int elevation) {
+        if (elevation <= 0) return;
+        int e = Math.min(elevation, 12);
+        ensureShadowTexture(e);
+
+        int ox = e;
+        int oy = e;
+        int sx = x + ox;
+        int sy = y + oy;
+        int sw = w;
+        int sh = h;
+        int r = Math.min(e, Math.min(sw, sh) / 2);
+
+        Identifier id = shadowTexId(e);
+        int tint = ColorUtil.rgba(0, 0, 0, 255);
+
+        // corners
+        blit(g, id, sx - e, sy - e, e, e, 0, 0, e, e, tint);
+        blit(g, id, sx + sw - e, sy - e, e, e, SHADOW_TEX - e, 0, e, e, tint);
+        blit(g, id, sx - e, sy + sh - e, e, e, 0, SHADOW_TEX - e, e, e, tint);
+        blit(g, id, sx + sw - e, sy + sh - e, e, e, SHADOW_TEX - e, SHADOW_TEX - e, e, e, tint);
+        // edges
+        if (sw > 2 * e)
+            blit(g, id, sx + e, sy - e, sw - 2 * e, e, e, 0, 1, e, tint);
+        if (sw > 2 * e)
+            blit(g, id, sx + e, sy + sh - e, sw - 2 * e, e, e, SHADOW_TEX - e, 1, e, tint);
+        if (sh > 2 * e)
+            blit(g, id, sx - e, sy + e, e, sh - 2 * e, 0, e, e, 1, tint);
+        if (sh > 2 * e)
+            blit(g, id, sx + sw - e, sy + e, e, sh - 2 * e, SHADOW_TEX - e, e, e, 1, tint);
     }
 
     public static void clearCache() {
@@ -136,5 +175,10 @@ public final class Panel {
             entry.texture().close();
         }
         cache.clear();
+        for (var entry : shadowCache.values()) {
+            mc.getTextureManager().release(entry.id());
+            entry.texture().close();
+        }
+        shadowCache.clear();
     }
 }

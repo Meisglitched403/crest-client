@@ -18,6 +18,8 @@ public final class ThemeData {
     public int sidebarBg = 0x33000000;
     public int radius = 6;
     public int glassOpacity = 220;
+    public boolean menuBlur = true;
+    public float menuBlurRadius = 6f;
     public float fontScale = 1f;
     public Theme.Density density = Theme.Density.NORMAL;
     public String preset = "Dark";
@@ -42,6 +44,8 @@ public final class ThemeData {
         d.sidebarBg = sidebarBg;
         d.radius = radius;
         d.glassOpacity = glassOpacity;
+        d.menuBlur = menuBlur;
+        d.menuBlurRadius = menuBlurRadius;
         d.fontScale = fontScale;
         d.density = density;
         d.preset = preset;

@@ -64,6 +64,10 @@ public class ThemeEditorScreen extends Screen {
         items.add(new ThemeSliderItem("Font Scale", 70, 150, () -> (int) (work.fontScale * 100),
             v -> work.fontScale = v / 100f, v -> v + "%"));
 
+        items.add(new ThemeHeader("Blur"));
+        items.add(new ThemeToggleItem("Menu Blur", () -> work.menuBlur, v -> work.menuBlur = v));
+        items.add(new ThemeSliderItem("Blur Radius", 1, 20, () -> (int) work.menuBlurRadius, v -> work.menuBlurRadius = v));
+
         items.add(new ThemeHeader("Layout"));
         items.add(new ThemeModeItem("Density", new String[]{"Compact", "Normal", "Comfortable"},
             () -> work.density.ordinal(), i -> work.density = Theme.Density.values()[i]));
@@ -477,6 +481,53 @@ public class ThemeEditorScreen extends Screen {
             int lx = lastX + lastW - lw;
             if (mx >= lx && mx <= lx + lw && my >= lastY && my <= lastY + rh) {
                 set.accept((get.get() + 1) % opts.length);
+                work.preset = "Custom";
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private class ThemeToggleItem implements Widget {
+        private final String name;
+        private final Supplier<Boolean> get;
+        private final Consumer<Boolean> set;
+        private int lastX, lastY, lastW;
+
+        ThemeToggleItem(String n, Supplier<Boolean> g, Consumer<Boolean> s) {
+            this.name = n; this.get = g; this.set = s;
+        }
+
+        @Override
+        public int getWidth() { return 0; }
+
+        @Override
+        public int getHeight() { return Theme.ROW_H(); }
+
+        @Override
+        public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
+            lastX = x; lastY = y; lastW = w;
+            int rh = Theme.ROW_H();
+            g.text(f, Component.literal(name), x, y + (rh - f.lineHeight) / 2, work.foreground);
+            boolean on = get.get();
+            int tw = 36, th = 20;
+            int tx = x + w - tw - Spacing.S2;
+            int ty = y + (rh - th) / 2;
+            int trackColor = on ? ColorUtil.withAlpha(work.accent, 200) : ColorUtil.withAlpha(work.border, 150);
+            g.fill(tx, ty, tx + tw, ty + th, trackColor);
+            Panel.drawHollowRect(g, tx, ty, tw, th, ColorUtil.withAlpha(work.border, 100));
+            int knobX = on ? tx + tw - 18 : tx + 2;
+            g.fill(knobX, ty + 2, knobX + 16, ty + th - 2, on ? 0xFFFFFFFF : ColorUtil.withAlpha(work.mutedForeground, 200));
+        }
+
+        @Override
+        public boolean mouseClicked(double mx, double my, int button) {
+            int rh = Theme.ROW_H();
+            int tw = 36, th = 20;
+            int tx = lastX + lastW - tw - Spacing.S2;
+            int ty = lastY + (rh - th) / 2;
+            if (mx >= tx && mx <= tx + tw && my >= lastY && my <= lastY + rh) {
+                set.accept(!get.get());
                 work.preset = "Custom";
                 return true;
             }

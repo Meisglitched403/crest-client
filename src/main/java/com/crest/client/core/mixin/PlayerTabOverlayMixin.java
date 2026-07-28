@@ -2,18 +2,26 @@ package com.crest.client.core.mixin;
 
 import com.crest.client.core.ChatHeadsHelper;
 import com.crest.client.core.ChatHeadsModule;
+import com.crest.client.core.CrestBrandManager;
+import com.crest.client.core.CrestModules;
+import com.crest.client.core.CrestNametagModule;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyArgs;
 import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
+import java.util.UUID;
+
 @Mixin(PlayerTabOverlay.class)
 public abstract class PlayerTabOverlayMixin {
+    private static final String LOGO_CHAR = "\uE000";
     private static int crest$tabOffset;
 
     @ModifyArgs(
@@ -50,5 +58,22 @@ public abstract class PlayerTabOverlayMixin {
     )
     private int crest$shiftNameX(int originalX) {
         return crest$tabOffset > 0 ? originalX + crest$tabOffset : originalX;
+    }
+
+    @ModifyReturnValue(method = "getNameForDisplay", at = @At("RETURN"))
+    private Component crest$prependLogoToTabList(Component original, PlayerInfo info) {
+        if (!CrestModules.isEnabled("crest_nametag")) return original;
+        if (!CrestBrandManager.isInitialized()) return original;
+        if (info == null || info.getProfile() == null) return original;
+
+        UUID uuid = info.getProfile().id();
+        if (CrestBrandManager.isCrestUser(uuid)) {
+            if (CrestNametagModule.isLogoPositionLeft()) {
+                return Component.literal(LOGO_CHAR + " ").append(original);
+            } else {
+                return Component.literal("").append(original).append(Component.literal(" " + LOGO_CHAR));
+            }
+        }
+        return original;
     }
 }

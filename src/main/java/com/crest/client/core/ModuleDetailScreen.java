@@ -38,6 +38,7 @@ public class ModuleDetailScreen extends Screen {
     private final Animated colorPickerAnim = new Animated(0f, 12f);
 
     private final Animated openAnim = new Animated(0f, 10f);
+    private final SearchBar searchBar = new SearchBar(q -> {}, "Search settings...");
     private int hoveredRow = -1;
 
     private final Theme.ThemeChangeListener themeListener = () -> { if (minecraft != null && minecraft.screen == this) init(); };
@@ -101,9 +102,12 @@ public class ModuleDetailScreen extends Screen {
     }
 
     private List<Widget> getVisibleWidgets() {
+        String q = searchBar.getText();
         List<Widget> list = new ArrayList<>();
         for (Setting<?> s : settings) {
-            if (s.isVisible()) list.add(getWidget(s));
+            if (!s.isVisible()) continue;
+            if (!q.isEmpty() && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
+            list.add(getWidget(s));
         }
         return list;
     }
@@ -184,39 +188,52 @@ public class ModuleDetailScreen extends Screen {
 
     private void renderBody(GuiGraphicsExtractor g, int mx, int my, float delta) {
         List<Widget> widgets = getVisibleWidgets();
+        int searchH = 36;
         int contentH = widgets.size() * ROW_H + Spacing.S4;
+        int totalH = searchH + Spacing.S2 + contentH;
 
-        int bh = Math.min(panelH, contentH + Spacing.S2);
+        int bh = Math.min(panelH, totalH + Spacing.S2);
         Panel.drawElevated(g, panelX, panelY, panelW, bh, ColorUtil.withAlpha(Theme.CARD, 200), Theme.ELEVATION_1);
         g.fill(panelX + 2, panelY, panelX + panelW - 2, panelY + 1, ColorUtil.withAlpha(Theme.getAnimatedAccent(), 80));
+
+        int sx = panelX + Spacing.S3;
+        int sw = panelW - Spacing.S3 * 2;
+        int searchY = panelY + Spacing.S2 + 4;
+        searchBar.render(g, font, sx, searchY, sw, mx, my, delta);
+
+        int scrollY = searchY + searchH + 4;
+        int scrollH = bh - (scrollY - panelY) - Spacing.S2;
 
         scroll.rowHeight(ROW_H).children(widgets);
         scroll.hoverColor = ColorUtil.withAlpha(Theme.MUTED, 100);
 
-        int sx = panelX + Spacing.S3;
-        int sy = panelY + Spacing.S2;
-        int sw = panelW - Spacing.S3 * 2;
-
         for (int i = 1; i < widgets.size(); i++) {
-            int dy = sy + i * ROW_H - (int) scroll.scrollOffset;
-            if (dy >= sy && dy <= sy + scroll.h) {
+            int dy = scrollY + i * ROW_H - (int) scroll.scrollOffset;
+            if (dy >= scrollY && dy <= scrollY + scrollH) {
                 g.fill(sx, dy - 1, sx + sw, dy, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40));
             }
         }
 
-        scroll.render(g, font, sx, sy, sw, mx, my, delta);
+        scroll.render(g, font, sx, scrollY, sw, mx, my, delta);
+
+        Setting<?> hoveredSetting = null;
         hoveredRow = -1;
-        for (int i = 0; i < widgets.size(); i++) {
-            int cy = sy + i * ROW_H - (int) scroll.scrollOffset;
+        int idx = 0;
+        for (Setting<?> s : settings) {
+            if (!s.isVisible()) continue;
+            String q = searchBar.getText();
+            if (!q.isEmpty() && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
+            int cy = scrollY + idx * ROW_H - (int) scroll.scrollOffset;
             if (mx >= sx && mx <= sx + sw && my >= cy && my <= cy + ROW_H) {
-                hoveredRow = i;
+                hoveredRow = idx;
+                hoveredSetting = s;
                 break;
             }
+            idx++;
         }
 
-        if (hoveredRow >= 0 && hoveredRow < settings.size()) {
-            Setting<?> s = settings.get(hoveredRow);
-            String sdesc = s.getDescription();
+        if (hoveredSetting != null) {
+            String sdesc = hoveredSetting.getDescription();
             if (sdesc != null && !sdesc.isEmpty()) {
                 int tx = mx + 12;
                 int ty = my - 20;
@@ -233,6 +250,7 @@ public class ModuleDetailScreen extends Screen {
     @Override
     public boolean charTyped(CharacterEvent event) {
         int cp = event.codepoint();
+        if (searchBar.charTyped(cp, 0)) return true;
         if (activeWidget != null && activeWidget.charTyped(cp, 0)) return true;
         return super.charTyped(event);
     }
@@ -240,6 +258,8 @@ public class ModuleDetailScreen extends Screen {
     @Override
     public boolean keyPressed(KeyEvent event) {
         int key = event.key();
+
+        if (searchBar.keyPressed(key, 0, 0)) return true;
 
         if (keybindCapture) {
             if (key == GLFW.GLFW_KEY_ESCAPE) { keybindCapture = false; keybindCaptureModule = null; }
@@ -290,6 +310,13 @@ public class ModuleDetailScreen extends Screen {
                 CrestModules.setEnabled(module.getId(), !CrestModules.isEnabled(module.getId()));
                 return true;
             }
+        }
+
+        int searchH = 36;
+        int searchY = panelY + Spacing.S2 + 4;
+        if (mx >= panelX + Spacing.S3 && mx <= panelX + panelW - Spacing.S3 && my >= searchY && my <= searchY + searchH) {
+            searchBar.mouseClicked(mx, my, btn);
+            return true;
         }
 
         if (scroll.mouseClicked(mx, my, btn)) {

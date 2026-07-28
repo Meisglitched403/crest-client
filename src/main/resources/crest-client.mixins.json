@@ -31,6 +31,9 @@
         "gui/TitleScreenMixin",
         "gui/TitleScreenSkinMixin",
         "gui/ScoreboardMixin",
+        "ItemInHandRendererMixin",
+        "LivingEntityMixin",
+
         "FrameCaptureMixin",
         "RenderBudgetMixin",
         "WhoamiMixin",
@@ -72,7 +75,8 @@
         "ShieldLayerRenderStateMixin",
         "PlayerItemInHandLayerMixin",
         "GuiRendererShieldMixin",
-        "BackgroundLoadingOverlayMixin"
+        "BackgroundLoadingOverlayMixin",
+        "CrestNametagMixin"
     ],
     "injectors": {
         "defaultRequire": 1

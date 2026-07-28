@@ -107,6 +107,10 @@ public final class Theme {
     public static int glassOpacity;
     public static int topStripAlpha;
 
+    // --- Background blur ---
+    public static boolean menuBlur;
+    public static float menuBlurRadius;
+
     // --- Font scale (1.0 default) ---
     public static float fontScale = 1f;
 
@@ -179,6 +183,8 @@ public final class Theme {
 
         glassOpacity = data.glassOpacity;
         topStripAlpha = (int) (160 * (data.glassOpacity / 255f));
+        menuBlur = data.menuBlur;
+        menuBlurRadius = data.menuBlurRadius;
         fontScale = data.fontScale;
         density = data.density;
         LayoutCache.invalidate();

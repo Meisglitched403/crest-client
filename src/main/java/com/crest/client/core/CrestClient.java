@@ -5,6 +5,7 @@ import com.crest.client.bongocat.BongoCatModule;
 import com.crest.client.core.event.TickEvent;
 import com.crest.client.music.MusicModule;
 import com.crest.client.music.MusicScreen;
+import com.crest.client.core.CrestBrandManager;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -28,6 +29,7 @@ public class CrestClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         CrestModules.init();
+        CrestBrandManager.init();
 
         CrestModules.register(new HudAppearanceModule());
         CrestModules.register(new ZoomModule());
@@ -95,11 +97,14 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ChatHeadsModule());
         CrestModules.register(new ShieldStatusModule());
         CrestModules.register(new BackgroundResourceLoaderModule());
+        CrestModules.register(new ViewModelModule());
 
         CrestModules.register(new KeystrokesModule());
         CrestModules.register(new ComboModule());
         CrestModules.register(new ChatTimestampModule());
         CrestModules.register(new ToggleSneakModule());
+
+        CrestModules.register(new CrestNametagModule());
 
         SkinChanger.loadPersisted();
 

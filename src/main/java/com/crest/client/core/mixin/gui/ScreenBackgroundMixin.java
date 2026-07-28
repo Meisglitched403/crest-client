@@ -5,6 +5,7 @@ import com.crest.client.core.NotificationToast;
 import com.crest.client.ui.ColorUtil;
 import com.crest.client.ui.Panel;
 import com.crest.client.ui.Theme;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,6 +23,13 @@ public abstract class ScreenBackgroundMixin {
         int w = g.guiWidth();
         int h = g.guiHeight();
         Theme.tick(0.016f);
+        if (Theme.menuBlur && Theme.menuBlurRadius > 0f) {
+            Minecraft mc = Minecraft.getInstance();
+            int prev = mc.options.getMenuBackgroundBlurriness();
+            mc.options.menuBackgroundBlurriness().set((int) Theme.menuBlurRadius);
+            g.blurBeforeThisStratum();
+            mc.options.menuBackgroundBlurriness().set(prev);
+        }
         g.fill(0, 0, w, h, ColorUtil.withAlpha(Theme.OVERLAY, 235));
         Panel.drawGlass(g, 0, 0, w, h, ColorUtil.withAlpha(Theme.OVERLAY, 235), Theme.getAnimatedAccent());
     }
