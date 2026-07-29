@@ -32,7 +32,7 @@ public class CatStrokesOverlay {
         g.pose().translate(-baseX, -baseY);
 
         g.blit(RenderPipelines.GUI_TEXTURED, CatStrokesTextures.RIGHTARM,
-            baseX + ARM_X, baseY + ARM_Y, 0f, 0f, 0, 0, ARM_W, ARM_H, ARM_W, ARM_H, 0xFFFFFFFF);
+            baseX + ARM_X, baseY + ARM_Y, 0f, 0f, ARM_W, ARM_H, ARM_W, ARM_H, ARM_W, ARM_H, 0xFFFFFFFF);
 
         g.blit(RenderPipelines.GUI_TEXTURED, CatStrokesTextures.CATBG,
             baseX, baseY, 0f, 0f, tw, th, tw, th, 0xFFFFFFFF);
@@ -70,7 +70,7 @@ public class CatStrokesOverlay {
 
         g.blit(RenderPipelines.GUI_TEXTURED, CatStrokesTextures.RIGHTHAND,
             baseX + (int)texX - HAND_W / 2, baseY + (int)texY - HAND_H / 2,
-            0f, 0f, 0, 0, HAND_W, HAND_H, HAND_W, HAND_H, 0xFFFFFFFF);
+            0f, 0f, HAND_W, HAND_H, HAND_W, HAND_H, HAND_W, HAND_H, 0xFFFFFFFF);
 
         g.pose().popMatrix();
     }
