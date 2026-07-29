@@ -22,6 +22,8 @@ public class KeyStateTracker {
     private int lastPressedIndex = -1;
     private boolean initialized;
 
+    private double cursorX, cursorY;
+
     public static KeyStateTracker getInstance() {
         if (instance == null) instance = new KeyStateTracker();
         return instance;
@@ -49,6 +51,11 @@ public class KeyStateTracker {
         if (!anyPressed) {
             lastPressedIndex = -1;
         }
+
+        double[] cx = new double[1], cy = new double[1];
+        GLFW.glfwGetCursorPos(window, cx, cy);
+        cursorX = cx[0];
+        cursorY = cy[0];
     }
 
     public boolean isPressed(int index) {
@@ -65,4 +72,7 @@ public class KeyStateTracker {
     public int getLastPressedIndex() {
         return lastPressedIndex;
     }
+
+    public double getCursorX() { return cursorX; }
+    public double getCursorY() { return cursorY; }
 }

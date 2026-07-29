@@ -20,6 +20,9 @@ public final class CatStrokesTextures {
     public static final Identifier[] LEFTHAND = new Identifier[15];
     public static final Identifier LEFTUP = Identifier.fromNamespaceAndPath("crest-client", "catstrokes/leftup");
 
+    public static final Identifier RIGHTARM = Identifier.fromNamespaceAndPath("crest-client", "catstrokes/rightarm");
+    public static final Identifier RIGHTHAND = Identifier.fromNamespaceAndPath("crest-client", "catstrokes/righthand");
+
     public static int TEX_W = 612;
     public static int TEX_H = 354;
 
@@ -42,6 +45,9 @@ public final class CatStrokesTextures {
         }
 
         load(LEFTUP, "catstrokes/lefthand/leftup.png");
+
+        load(RIGHTARM, "catstrokes/righthand/rightarm.png");
+        load(RIGHTHAND, "catstrokes/righthand/righthand.png");
     }
 
     private static void load(Identifier id, String path) {
