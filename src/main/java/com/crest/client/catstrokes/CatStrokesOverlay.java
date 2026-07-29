@@ -5,18 +5,18 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 
 public class CatStrokesOverlay {
-    private static final int ARM_X = 65;
-    private static final int ARM_Y = 60;
-    private static final int ARM_W = 106;
-    private static final int ARM_H = 316;
+    private static final int ARM_X = 5;
+    private static final int ARM_Y = 115;
+    private static final int ARM_W = 180;
+    private static final int ARM_H = 220;
 
     private static final int MPAD_X = 5;
     private static final int MPAD_Y = 225;
     private static final int MPAD_W = 170;
     private static final int MPAD_H = 115;
 
-    private static final int HAND_W = 181;
-    private static final int HAND_H = 128;
+    private static final int HAND_W = 100;
+    private static final int HAND_H = 80;
 
     public static void render(GuiGraphicsExtractor g, Minecraft mc, KeyStateTracker input, int baseX, int baseY, float scale) {
         if (mc.getWindow() == null) return;
