@@ -93,6 +93,8 @@ public class CrestMenu extends Screen {
     private final Animated openAnim = new Animated(0f, 12f);
     private boolean closing;
     private boolean openedOnce;
+    private boolean animEnabled = true;
+    private String animEasing = "Back";
     private final Animated[] tabAnims = new Animated[Tab.values().length];
     private final QuickSettingsDrawer quickSettings = new QuickSettingsDrawer();
     private Breakpoints.Size currentSize = Breakpoints.Size.MD;
@@ -105,11 +107,17 @@ public class CrestMenu extends Screen {
     @Override
     protected void init() {
         Theme.load();
+        animEnabled = AnimationsScreen.isMenuAnimEnabled();
+        animEasing = AnimationsScreen.getMenuAnimEasing();
         openAnim.setSpeed(AnimationsScreen.getMenuAnimSpeed());
         if (!openedOnce) {
             openedOnce = true;
-            openAnim.setImmediate(0f);
-            openAnim.set(1f);
+            if (animEnabled) {
+                openAnim.setImmediate(0f);
+                openAnim.set(1f);
+            } else {
+                openAnim.setImmediate(1f);
+            }
         }
         for (Animated a : tabAnims) a.set(0f);
         rebuildFilterMenu();
@@ -192,7 +200,12 @@ public class CrestMenu extends Screen {
         g.fill(0, 0, width, height,
             ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * Anim.easeOutCubic(open))));
 
-        float t = closing ? Anim.easeInOutCubic(open) : Anim.easeOutBack(open);
+        float t = closing ? Anim.easeInOutCubic(open)
+            : switch (animEasing) {
+                case "Cubic" -> Anim.easeOutCubic(open);
+                case "Expo" -> Easing.expoOut(open);
+                default -> Anim.easeOutBack(open);
+            };
         float scale = 0.92f + 0.08f * t;
         float cx = pX + pW / 2f;
         float cy = pY + pH / 2f;
@@ -221,7 +234,7 @@ public class CrestMenu extends Screen {
 
     /** True while the menu is mid pop-in or animating out; interactions are swallowed. */
     private boolean inputBlocked() {
-        return closing || openAnim.get() < 0.9f;
+        return animEnabled && (closing || openAnim.get() < 0.9f);
     }
 
     // ------------------------------------------------------------------ top bar
@@ -1128,6 +1141,10 @@ public class CrestMenu extends Screen {
 
     @Override
     public void onClose() {
+        if (!animEnabled) {
+            minecraft.setScreen(null);
+            return;
+        }
         if (closing) return;
         closing = true;
         openAnim.set(0f);

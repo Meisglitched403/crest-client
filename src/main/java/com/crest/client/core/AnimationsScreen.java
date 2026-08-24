@@ -6,6 +6,7 @@ import com.crest.client.ui.ColorUtil;
 import com.crest.client.ui.Panel;
 import com.crest.client.ui.Slider;
 import com.crest.client.ui.Theme;
+import com.crest.client.ui.UiSounds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -17,9 +18,12 @@ import org.lwjgl.glfw.GLFW;
 public class AnimationsScreen extends Screen {
     private static final String CONFIG_SECTION = "crest_client";
     private static final String CONFIG_KEY = "menu_anim_speed";
+    private static final String ENABLE_KEY = "menu_anim_enabled";
+    private static final String EASING_KEY = "menu_anim_easing";
     private static final float MIN_SPEED = 4f;
     private static final float MAX_SPEED = 24f;
     private static final float DEFAULT_SPEED = 12f;
+    private static final String[] EASING_STYLES = {"Back", "Cubic", "Expo"};
 
     private final Screen parent;
     private final Slider speedSlider;
@@ -27,6 +31,8 @@ public class AnimationsScreen extends Screen {
     private boolean previewForward = true;
     private int mx, my;
     private int sliderX, sliderY, sliderW;
+    private int enableX, enableY, enableW;
+    private int easingBtnX, easingBtnY, easingBtnW = 110, easingBtnH = 24;
 
     public AnimationsScreen(Screen parent) {
         super(Component.literal("Animations"));
@@ -44,6 +50,24 @@ public class AnimationsScreen extends Screen {
             if (v >= MIN_SPEED && v <= MAX_SPEED) return v;
         } catch (Exception ignored) {}
         return DEFAULT_SPEED;
+    }
+
+    public static boolean isMenuAnimEnabled() {
+        try {
+            ConfigManager cfg = CrestModules.getConfigManager();
+            if (cfg.has(CONFIG_SECTION, ENABLE_KEY)) return cfg.getBoolean(CONFIG_SECTION, ENABLE_KEY);
+        } catch (Exception ignored) {}
+        return true;
+    }
+
+    public static String getMenuAnimEasing() {
+        try {
+            String s = CrestModules.getConfigManager().getString(CONFIG_SECTION, EASING_KEY);
+            for (String style : EASING_STYLES) {
+                if (style.equalsIgnoreCase(s)) return style;
+            }
+        } catch (Exception ignored) {}
+        return EASING_STYLES[0];
     }
 
     private void onSpeedChanged(float v) {
@@ -73,7 +97,6 @@ public class AnimationsScreen extends Screen {
         g.text(font, Component.literal("Controls how the Crest menu pops in and out."),
             cx, pY + 32, Theme.MUTED_FOREGROUND);
 
-        // --- Menu animation speed ---
         int rowY = pY + 60;
         g.fill(cx, rowY, cx + 3, rowY + font.lineHeight + 2, accent);
         g.text(font, Component.literal("Menu Animation Speed"), cx + 8, rowY, Theme.FOREGROUND);
@@ -94,28 +117,69 @@ public class AnimationsScreen extends Screen {
 
         g.text(font, Component.literal("Higher values make the menu snap open faster."),
             cx, rowY, ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 170));
-        rowY += 24;
+        rowY += 28;
 
-        // --- Live preview: ping-pong bar driven at the current speed ---
+        int cw = Math.min(pW - 40, 420);
+
+        enableX = cx;
+        enableY = rowY;
+        enableW = cw;
+        drawToggle(g, "Enable Menu Animation", enableX, enableY, enableW, isMenuAnimEnabled(), accent);
+        rowY += 40;
+
+        g.text(font, Component.literal("Easing Style"), cx, rowY + 5, Theme.FOREGROUND);
+        easingBtnX = cx + cw - easingBtnW;
+        easingBtnY = rowY;
+        String current = getMenuAnimEasing();
+        boolean easeHover = mx >= easingBtnX && mx <= easingBtnX + easingBtnW
+            && my >= easingBtnY && my <= easingBtnY + easingBtnH;
+        int fill = easeHover ? ColorUtil.withAlpha(Theme.MUTED, 130) : ColorUtil.withAlpha(Theme.BACKGROUND, 140);
+        Panel.draw(g, easingBtnX, easingBtnY, easingBtnW, easingBtnH, fill);
+        Panel.drawHollowRect(g, easingBtnX, easingBtnY, easingBtnW, easingBtnH, Theme.BORDER_LIGHT);
+        String btnLabel = current + " \u25B8";
+        g.text(font, Component.literal(btnLabel), easingBtnX + (easingBtnW - font.width(btnLabel)) / 2,
+            easingBtnY + (easingBtnH - font.lineHeight) / 2, easeHover ? accent : Theme.FOREGROUND);
+        rowY += 36;
+
         g.fill(cx, rowY, cx + 3, rowY + font.lineHeight + 2, accent);
         g.text(font, Component.literal("Preview"), cx + 8, rowY, Theme.FOREGROUND);
         rowY += font.lineHeight + 10;
 
-        previewAnim.setSpeed(v);
-        previewAnim.set(previewForward ? 1f : 0f);
-        previewAnim.tick(delta);
-        if (Math.abs(previewAnim.get() - previewAnim.getTarget()) < 0.02f) {
-            previewForward = !previewForward;
+        boolean animOn = isMenuAnimEnabled();
+        if (animOn) {
+            previewAnim.setSpeed(v);
+            previewAnim.set(previewForward ? 1f : 0f);
+            previewAnim.tick(delta);
+            if (Math.abs(previewAnim.get() - previewAnim.getTarget()) < 0.02f) {
+                previewForward = !previewForward;
+            }
         }
         int trackW = Math.min(pW - 40, 420);
         int trackH = 14;
         g.fill(cx, rowY, cx + trackW, rowY + trackH, ColorUtil.withAlpha(Theme.MUTED, 120));
         Panel.drawHollowRect(g, cx, rowY, trackW, trackH, Theme.BORDER_LIGHT);
-        int fillW = (int) ((trackW - 2) * Anim.easeOutCubic(previewAnim.get()));
-        if (fillW > 0) g.fill(cx + 1, rowY + 1, cx + 1 + fillW, rowY + trackH - 1, accent);
+        float previewFill = animOn ? Anim.easeOutCubic(previewAnim.get()) : 1f;
+        int fillW = (int) ((trackW - 2) * previewFill);
+        if (fillW > 0) g.fill(cx + 1, rowY + 1, cx + 1 + fillW, rowY + trackH - 1, animOn ? accent : Theme.MUTED);
+        if (!animOn) {
+            g.text(font, Component.literal("Animations are off"), cx + trackW + 12,
+                rowY + (trackH - font.lineHeight) / 2, Theme.MUTED_FOREGROUND);
+        }
 
         g.text(font, Component.literal("ESC to go back"),
             cx, height - 56, Theme.MUTED_FOREGROUND);
+    }
+
+    private void drawToggle(GuiGraphicsExtractor g, String label, int x, int y, int w, boolean on, int accent) {
+        g.text(font, Component.literal(label), x, y + 5, Theme.FOREGROUND);
+        int tw = 44, th = 24;
+        int tx = x + w - tw;
+        int ty = y;
+        int trackColor = on ? ColorUtil.withAlpha(accent, 210) : ColorUtil.withAlpha(Theme.MUTED, 170);
+        Panel.draw(g, tx, ty, tw, th, trackColor);
+        Panel.drawHollowRect(g, tx, ty, tw, th, on ? accent : Theme.BORDER_LIGHT);
+        int knobX = on ? tx + tw - 20 : tx + 4;
+        g.fill(knobX, ty + 4, knobX + 16, ty + th - 4, on ? 0xFFFFFFFF : ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 200));
     }
 
     @Override
@@ -125,6 +189,25 @@ public class AnimationsScreen extends Screen {
         if (btn == 0 && mxx >= sliderX && mxx <= sliderX + sliderW
             && myy >= sliderY - 4 && myy <= sliderY + speedSlider.getHeight() + 4) {
             speedSlider.mouseClicked(mxx, myy, btn);
+            return true;
+        }
+
+        if (btn == 0 && mxx >= enableX && mxx <= enableX + enableW && myy >= enableY && myy <= enableY + 28) {
+            UiSounds.click();
+            ConfigManager cfg = CrestModules.getConfigManager();
+            boolean next = !isMenuAnimEnabled();
+            cfg.set(CONFIG_SECTION, ENABLE_KEY, next);
+            cfg.save();
+            return true;
+        }
+        if (btn == 0 && mxx >= easingBtnX && mxx <= easingBtnX + easingBtnW
+            && myy >= easingBtnY && myy <= easingBtnY + easingBtnH) {
+            UiSounds.click();
+            String cur = getMenuAnimEasing();
+            String next = EASING_STYLES[(java.util.Arrays.asList(EASING_STYLES).indexOf(cur) + 1) % EASING_STYLES.length];
+            ConfigManager cfg = CrestModules.getConfigManager();
+            cfg.set(CONFIG_SECTION, EASING_KEY, next);
+            cfg.save();
             return true;
         }
         return super.mouseClicked(event, doubleClick);
