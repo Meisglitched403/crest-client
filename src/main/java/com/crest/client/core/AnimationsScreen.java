@@ -48,7 +48,6 @@ public class AnimationsScreen extends Screen {
 
     private void onSpeedChanged(float v) {
         CrestModules.getConfigManager().set(CONFIG_SECTION, CONFIG_KEY, v);
-        CrestModules.getConfigManager().save();
     }
 
     @Override
@@ -143,6 +142,7 @@ public class AnimationsScreen extends Screen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         speedSlider.stopDrag();
+        CrestModules.getConfigManager().save();
         return super.mouseReleased(event);
     }
 
@@ -157,6 +157,7 @@ public class AnimationsScreen extends Screen {
 
     @Override
     public void onClose() {
+        CrestModules.getConfigManager().save();
         minecraft.setScreen(parent);
     }
 
