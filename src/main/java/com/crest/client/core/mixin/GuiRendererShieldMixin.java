@@ -14,6 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GuiRenderer.class)
 public abstract class GuiRendererShieldMixin {
 
+    private static Class<?> crest$shieldClass;
+
     @Inject(method = "lambda$prepareItemElements$0",
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/gui/render/GuiItemAtlas;getOrUpdate(Lnet/minecraft/client/renderer/item/TrackingItemStackRenderState;)Lnet/minecraft/client/gui/render/GuiItemAtlas$SlotView;"))
@@ -21,9 +23,16 @@ public abstract class GuiRendererShieldMixin {
                                           GuiItemRenderState itemState, CallbackInfo ci) {
         if (!ShieldStatusModule.isActive()) return;
         Object identity = itemState.itemStackRenderState().getModelIdentity();
-        if (identity != null && identity.toString().contains("shield")) {
+        if (identity == null) return;
+        if (crest$shieldClass == null) {
+            if (identity.getClass().getSimpleName().toLowerCase().contains("shield")) {
+                crest$shieldClass = identity.getClass();
+            } else {
+                return;
+            }
+        }
+        if (identity.getClass() == crest$shieldClass) {
             itemState.itemStackRenderState().setAnimated();
-            // GUI shields always belong to the local player.
             ShieldFocusedPlayer.setLocal();
         }
     }

@@ -112,9 +112,9 @@ public class CrestModules {
 
     /** Curated default-enabled set for first-time users (competitive-friendly, low-risk). */
     private static final String[] DEFAULT_ENABLED = {
-        "fps", "coords", "potions", "armor_hud", "cps", "reach", "crosshair",
+        "fps", "coords", "potion_hud", "armor_hud", "cps", "reach", "crosshair",
         "keystrokes", "combo", "scoreboard", "zoom", "chat_timestamp",
-        "entity_culling", "no_fog", "no_hurtcam", "block_outline", "pvp_info",
+        "entity_culling", "no_fog", "no_hurt_cam", "block_outline", "pvp_info",
         "hitbox", "item_counter", "waypoints", "server_address", "toggle_sneak",
         "dynamic_fov", "low_fire", "skin_layers_3d"
     };

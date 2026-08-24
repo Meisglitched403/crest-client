@@ -45,12 +45,16 @@ public class KeybindManager {
 
         rebuildCache();
 
-        for (KeybindEntry e : keybindEntries) {
-            checkKey(e.key, () -> CrestModules.toggle(e.moduleId));
+        Minecraft mc = Minecraft.getInstance();
+        boolean inWorld = mc.screen == null;
+
+        if (inWorld) {
+            for (KeybindEntry e : keybindEntries) {
+                checkKey(e.key, () -> CrestModules.toggle(e.moduleId));
+            }
         }
 
         checkKey(clickGuiKey, () -> {
-            Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof CrestMenu) {
                 mc.screen.onClose();
             } else if (mc.screen == null) {
@@ -68,6 +72,7 @@ public class KeybindManager {
         keybindEntries.clear();
         Map<Integer, String> seen = new HashMap<>();
         for (CrestModule mod : CrestModules.getAll().values()) {
+            if (mod.selfHandlesKeybinds()) continue;
             for (Setting<?> s : mod.getSettings()) {
                 if (s instanceof KeybindSetting ks && ks.get() != GLFW.GLFW_KEY_UNKNOWN) {
                     int key = ks.get();

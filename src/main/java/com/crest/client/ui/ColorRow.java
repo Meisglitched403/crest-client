@@ -26,20 +26,19 @@ public class ColorRow implements Widget {
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        int centerY = y + (H - font.lineHeight) / 2;
+        g.text(font, Component.literal(setting.getName()), x + 2, centerY, Theme.ON_SURFACE_VARIANT);
 
-        int swatchS = 12;
+        int swatchS = 14;
         int swatchX = x + w - swatchS - 4;
-        int swatchY = y + 4;
+        int swatchY = y + (H - swatchS) / 2;
 
-        // Border
         g.fill(swatchX - 1, swatchY - 1, swatchX + swatchS + 1, swatchY + swatchS + 1, 0x44000000);
-        // Color fill
         g.fill(swatchX, swatchY, swatchX + swatchS, swatchY + swatchS, 0xFF000000 | setting.getRGB());
 
         String hex = String.format("#%06X", setting.getRGB());
         int hexX = swatchX - font.width(hex) - 6;
-        g.text(font, Component.literal(hex), hexX, y + 4, ColorUtil.withAlpha(Theme.ON_SURFACE_VARIANT, 180));
+        g.text(font, Component.literal(hex), hexX, centerY, ColorUtil.withAlpha(Theme.ON_SURFACE_VARIANT, 180));
 
         boolean hover = mx >= swatchX && mx <= swatchX + swatchS && my >= swatchY && my <= swatchY + swatchS;
         if (hover) {

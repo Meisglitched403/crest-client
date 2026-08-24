@@ -23,6 +23,9 @@ public class KeyStateTracker {
     private boolean initialized;
 
     private double cursorX, cursorY;
+    // Reused scratch buffers so update() allocates nothing per frame.
+    private final double[] cursorXBuf = new double[1];
+    private final double[] cursorYBuf = new double[1];
 
     public static KeyStateTracker getInstance() {
         if (instance == null) instance = new KeyStateTracker();
@@ -52,10 +55,9 @@ public class KeyStateTracker {
             lastPressedIndex = -1;
         }
 
-        double[] cx = new double[1], cy = new double[1];
-        GLFW.glfwGetCursorPos(window, cx, cy);
-        cursorX = cx[0];
-        cursorY = cy[0];
+        GLFW.glfwGetCursorPos(window, cursorXBuf, cursorYBuf);
+        cursorX = cursorXBuf[0];
+        cursorY = cursorYBuf[0];
     }
 
     public boolean isPressed(int index) {

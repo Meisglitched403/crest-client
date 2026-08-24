@@ -94,6 +94,29 @@ public class ViewModelModule implements CrestModule {
         return s;
     }
 
+    @Override
+    public List<SettingGroup> getSettingGroups() {
+        List<SettingGroup> groups = new ArrayList<>();
+        
+        groups.add(new SettingGroup("General", true, transformTarget));
+        
+        groups.add(new SettingGroup("Main Hand", true,
+            mainScale, mainPosX, mainPosY, mainPosZ, 
+            mainRotX, mainRotY, mainRotZ));
+        
+        groups.add(new SettingGroup("Off Hand", false,
+            offScale, offPosX, offPosY, offPosZ, 
+            offRotX, offRotY, offRotZ));
+        
+        groups.add(new SettingGroup("Swing Animation", false,
+            swingMode, swingSpeed, mainSwingOffset, offSwingOffset, noSwing));
+        
+        groups.add(new SettingGroup("Miscellaneous", true,
+            oldAnimations, swordSlash, skipEquip, hideHands));
+        
+        return groups;
+    }
+
     // ──────────────────────────────────────────────
     // Static accessors for mixins
     // ──────────────────────────────────────────────

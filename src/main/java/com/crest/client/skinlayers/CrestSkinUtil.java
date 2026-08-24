@@ -1,5 +1,7 @@
 package com.crest.client.skinlayers;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -34,19 +36,42 @@ public final class CrestSkinUtil {
                 }
             }).build();
 
+    // Track last used thickness values per player to detect changes
+    private static final Map<Avatar, ThicknessCache> thicknessCache = new HashMap<>();
+
+    private static class ThicknessCache {
+        float head, body, arms, legs;
+        
+        ThicknessCache(float head, float body, float arms, float legs) {
+            this.head = head; this.body = body; this.arms = arms; this.legs = legs;
+        }
+        
+        boolean matches(float head, float body, float arms, float legs) {
+            return this.head == head && this.body == body && this.arms == arms && this.legs == legs;
+        }
+    }
+
     private CrestSkinUtil() {
     }
 
-    public static NativeImage getTexture(Identifier resourceLocation, boolean[] invalidated) {
+    public static NativeImage getTexture(Identifier resourceLocation, boolean[] invalidated, boolean[] allocated) {
         if (resourceLocation == null) {
             return null;
+        }
+        if (allocated != null) {
+            allocated[0] = false;
         }
         try {
             Optional<Resource> optionalRes = Minecraft.getInstance().getResourceManager().getResource(resourceLocation);
             if (optionalRes.isPresent()) {
                 Resource resource = optionalRes.get();
-                NativeImage skin = NativeImage.read(resource.open());
-                return skin;
+                try (java.io.InputStream in = resource.open()) {
+                    NativeImage skin = NativeImage.read(in);
+                    if (allocated != null) {
+                        allocated[0] = true;
+                    }
+                    return skin;
+                }
             }
             AbstractTexture texture = Minecraft.getInstance().getTextureManager().getTexture(resourceLocation);
             if (texture == null) {
@@ -84,31 +109,61 @@ public final class CrestSkinUtil {
         if (skinLocation == null) {
             return false;
         }
+        
+        // Get current thickness values
+        float headThickness = com.crest.client.core.SkinLayers3dModule.getHeadThickness();
+        float bodyThickness = com.crest.client.core.SkinLayers3dModule.getBodyThickness();
+        float armsThickness = com.crest.client.core.SkinLayers3dModule.getArmsThickness();
+        float legsThickness = com.crest.client.core.SkinLayers3dModule.getLegsThickness();
+        
+        // Check if thickness values changed - if so, invalidate cache
+        ThicknessCache cached = thicknessCache.get(abstractClientPlayerEntity);
+        boolean thicknessChanged = cached == null || !cached.matches(headThickness, bodyThickness, armsThickness, legsThickness);
+        
+        if (thicknessChanged) {
+            thicknessCache.put(abstractClientPlayerEntity, new ThicknessCache(headThickness, bodyThickness, armsThickness, legsThickness));
+            settings.clearMeshes();
+        }
+        
         boolean[] invalidated = new boolean[1];
-        if (skinLocation.equals(settings.getCurrentSkin()) && thinArms == settings.hasThinArms()) {
+        if (!thicknessChanged && skinLocation.equals(settings.getCurrentSkin()) && thinArms == settings.hasThinArms()) {
             return settings.getHeadMesh() != null;
         }
-        NativeImage skin = getTexture(skinLocation, invalidated);
-        if (skin == null || skin.getWidth() != 64 || skin.getHeight() != 64) {
+        boolean[] allocated = new boolean[1];
+        NativeImage skin = getTexture(skinLocation, invalidated, allocated);
+        try {
+            if (skin == null || skin.getWidth() != 64 || skin.getHeight() != 64) {
+                settings.setCurrentSkin(skinLocation);
+                settings.setThinArms(thinArms);
+                settings.clearMeshes();
+                return false;
+            }
+            
+            // Calculate mesh depth based on thickness settings
+            int legDepth = Math.round(4 + legsThickness * 4);
+            int armDepth = Math.round(4 + armsThickness * 4);
+            int bodyDepth = Math.round(4 + bodyThickness * 4);
+            int headDepth = Math.round(8 + headThickness * 4);
+            
+            settings.setLeftLegMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, legDepth, 0, 48, true, 0f));
+            settings.setRightLegMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, legDepth, 0, 32, true, 0f));
+            if (thinArms) {
+                settings.setLeftArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 3, 12, armDepth, 48, 48, true, -2f));
+                settings.setRightArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 3, 12, armDepth, 40, 32, true, -2f));
+            } else {
+                settings.setLeftArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, armDepth, 48, 48, true, -2));
+                settings.setRightArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, armDepth, 40, 32, true, -2));
+            }
+            settings.setTorsoMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 8, 12, bodyDepth, 16, 32, true, 0));
+            settings.setHeadMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 8, 8, headDepth, 32, 0, false, 0.6f));
             settings.setCurrentSkin(skinLocation);
             settings.setThinArms(thinArms);
-            settings.clearMeshes();
-            return false;
+            return true;
+        } finally {
+            if (allocated[0] && skin != null) {
+                skin.close();
+            }
         }
-        settings.setLeftLegMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, 4, 0, 48, true, 0f));
-        settings.setRightLegMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, 4, 0, 32, true, 0f));
-        if (thinArms) {
-            settings.setLeftArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 3, 12, 4, 48, 48, true, -2f));
-            settings.setRightArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 3, 12, 4, 40, 32, true, -2f));
-        } else {
-            settings.setLeftArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, 4, 48, 48, true, -2));
-            settings.setRightArmMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 4, 12, 4, 40, 32, true, -2));
-        }
-        settings.setTorsoMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 8, 12, 4, 16, 32, true, 0));
-        settings.setHeadMesh(SkinLayersAPI.meshHelper.create3DMesh(skin, 8, 8, 8, 32, 0, false, 0.6f));
-        settings.setCurrentSkin(skinLocation);
-        settings.setThinArms(thinArms);
-        return true;
     }
 
 }

@@ -276,8 +276,14 @@ public class CornerTextConfigScreen extends Screen {
 
         Font f = Minecraft.getInstance().font;
         String corner = CornerTextModule.getCorner();
+        int guiW = g.guiWidth();
+        int guiH = g.guiHeight();
 
-        // Draw image preview
+        g.enableScissor(innerX, innerY, innerX + innerW, innerY + innerH);
+
+        float sx = (float) innerW / guiW;
+        float sy = (float) innerH / guiH;
+
         if (CornerTextModule.isImageEnabled()) {
             Identifier texId = CornerTextModule.getImageTexture();
             if (texId != null) {
@@ -287,16 +293,16 @@ public class CornerTextConfigScreen extends Screen {
                 int ioX = CornerTextModule.getImageOffsetX();
                 int ioY = CornerTextModule.getImageOffsetY();
 
-                int scaledIoX = (int) (ioX * is);
-                int scaledIoY = (int) (ioY * is);
-
-                int ix, iy;
+                int realIx, realIy;
                 switch (corner) {
-                    case "Top Left" -> { ix = innerX + 4 + scaledIoX; iy = innerY + 4 + scaledIoY; }
-                    case "Top Right" -> { ix = innerX + innerW - 4 - iw - scaledIoX; iy = innerY + 4 + scaledIoY; }
-                    case "Bottom Left" -> { ix = innerX + 4 + scaledIoX; iy = innerY + innerH - 4 - ih - scaledIoY; }
-                    default -> { ix = innerX + innerW - 4 - iw - scaledIoX; iy = innerY + innerH - 4 - ih - scaledIoY; }
+                    case "Top Left" -> { realIx = ioX; realIy = ioY; }
+                    case "Top Right" -> { realIx = guiW - iw - ioX; realIy = ioY; }
+                    case "Bottom Left" -> { realIx = ioX; realIy = guiH - ih - ioY; }
+                    default -> { realIx = guiW - iw - ioX; realIy = guiH - ih - ioY; }
                 }
+
+                int ix = innerX + (int) (realIx * sx);
+                int iy = innerY + (int) (realIy * sy);
 
                 g.pose().pushMatrix();
                 g.pose().translate(ix, iy);
@@ -307,7 +313,10 @@ public class CornerTextConfigScreen extends Screen {
         }
 
         String text = CornerTextModule.getText();
-        if (text == null || text.isEmpty()) return;
+        if (text == null || text.isEmpty()) {
+            g.disableScissor();
+            return;
+        }
 
         int color = CornerTextModule.getColor();
         boolean shadow = CornerTextModule.hasShadow();
@@ -319,13 +328,16 @@ public class CornerTextConfigScreen extends Screen {
         int tw = f.width(text);
         int lh = f.lineHeight;
 
-        int tx, ty;
+        int realTx, realTy;
         switch (corner) {
-            case "Top Left" -> { tx = innerX + 4 + offX; ty = innerY + 4 + offY; }
-            case "Top Right" -> { tx = innerX + innerW - 4 - tw - offX; ty = innerY + 4 + offY; }
-            case "Bottom Left" -> { tx = innerX + 4 + offX; ty = innerY + innerH - 4 - lh - offY; }
-            default -> { tx = innerX + innerW - 4 - tw - offX; ty = innerY + innerH - 4 - lh - offY; }
+            case "Top Left" -> { realTx = offX; realTy = offY; }
+            case "Top Right" -> { realTx = guiW - tw - offX; realTy = offY; }
+            case "Bottom Left" -> { realTx = offX; realTy = guiH - lh - offY; }
+            default -> { realTx = guiW - tw - offX; realTy = guiH - lh - offY; }
         }
+
+        int tx = innerX + (int) (realTx * sx);
+        int ty = innerY + (int) (realTy * sy);
 
         g.pose().pushMatrix();
         g.pose().translate(tx, ty);
@@ -337,6 +349,7 @@ public class CornerTextConfigScreen extends Screen {
         g.text(f, text, tx, ty, color);
 
         g.pose().popMatrix();
+        g.disableScissor();
     }
 
     private void renderColorPicker(GuiGraphicsExtractor g, int mx, int my) {

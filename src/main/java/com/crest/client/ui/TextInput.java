@@ -24,6 +24,14 @@ public class TextInput implements Widget {
 
     public String getText() { return text; }
 
+    public void focus() {
+        focused = true;
+        editing = text;
+        cursorPos = editing.length();
+        selectionStart = cursorPos;
+        cursorTimer = 0;
+    }
+
     @Override
     public int getWidth() {
         return lastW;

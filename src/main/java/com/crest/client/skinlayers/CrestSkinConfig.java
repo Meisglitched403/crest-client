@@ -32,12 +32,12 @@ public final class CrestSkinConfig {
     public static boolean compatibilityMode = true;
 
     public static boolean isEnabled(String layer) {
-        SkinLayers3dModule mod = (SkinLayers3dModule) CrestModules.get("skin_layers_3d");
+        SkinLayers3dModule mod = SkinLayers3dModule.INSTANCE;
         return mod != null && CrestModules.isEnabled("skin_layers_3d") && mod.isLayerEnabled(layer);
     }
 
     public static void refresh() {
-        SkinLayers3dModule mod = (SkinLayers3dModule) CrestModules.get("skin_layers_3d");
+        SkinLayers3dModule mod = SkinLayers3dModule.INSTANCE;
         if (mod == null)
             return;
         baseVoxelSize = 1.0f + SkinLayers3dModule.getBodyThickness() * 0.6f;

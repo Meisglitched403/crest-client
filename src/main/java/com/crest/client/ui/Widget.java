@@ -4,7 +4,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public interface Widget {
-    int H = 20;
+    int H = 32;
 
     int getWidth();
     int getHeight();

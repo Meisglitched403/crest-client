@@ -50,6 +50,10 @@ public class BackgroundResourceLoaderModule implements CrestModule {
         return brl != null && CrestModules.isEnabled(brl.getId()) && brl.showInBackground.get();
     }
 
+    public static boolean shouldHideOverlay(net.minecraft.client.Minecraft mc) {
+        return isActive() && mc != null && mc.isGameLoadFinished();
+    }
+
     public static int getProgressStyle() {
         var brl = instance;
         return brl != null ? brl.progressStyle.get() : 0;

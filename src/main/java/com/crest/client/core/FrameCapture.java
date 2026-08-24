@@ -9,7 +9,6 @@ import net.minecraft.client.Minecraft;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 public class FrameCapture {
     private static volatile boolean capturing;
@@ -145,14 +144,7 @@ public class FrameCapture {
             }
         }
 
-        ByteBuffer dst;
-        try {
-            // ponytail: wait up to 5ms for a free buffer instead of dropping immediately
-            dst = freePool.poll(5, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return;
-        }
+        ByteBuffer dst = freePool.poll();
         if (dst == null) {
             Streamer.addDropped();
             return;
@@ -177,8 +169,7 @@ public class FrameCapture {
                     if (ReplayBuffer.isActive()) {
                         ReplayBuffer.addFrame(dst, cw, ch);
                     }
-                    // ponytail: blocking offer — wait up to 10ms for queue space instead of dropping
-                    if (!filledQueue.offer(dst, 10, TimeUnit.MILLISECONDS)) {
+                    if (!filledQueue.offer(dst)) {
                         Streamer.addDropped();
                         freePool.offer(dst);
                     }

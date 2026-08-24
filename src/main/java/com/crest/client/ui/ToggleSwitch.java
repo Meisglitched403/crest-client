@@ -49,8 +49,8 @@ public class ToggleSwitch implements Widget {
 
     private static void renderStatic(GuiGraphicsExtractor g, int x, int y, int w, boolean on, float t) {
         int trackColor = ColorUtil.lerpARGB(0x1AFFFFFF, Theme.getAnimatedAccent(), t);
-        g.fillGradient(x, y, x + w, y + H, trackColor, ColorUtil.withAlpha(trackColor, 80));
-        Panel.drawHollowRect(g, x, y, w, H, Theme.BORDER_LIGHT);
+        g.fill(x, y, x + w, y + H, trackColor);
+        Panel.drawHollowRect(g, x, y, w, H, t > 0.5f ? Theme.getAnimatedAccent() : Theme.BORDER_LIGHT);
 
         int knobMinX = x + 3;
         int knobMaxX = x + w - 19;

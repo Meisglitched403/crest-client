@@ -9,6 +9,7 @@ import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.Nullable;
 
@@ -108,14 +109,14 @@ public final class ChatHeadsHelper {
         return best;
     }
 
-    public static void renderHead(GuiGraphicsExtractor g, int x, int y, PlayerInfo owner, int headSize) {
+    public static void renderHead(GuiGraphicsExtractor g, int x, int y, PlayerInfo owner, int headSize, float opacity) {
         Identifier skin = owner.getSkin().body().texturePath();
         boolean upsideDown = false;
         if (Minecraft.getInstance().level != null) {
             Player p = Minecraft.getInstance().level.getPlayerByUUID(owner.getProfile().id());
             if (p != null) upsideDown = AvatarRenderer.isPlayerUpsideDown(p);
         }
-        PlayerFaceExtractor.extractRenderState(g, skin, x, y, headSize, owner.showHat(), upsideDown, -1);
+        PlayerFaceExtractor.extractRenderState(g, skin, x, y, headSize, owner.showHat(), upsideDown, ARGB.white(opacity));
     }
 
     public static int headWidth(int headSize) {

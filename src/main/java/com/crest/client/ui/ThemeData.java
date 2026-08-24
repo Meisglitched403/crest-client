@@ -20,6 +20,7 @@ public final class ThemeData {
     public int glassOpacity = 220;
     public boolean menuBlur = true;
     public float menuBlurRadius = 6f;
+    public boolean accentAnim = true;
     public float fontScale = 1f;
     public Theme.Density density = Theme.Density.NORMAL;
     public String preset = "Dark";
@@ -46,6 +47,7 @@ public final class ThemeData {
         d.glassOpacity = glassOpacity;
         d.menuBlur = menuBlur;
         d.menuBlurRadius = menuBlurRadius;
+        d.accentAnim = accentAnim;
         d.fontScale = fontScale;
         d.density = density;
         d.preset = preset;

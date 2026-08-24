@@ -44,7 +44,7 @@ public abstract class PlayerTabOverlayMixin {
         int headSize = ChatHeadsModule.getHeadSize();
         int offset = ChatHeadsHelper.headWidth(headSize);
 
-        ChatHeadsHelper.renderHead(guiGraphics, x - offset, y, owner, headSize);
+        ChatHeadsHelper.renderHead(guiGraphics, x - offset, y, owner, headSize, 1.0F);
         crest$tabOffset = offset;
     }
 

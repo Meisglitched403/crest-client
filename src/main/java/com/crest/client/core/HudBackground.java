@@ -8,7 +8,9 @@ import com.crest.client.core.setting.Setting;
 import com.crest.client.ui.ColorUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HudBackground {
     public static final HudBackground INSTANCE = new HudBackground();
@@ -19,6 +21,20 @@ public class HudBackground {
     public final ModeSetting style = new ModeSetting("BG Style",
         new String[]{"Filled", "Border", "Frosted"}, 0);
     public final IntegerSetting radius = new IntegerSetting("Corner Radius", 0, 12, 0);
+
+    // Corner strip lengths depend only on the radius, so cache them per radius
+    // instead of recomputing a Math.sqrt per corner row every frame.
+    private static final Map<Integer, int[]> STRIP_CACHE = new HashMap<>();
+
+    private static int[] stripsFor(int r) {
+        return STRIP_CACHE.computeIfAbsent(r, rr -> {
+            int[] s = new int[rr];
+            for (int dy = 0; dy < rr; dy++) {
+                s[dy] = rr - (int) Math.sqrt(rr * rr - (dy + 0.5) * (dy + 0.5));
+            }
+            return s;
+        });
+    }
 
     private HudBackground() {}
 
@@ -76,8 +92,9 @@ public class HudBackground {
         g.fill(x, y + r, x + r, y + h - r, base);
         g.fill(x + w - r, y + r, x + w, y + h - r, base);
 
+        int[] strips = stripsFor(r);
         for (int dy = 0; dy < r; dy++) {
-            int stripLen = r - (int) Math.sqrt(r * r - (dy + 0.5) * (dy + 0.5));
+            int stripLen = strips[dy];
             if (stripLen <= 0) continue;
             g.fill(x, y + dy, x + stripLen, y + dy + 1, base);
             g.fill(x + w - stripLen, y + dy, x + w, y + dy + 1, base);
@@ -101,8 +118,9 @@ public class HudBackground {
         g.fill(x, y + r, x + 1, y + h - r, base);
         g.fill(x + w - 1, y + r, x + w, y + h - r, base);
 
+        int[] strips = stripsFor(r);
         for (int dy = 0; dy < r; dy++) {
-            int stripLen = r - (int) Math.sqrt(r * r - (dy + 0.5) * (dy + 0.5));
+            int stripLen = strips[dy];
             if (stripLen <= 0) continue;
             g.fill(x, y + dy, x + stripLen, y + dy + 1, base);
             g.fill(x + w - stripLen, y + dy, x + w, y + dy + 1, base);

@@ -22,7 +22,7 @@ public final class Theme {
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("crest-theme.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private static ThemeData data = ThemePresets.DARK.clone();
+    private static ThemeData data = ThemePresets.LUNAR.clone();
     private static ThemeData pending = data.clone();
     private static final List<ThemeChangeListener> listeners = new ArrayList<>();
 
@@ -129,6 +129,7 @@ public final class Theme {
     private static final Animated accentHue = new Animated(0f, 0.6f);
     private static long animStart = System.currentTimeMillis();
     private static float accentPulse;
+    public static boolean accentAnim;
 
     static {
         sync();
@@ -185,6 +186,7 @@ public final class Theme {
         topStripAlpha = (int) (160 * (data.glassOpacity / 255f));
         menuBlur = data.menuBlur;
         menuBlurRadius = data.menuBlurRadius;
+        accentAnim = data.accentAnim;
         fontScale = data.fontScale;
         density = data.density;
         LayoutCache.invalidate();
@@ -241,9 +243,15 @@ public final class Theme {
 
     public static void tick(float dt) {
         float elapsed = (System.currentTimeMillis() - animStart) / 1000f;
-        accentHue.set((elapsed * 0.05f) % 1.0f);
-        accentHue.tick(dt);
-        accentPulse = (float) (0.5f + 0.5f * Math.sin(elapsed * 1.5f));
+        if (accentAnim) {
+            accentHue.set((elapsed * 0.05f) % 1.0f);
+            accentHue.tick(dt);
+            accentPulse = (float) (0.5f + 0.5f * Math.sin(elapsed * 1.5f));
+        } else {
+            accentHue.set(0f);
+            accentHue.tick(dt);
+            accentPulse = 0f;
+        }
     }
 
     // --- Data access for the editor ---

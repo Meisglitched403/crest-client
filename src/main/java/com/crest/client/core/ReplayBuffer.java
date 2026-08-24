@@ -18,9 +18,13 @@ public class ReplayBuffer {
     private static ByteBuffer[] ring;
     private static int capacity;
     private static int head;
-    private static int count;
+    private static volatile int count;
     private static int storeInterval = 2; // store every Nth frame
     private static int frameCounter;
+
+    // Serializes ring writes (downscale thread) with ring reads (saveSync) so a
+    // save never observes torn frames or a nulled ring from stop().
+    private static final Object LOCK = new Object();
 
     private static Thread saveThread;
 
@@ -39,33 +43,44 @@ public class ReplayBuffer {
     public static void start(int sourceFps, int durationSec) {
         if (active) stop();
         storeInterval = Math.max(1, sourceFps / 30); // target ~30fps storage
-        capacity = durationSec * sourceFps / storeInterval;
-        if (capacity < 30) capacity = 30;
-        if (capacity > 1800) capacity = 1800; // cap at 1800 frames (~14MB each = ~25GB)
+        int cap = durationSec * sourceFps / storeInterval;
+        if (cap < 30) cap = 30;
+        if (cap > 1800) cap = 1800; // cap at 1800 frames (~14MB each = ~25GB)
 
-        ring = new ByteBuffer[capacity];
-        for (int i = 0; i < capacity; i++) {
-            ring[i] = ByteBuffer.allocateDirect(FRAME_SIZE);
+        ByteBuffer[] newRing = new ByteBuffer[cap];
+        for (int i = 0; i < cap; i++) {
+            newRing[i] = ByteBuffer.allocateDirect(FRAME_SIZE);
         }
-        head = 0;
-        count = 0;
-        frameCounter = 0;
-        active = true;
+        synchronized (LOCK) {
+            ring = newRing;
+            capacity = cap;
+            head = 0;
+            count = 0;
+            frameCounter = 0;
+            active = true;
+        }
 
         downscaleThread = new Thread(() -> {
             while (active || !pending.isEmpty()) {
+                RawFrame f;
                 try {
-                    RawFrame f = pending.take();
-                    ByteBuffer dst = ring[head];
-                    dst.clear();
-                    downscale(f.src, f.srcW, f.srcH, dst, INTERNAL_W, INTERNAL_H);
-                    dst.flip();
-                    head = (head + 1) % capacity;
-                    if (count < capacity) count++;
+                    f = pending.take();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
-                } catch (Exception ignored) {}
+                }
+                try {
+                    synchronized (LOCK) {
+                        ByteBuffer dst = ring[head];
+                        dst.clear();
+                        downscale(f.src, f.srcW, f.srcH, dst, INTERNAL_W, INTERNAL_H);
+                        dst.flip();
+                        head = (head + 1) % capacity;
+                        if (count < capacity) count++;
+                    }
+                } catch (Exception ignored) {
+                    // drop a malformed frame rather than kill the buffer thread
+                }
             }
         }, "crest-replay-downscale");
         downscaleThread.setDaemon(true);
@@ -75,12 +90,18 @@ public class ReplayBuffer {
     public static void stop() {
         active = false;
         pending.clear();
-        if (downscaleThread != null) {
-            downscaleThread.interrupt();
-            downscaleThread = null;
+        Thread dt = downscaleThread;
+        downscaleThread = null;
+        if (dt != null) {
+            dt.interrupt();
+            try { dt.join(2000); } catch (InterruptedException ignored) {}
         }
-        ring = null;
-        capacity = 0;
+        synchronized (LOCK) {
+            ring = null;
+            capacity = 0;
+            head = 0;
+            count = 0;
+        }
     }
 
     public static boolean isActive() { return active; }
@@ -151,14 +172,30 @@ public class ReplayBuffer {
                 filePath
             ).start();
 
+            ByteBuffer[] snapshot;
+            int start, total, cap;
+            synchronized (LOCK) {
+                if (ring == null) return;
+                snapshot = ring;
+                cap = capacity;
+                start = count < cap ? 0 : head;
+                total = Math.min(count, cap);
+            }
+
+            ByteBuffer scratch = ByteBuffer.allocateDirect(FRAME_SIZE);
             try (FileChannel ch = FileChannel.open(fifo, StandardOpenOption.WRITE)) {
-                int start = count < capacity ? 0 : head;
-                int total = Math.min(count, capacity);
                 for (int i = 0; i < total; i++) {
-                    int idx = (start + i) % capacity;
-                    ByteBuffer buf = ring[idx];
-                    buf.position(0);
-                    ch.write(buf);
+                    int idx = (start + i) % cap;
+                    synchronized (LOCK) {
+                        ByteBuffer buf = snapshot[idx];
+                        buf.position(0);
+                        scratch.clear();
+                        scratch.put(buf);
+                    }
+                    scratch.flip();
+                    while (scratch.hasRemaining()) {
+                        ch.write(scratch);
+                    }
                 }
             }
 

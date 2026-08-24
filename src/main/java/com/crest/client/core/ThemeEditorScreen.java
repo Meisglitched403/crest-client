@@ -1,7 +1,6 @@
 package com.crest.client.core;
 
 import com.crest.client.ui.*;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -11,7 +10,10 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -19,13 +21,21 @@ import java.util.function.Supplier;
 public class ThemeEditorScreen extends Screen {
     private final Screen parent;
 
+    private static final int PRESET_CARD_H = 36;
+    private static final int PRESETS_COUNT = 4;
+    private static final int PRESETS_H = PRESETS_COUNT * (PRESET_CARD_H + Spacing.S2);
+    private static final int FOOTER_H = 44;
+    private static final int HEADER_H = 56;
+
     private ThemeData work = Theme.get().clone();
     private ColorPicker colorPicker;
     private int panelX, panelY, panelW, panelH;
     private int railX, railY, railW, railH;
     private int listX, listY, listW, listH;
+    private int footerY;
 
     private final List<Widget> items = new ArrayList<>();
+    private final Map<String, Boolean> sectionExpanded = new HashMap<>();
     private final Animated openAnim = new Animated(0f, 10f);
     private final Animated colorAnim = new Animated(0f, 12f);
     private final ScrollContainer scroll = new ScrollContainer();
@@ -42,37 +52,72 @@ public class ThemeEditorScreen extends Screen {
         this.parent = parent;
         openAnim.setImmediate(0f);
         openAnim.set(1f);
+        sectionExpanded.put("Colors", true);
+        sectionExpanded.put("Appearance", true);
+        sectionExpanded.put("Blur", true);
+        sectionExpanded.put("Layout", true);
         buildItems();
+    }
+
+    /** Items can expose a short description shown as a hover tooltip. */
+    private interface Tip {
+        String tip();
     }
 
     private void buildItems() {
         items.clear();
-        items.add(new ThemeHeader("Colors"));
-        items.add(new ThemeColorItem("Accent", () -> work.accent, c -> work.accent = c));
-        items.add(new ThemeColorItem("Background", () -> work.background, c -> work.background = c));
-        items.add(new ThemeColorItem("Foreground", () -> work.foreground, c -> work.foreground = c));
-        items.add(new ThemeColorItem("Card", () -> work.card, c -> work.card = c));
-        items.add(new ThemeColorItem("Muted Text", () -> work.mutedForeground, c -> work.mutedForeground = c));
-        items.add(new ThemeColorItem("Destructive", () -> work.destructive, c -> work.destructive = c));
-        items.add(new ThemeColorItem("Border", () -> work.border, c -> work.border = c));
-        items.add(new ThemeColorItem("Glass Tint", () -> work.glassBg, c -> work.glassBg = c));
-        items.add(new ThemeColorItem("Sidebar", () -> work.sidebarBg, c -> work.sidebarBg = c));
+        scroll.scrollOffset = 0;
+        scroll.scrollTarget = 0;
 
-        items.add(new ThemeHeader("Appearance"));
-        items.add(new ThemeSliderItem("Glass Opacity", 0, 255, () -> work.glassOpacity, v -> work.glassOpacity = v));
-        items.add(new ThemeSliderItem("Corner Radius", 0, 24, () -> work.radius, v -> work.radius = v));
-        items.add(new ThemeSliderItem("Font Scale", 70, 150, () -> (int) (work.fontScale * 100),
-            v -> work.fontScale = v / 100f, v -> v + "%"));
+        addSection("Colors", true, "Colors used across the entire interface",
+            new ThemeColorItem("Accent", "Primary color for highlights, buttons, and sliders",
+                () -> work.accent, c -> work.accent = c),
+            new ThemeColorItem("Background", "Base color behind all screens",
+                () -> work.background, c -> work.background = c),
+            new ThemeColorItem("Foreground", "Primary text color",
+                () -> work.foreground, c -> work.foreground = c),
+            new ThemeColorItem("Card", "Surface color for panels and cards",
+                () -> work.card, c -> work.card = c),
+            new ThemeColorItem("Muted Text", "Secondary, subdued text color",
+                () -> work.mutedForeground, c -> work.mutedForeground = c),
+            new ThemeColorItem("Destructive", "Color for errors and destructive actions",
+                () -> work.destructive, c -> work.destructive = c),
+            new ThemeColorItem("Border", "Color for outlines and dividers",
+                () -> work.border, c -> work.border = c),
+            new ThemeColorItem("Glass Tint", "Tint color for glassmorphic overlays",
+                () -> work.glassBg, c -> work.glassBg = c),
+            new ThemeColorItem("Sidebar", "Background of the navigation sidebar",
+                () -> work.sidebarBg, c -> work.sidebarBg = c));
 
-        items.add(new ThemeHeader("Blur"));
-        items.add(new ThemeToggleItem("Menu Blur", () -> work.menuBlur, v -> work.menuBlur = v));
-        items.add(new ThemeSliderItem("Blur Radius", 1, 20, () -> (int) work.menuBlurRadius, v -> work.menuBlurRadius = v));
+        addSection("Appearance", false, "Rounded corners, opacity, and text sizing",
+            new ThemeSliderItem("Glass Opacity", "Transparency of the backdrop overlay", 0, 255,
+                () -> work.glassOpacity, v -> work.glassOpacity = v),
+            new ThemeSliderItem("Corner Radius", "How round panels and buttons are", 0, 24,
+                () -> work.radius, v -> work.radius = v),
+            new ThemeSliderItem("Font Scale", "Scales the UI text size", 70, 150,
+                () -> (int) (work.fontScale * 100), v -> work.fontScale = v / 100f, v -> v + "%"),
+            new ThemeToggleItem("Animated Accent", "Slowly cycles the accent color hue",
+                () -> work.accentAnim, v -> work.accentAnim = v));
 
-        items.add(new ThemeHeader("Layout"));
-        items.add(new ThemeModeItem("Density", new String[]{"Compact", "Normal", "Comfortable"},
-            () -> work.density.ordinal(), i -> work.density = Theme.Density.values()[i]));
+        addSection("Blur", false, "Backdrop blur behind menus and overlays",
+            new ThemeToggleItem("Menu Blur", "Blurs the content behind menus",
+                () -> work.menuBlur, v -> work.menuBlur = v),
+            new ThemeSliderItem("Blur Radius", "Strength of the backdrop blur", 1, 20,
+                () -> (int) work.menuBlurRadius, v -> work.menuBlurRadius = v));
 
-        scroll.rowHeight(Theme.ROW_H() + 4).children(items);
+        addSection("Layout", false, "Spacing and density preferences",
+            new ThemeModeItem("Density", "Controls the compactness of UI rows",
+                new String[]{"Compact", "Normal", "Comfortable"},
+                () -> work.density.ordinal(), i -> work.density = Theme.Density.values()[i]));
+
+        scroll.children(items);
+    }
+
+    private void addSection(String name, boolean collapsible, String tooltip, Widget... sectionItems) {
+        items.add(new ThemeHeader(name, collapsible, Boolean.TRUE.equals(sectionExpanded.get(name)), tooltip));
+        if (!collapsible || Boolean.TRUE.equals(sectionExpanded.get(name))) {
+            items.addAll(Arrays.asList(sectionItems));
+        }
     }
 
     @Override
@@ -91,27 +136,32 @@ public class ThemeEditorScreen extends Screen {
 
         collapsedPreview = isCompact;
 
+        // Reserve the footer zone so the rail and list never collide with buttons.
+        footerY = panelY + panelH - FOOTER_H;
+        int bodyBottom = footerY - Spacing.S2;
+
         if (collapsedPreview) {
             railX = panelX + Spacing.S3;
             railY = panelY + 46;
             railW = panelW - Spacing.S6;
-            railH = 3 * (36 + Spacing.S2) + Spacing.S2;
+            railH = PRESETS_H;
 
             listX = panelX + Spacing.S3;
             listY = railY + railH + Spacing.S8;
             listW = panelW - Spacing.S6;
-            listH = panelH - (listY - panelY) - Spacing.S8 - Spacing.S8;
+            listH = Math.max(80, bodyBottom - listY);
         } else {
             railX = panelX + Spacing.S4;
-            railY = panelY + 56;
+            railY = panelY + HEADER_H;
             railW = 200;
-            railH = panelH - 56 - Spacing.S10;
+            railH = Math.max(1, bodyBottom - railY);
 
             listX = railX + railW + Spacing.S6;
-            listY = panelY + 56;
+            listY = panelY + HEADER_H;
             listW = panelX + panelW - Spacing.S4 - listX;
-            listH = panelH - 56 - Spacing.S10;
+            listH = Math.max(80, bodyBottom - listY);
         }
+        scroll.h = listH;
     }
 
     @Override
@@ -144,15 +194,17 @@ public class ThemeEditorScreen extends Screen {
                 panelX + Spacing.S4, panelY + Spacing.S3 + font.lineHeight + 2, ColorUtil.withAlpha(work.mutedForeground, 200));
         }
 
+        g.enableScissor(railX, railY, railX + railW, railY + railH);
         drawPresets(g);
         if (!collapsedPreview) drawPreview(g);
+        g.disableScissor();
 
         drawSettingsList(g, delta);
         drawFooter(g);
 
         if (messageTimer > 0) {
             int mw = font.width(message) + Spacing.S4;
-            int myy = panelY + panelH - Spacing.S10 - 34;
+            int myy = footerY - Spacing.S4 - 26;
             Panel.draw(g, panelX + panelW / 2 - mw / 2, myy, mw, 26, ColorUtil.withAlpha(work.popover, 240));
             g.text(font, Component.literal(message), panelX + panelW / 2 - font.width(message) / 2, myy + 6, work.foreground);
         }
@@ -175,25 +227,26 @@ public class ThemeEditorScreen extends Screen {
     }
 
     private void drawPresets(GuiGraphicsExtractor g) {
-        String[] names = {"Dark", "Light", "Amoled"};
-        ThemeData[] presets = {ThemePresets.DARK, ThemePresets.LIGHT, ThemePresets.AMOLED};
-        int cardH = 36;
-        for (int i = 0; i < 3; i++) {
-            int x = railX, y = railY + i * (cardH + Spacing.S2), w = railW;
-            boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + cardH;
+        String[] names = {"Lunar", "Dark", "Light", "Amoled"};
+        ThemeData[] presets = {ThemePresets.LUNAR, ThemePresets.DARK, ThemePresets.LIGHT, ThemePresets.AMOLED};
+        for (int i = 0; i < PRESETS_COUNT; i++) {
+            int x = railX, y = railY + i * (PRESET_CARD_H + Spacing.S2), w = railW;
+            boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + PRESET_CARD_H;
             boolean active = work.preset.equalsIgnoreCase(names[i]);
-            Panel.draw(g, x, y, w, cardH, ColorUtil.withAlpha(presets[i].card, hover ? 255 : 220));
-            g.fill(x, y, 4, cardH, presets[i].accent);
-            g.text(font, Component.literal(names[i]), x + Spacing.S3, y + (cardH - font.lineHeight) / 2, presets[i].foreground);
-            if (active) g.text(font, Component.literal("\u2713"), x + w - Spacing.S4, y + (cardH - font.lineHeight) / 2, presets[i].accent);
+            Panel.draw(g, x, y, w, PRESET_CARD_H, ColorUtil.withAlpha(presets[i].card, hover ? 255 : 220));
+            g.fill(x, y, 4, PRESET_CARD_H, presets[i].accent);
+            g.text(font, Component.literal(names[i]), x + Spacing.S3, y + (PRESET_CARD_H - font.lineHeight) / 2, presets[i].foreground);
+            if (active) g.text(font, Component.literal("\u2713"), x + w - Spacing.S4, y + (PRESET_CARD_H - font.lineHeight) / 2, presets[i].accent);
         }
     }
 
     private void drawPreview(GuiGraphicsExtractor g) {
-        int px = railX, py = railY + 3 * (36 + Spacing.S2) + Spacing.S2;
-        int pw = railW, ph = railH - (py - railY) - Spacing.S2;
-        if (ph < 80) return;
-        g.text(font, Component.literal("Preview"), px, py - font.lineHeight - 4, ColorUtil.withAlpha(work.mutedForeground, 220));
+        int labelY = railY + PRESETS_H + Spacing.S2;
+        int py = labelY + font.lineHeight + Spacing.S1;
+        int px = railX, pw = railW;
+        int ph = railY + railH - py - Spacing.S2;
+        if (ph < 120) return;
+        g.text(font, Component.literal("Preview"), px, labelY, ColorUtil.withAlpha(work.mutedForeground, 220));
         Panel.draw(g, px, py, pw, ph, ColorUtil.withAlpha(work.card, 235));
         int cx = px + Spacing.S3, cy = py + Spacing.S3;
         Panel.draw(g, cx, cy, pw - Spacing.S6, 40, ColorUtil.withAlpha(work.background, 220));
@@ -211,12 +264,32 @@ public class ThemeEditorScreen extends Screen {
     }
 
     private void drawSettingsList(GuiGraphicsExtractor g, float delta) {
+        Panel.draw(g, listX, listY, listW, listH, ColorUtil.withAlpha(work.background, 30));
+        scroll.h = listH;
         scroll.render(g, font, listX, listY, listW, mx, my, delta);
+
+        if (colorPicker == null && mx >= listX && mx <= listX + listW && my >= listY && my <= listY + listH) {
+            Widget child = scroll.childAt(my);
+            if (child instanceof Tip t && t.tip() != null && !t.tip().isEmpty()) {
+                renderTooltip(g, t.tip());
+            }
+        }
+    }
+
+    private void renderTooltip(GuiGraphicsExtractor g, String tip) {
+        int tw = font.width(tip) + 10;
+        int tx = mx + 12;
+        int ty = my - 22;
+        if (tx + tw > width) tx = mx - tw - 12;
+        if (ty < 0) ty = my + 12;
+        int th = font.lineHeight + 6;
+        Panel.draw(g, tx, ty, tw, th, ColorUtil.withAlpha(work.popover, 240));
+        g.text(font, Component.literal(tip), tx + 5, ty + 3, work.popoverForeground);
     }
 
     private void drawFooter(GuiGraphicsExtractor g) {
-        int by = panelY + panelH - Spacing.S8;
         int bw = collapsedPreview ? 80 : 96, bh = 28, gap = collapsedPreview ? Spacing.S2 : Spacing.S3;
+        int by = footerY + (FOOTER_H - bh) / 2;
         int total = bw * 3 + gap * 2;
         int startX = panelX + (panelW - total) / 2;
 
@@ -256,12 +329,11 @@ public class ThemeEditorScreen extends Screen {
             return true;
         }
 
-        String[] names = {"Dark", "Light", "Amoled"};
-        ThemeData[] presets = {ThemePresets.DARK, ThemePresets.LIGHT, ThemePresets.AMOLED};
-        int cardH = 36;
-        for (int i = 0; i < 3; i++) {
-            int x = railX, y = railY + i * (cardH + Spacing.S2), w = railW;
-            if (inButton((int) mxx, (int) myy, x, y, w, cardH)) {
+        String[] names = {"Lunar", "Dark", "Light", "Amoled"};
+        ThemeData[] presets = {ThemePresets.LUNAR, ThemePresets.DARK, ThemePresets.LIGHT, ThemePresets.AMOLED};
+        for (int i = 0; i < PRESETS_COUNT; i++) {
+            int x = railX, y = railY + i * (PRESET_CARD_H + Spacing.S2), w = railW;
+            if (inButton((int) mxx, (int) myy, x, y, w, PRESET_CARD_H)) {
                 work = presets[i].clone();
                 work.preset = names[i];
                 buildItems();
@@ -269,8 +341,8 @@ public class ThemeEditorScreen extends Screen {
             }
         }
 
-        int by = panelY + panelH - Spacing.S8;
         int bw = collapsedPreview ? 80 : 96, bh = 28, gap = collapsedPreview ? Spacing.S2 : Spacing.S3;
+        int by = footerY + (FOOTER_H - bh) / 2;
         int totalW = bw * 3 + gap * 2;
         int startX = panelX + (panelW - totalW) / 2;
         if (inButton((int) mxx, (int) myy, startX, by, bw, bh)) { apply(); return true; }
@@ -318,47 +390,77 @@ public class ThemeEditorScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; }
 
-    private static class ThemeHeader implements Widget {
+    private class ThemeHeader implements Widget, Tip {
         private final String text;
-        ThemeHeader(String t) { this.text = t; }
-        @Override
-        public int getWidth() {
-        return 0;
-    }
+        private final boolean collapsible;
+        private final boolean expanded;
+        private final String tooltip;
 
-    public int getHeight() { return Spacing.S6; }
+        ThemeHeader(String t, boolean collapsible, boolean expanded, String tooltip) {
+            this.text = t; this.collapsible = collapsible; this.expanded = expanded; this.tooltip = tooltip;
+        }
+
+        @Override
+        public int getWidth() { return 0; }
+
+        @Override
+        public int getHeight() { return Spacing.S8; }
+
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
             int ay = y + Spacing.S2;
-            g.fill(x, ay, x + 3, ay + f.lineHeight + 2, Theme.getAnimatedAccent());
-            g.text(f, Component.literal(text), x + Spacing.S2, ay, Theme.FOREGROUND);
+            g.fill(x, ay, x + 3, ay + f.lineHeight + 2, ColorUtil.withAlpha(work.accent, 220));
+            if (collapsible) {
+                String arrow = expanded ? "\u25BC" : "\u25B6";
+                g.text(f, Component.literal(arrow), x + Spacing.S2, ay, ColorUtil.withAlpha(work.mutedForeground, 200));
+                g.text(f, Component.literal(text), x + Spacing.S3 + f.width(arrow), ay, work.foreground);
+            } else {
+                g.text(f, Component.literal(text), x + Spacing.S2, ay, work.foreground);
+            }
         }
+
         @Override
-        public boolean mouseClicked(double mx, double my, int button) { return false; }
+        public boolean mouseClicked(double mx, double my, int button) {
+            if (button == 0 && collapsible) {
+                sectionExpanded.put(text, !Boolean.TRUE.equals(sectionExpanded.get(text)));
+                buildItems();
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public String tip() { return tooltip; }
     }
 
-    private class ThemeColorItem implements Widget {
+    private class ThemeColorItem implements Widget, Tip {
         private final String name;
+        private final String tooltip;
         private final Supplier<Integer> get;
         private final Consumer<Integer> set;
         private int lastX, lastY, lastW;
 
-        ThemeColorItem(String n, Supplier<Integer> g, Consumer<Integer> s) {
-            this.name = n; this.get = g; this.set = s;
+        ThemeColorItem(String n, String tip, Supplier<Integer> g, Consumer<Integer> s) {
+            this.name = n; this.tooltip = tip; this.get = g; this.set = s;
         }
 
         @Override
-        public int getWidth() {
-        return 0;
-    }
+        public int getWidth() { return 0; }
 
-    public int getHeight() { return Theme.ROW_H(); }
+        @Override
+        public int getHeight() { return Theme.ROW_H(); }
+
+        @Override
+        public String tip() { return tooltip; }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
             lastX = x; lastY = y; lastW = w;
             int rh = Theme.ROW_H();
-            g.text(f, Component.literal(name), x, y + (rh - f.lineHeight) / 2, work.foreground);
+            if (mx >= x && mx <= x + w && my >= y && my <= y + rh) {
+                g.fill(x, y, x + w, y + rh, ColorUtil.withAlpha(work.accent, 8));
+            }
+            g.text(f, Component.literal(name), x + Spacing.S1, y + (rh - f.lineHeight) / 2, work.foreground);
             int sw = 22, sx = x + w - sw - 4, sy = y + (rh - sw) / 2;
             g.fill(sx - 1, sy - 1, sx + sw + 1, sy + sw + 1, 0x44000000);
             g.fill(sx, sy, sx + sw, sy + sw, 0xFF000000 | get.get());
@@ -380,8 +482,9 @@ public class ThemeEditorScreen extends Screen {
         }
     }
 
-    private class ThemeSliderItem implements Widget {
+    private class ThemeSliderItem implements Widget, Tip {
         private final String name;
+        private final String tooltip;
         private final int min, max;
         private final Supplier<Integer> get;
         private final Consumer<Integer> set;
@@ -389,28 +492,33 @@ public class ThemeEditorScreen extends Screen {
         private boolean dragging;
         private int lastX, lastY, lastW;
 
-        ThemeSliderItem(String n, int mn, int mx2, Supplier<Integer> g, Consumer<Integer> s) {
-            this(n, mn, mx2, g, s, v -> String.valueOf(v));
+        ThemeSliderItem(String n, String tip, int mn, int mx2, Supplier<Integer> g, Consumer<Integer> s) {
+            this(n, tip, mn, mx2, g, s, v -> String.valueOf(v));
         }
 
-        ThemeSliderItem(String n, int mn, int mx2, Supplier<Integer> g, Consumer<Integer> s, Function<Integer, String> fmt) {
-            this.name = n; this.min = mn; this.max = mx2; this.get = g; this.set = s; this.fmt = fmt;
+        ThemeSliderItem(String n, String tip, int mn, int mx2, Supplier<Integer> g, Consumer<Integer> s, Function<Integer, String> fmt) {
+            this.name = n; this.tooltip = tip; this.min = mn; this.max = mx2; this.get = g; this.set = s; this.fmt = fmt;
         }
 
         @Override
-        public int getWidth() {
-        return 0;
-    }
+        public int getWidth() { return 0; }
 
-    public int getHeight() { return Theme.ROW_H(); }
+        @Override
+        public int getHeight() { return Theme.ROW_H(); }
+
+        @Override
+        public String tip() { return tooltip; }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
             lastX = x; lastY = y; lastW = w;
             int rh = Theme.ROW_H();
+            if (mx >= x && mx <= x + w && my >= y && my <= y + rh) {
+                g.fill(x, y, x + w, y + rh, ColorUtil.withAlpha(work.accent, 8));
+            }
             int valW = 46;
-            int trackX = x, trackW = w - valW - Spacing.S2, trackY = y + rh - 12, trackH = 6;
-            g.text(f, Component.literal(name), x, y + 4, work.foreground);
+            int trackX = x, trackW = w - valW - Spacing.S2, trackY = y + rh - 14, trackH = 6;
+            g.text(f, Component.literal(name), x + Spacing.S1, y + 4, work.foreground);
             g.text(f, Component.literal(fmt.apply(get.get())), x + w - valW, y + 4, ColorUtil.withAlpha(work.mutedForeground, 220));
             g.fill(trackX, trackY, trackX + trackW, trackY + trackH, ColorUtil.withAlpha(work.border, 200));
             float t = (get.get() - min) / (float) (max - min);
@@ -423,7 +531,7 @@ public class ThemeEditorScreen extends Screen {
         public boolean mouseClicked(double mx, double my, int button) {
             int rh = Theme.ROW_H();
             int valW = 46;
-            int trackX = lastX, trackW = lastW - valW - Spacing.S2, trackY = lastY + rh - 12, trackH = 6;
+            int trackX = lastX, trackW = lastW - valW - Spacing.S2, trackY = lastY + rh - 14, trackH = 6;
             if (mx >= trackX && mx <= trackX + trackW && my >= trackY - 5 && my <= trackY + trackH + 5) {
                 dragging = true; update((int) mx, trackX, trackW); return true;
             }
@@ -443,29 +551,35 @@ public class ThemeEditorScreen extends Screen {
         }
     }
 
-    private class ThemeModeItem implements Widget {
+    private class ThemeModeItem implements Widget, Tip {
         private final String name;
+        private final String tooltip;
         private final String[] opts;
         private final Supplier<Integer> get;
         private final Consumer<Integer> set;
         private int lastX, lastY, lastW;
 
-        ThemeModeItem(String n, String[] o, Supplier<Integer> g, Consumer<Integer> s) {
-            this.name = n; this.opts = o; this.get = g; this.set = s;
+        ThemeModeItem(String n, String tip, String[] o, Supplier<Integer> g, Consumer<Integer> s) {
+            this.name = n; this.tooltip = tip; this.opts = o; this.get = g; this.set = s;
         }
 
         @Override
-        public int getWidth() {
-        return 0;
-    }
+        public int getWidth() { return 0; }
 
-    public int getHeight() { return Theme.ROW_H(); }
+        @Override
+        public int getHeight() { return Theme.ROW_H(); }
+
+        @Override
+        public String tip() { return tooltip; }
 
         @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
             lastX = x; lastY = y; lastW = w;
             int rh = Theme.ROW_H();
-            g.text(f, Component.literal(name), x, y + (rh - f.lineHeight) / 2, work.foreground);
+            if (mx >= x && mx <= x + w && my >= y && my <= y + rh) {
+                g.fill(x, y, x + w, y + rh, ColorUtil.withAlpha(work.accent, 8));
+            }
+            g.text(f, Component.literal(name), x + Spacing.S1, y + (rh - f.lineHeight) / 2, work.foreground);
             int sel = (int) Anim.clamp(get.get(), 0, opts.length - 1);
             int lw = f.width(opts[sel]) + Spacing.S4;
             int lx = x + w - lw;
@@ -488,14 +602,15 @@ public class ThemeEditorScreen extends Screen {
         }
     }
 
-    private class ThemeToggleItem implements Widget {
+    private class ThemeToggleItem implements Widget, Tip {
         private final String name;
+        private final String tooltip;
         private final Supplier<Boolean> get;
         private final Consumer<Boolean> set;
         private int lastX, lastY, lastW;
 
-        ThemeToggleItem(String n, Supplier<Boolean> g, Consumer<Boolean> s) {
-            this.name = n; this.get = g; this.set = s;
+        ThemeToggleItem(String n, String tip, Supplier<Boolean> g, Consumer<Boolean> s) {
+            this.name = n; this.tooltip = tip; this.get = g; this.set = s;
         }
 
         @Override
@@ -505,10 +620,16 @@ public class ThemeEditorScreen extends Screen {
         public int getHeight() { return Theme.ROW_H(); }
 
         @Override
+        public String tip() { return tooltip; }
+
+        @Override
         public void render(GuiGraphicsExtractor g, Font f, int x, int y, int w, int mx, int my, float delta) {
             lastX = x; lastY = y; lastW = w;
             int rh = Theme.ROW_H();
-            g.text(f, Component.literal(name), x, y + (rh - f.lineHeight) / 2, work.foreground);
+            if (mx >= x && mx <= x + w && my >= y && my <= y + rh) {
+                g.fill(x, y, x + w, y + rh, ColorUtil.withAlpha(work.accent, 8));
+            }
+            g.text(f, Component.literal(name), x + Spacing.S1, y + (rh - f.lineHeight) / 2, work.foreground);
             boolean on = get.get();
             int tw = 36, th = 20;
             int tx = x + w - tw - Spacing.S2;

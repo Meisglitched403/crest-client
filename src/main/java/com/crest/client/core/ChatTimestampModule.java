@@ -16,13 +16,18 @@ import java.util.List;
 public class ChatTimestampModule implements CrestModule {
     private final BooleanSetting enabled = new BooleanSetting("Enabled", true);
     private final ColorSetting color = new ColorSetting("Timestamp Color", 0xFF888888);
-    private final IntegerSetting mode = new IntegerSetting("Format", 0, 2, 0); // 0=24h,1=12h,2=compact
+    private final IntegerSetting mode = new IntegerSetting("Format", 0, 2, 0);
+
+    static ChatTimestampModule INSTANCE;
 
     @Override public String getId() { return "chat_timestamp"; }
     @Override public String getName() { return "Chat Timestamp"; }
     @Override public String getDescription() { return "Adds a [HH:MM] timestamp to chat messages."; }
     @Override public String getCategory() { return "Chat"; }
     @Override public boolean isEnabled() { return true; }
+
+    @Override
+    public void onInitialize() { INSTANCE = this; }
 
     @Override
     public List<Setting<?>> getSettings() {
@@ -34,19 +39,17 @@ public class ChatTimestampModule implements CrestModule {
     }
 
     public static boolean isOn() {
-        var m = CrestModules.get("chat_timestamp");
-        return m instanceof ChatTimestampModule mod && CrestModules.isEnabled("chat_timestamp") && mod.enabled.get();
+        var mod = INSTANCE;
+        return mod != null && CrestModules.isEnabled("chat_timestamp") && mod.enabled.get();
     }
 
     public static int colorArgb() {
-        var m = CrestModules.get("chat_timestamp");
-        if (m instanceof ChatTimestampModule mod) return mod.color.get();
-        return 0xFF888888;
+        var mod = INSTANCE;
+        return mod != null ? mod.color.get() : 0xFF888888;
     }
 
     public static int formatMode() {
-        var m = CrestModules.get("chat_timestamp");
-        if (m instanceof ChatTimestampModule mod) return mod.mode.get();
-        return 0;
+        var mod = INSTANCE;
+        return mod != null ? mod.mode.get() : 0;
     }
 }

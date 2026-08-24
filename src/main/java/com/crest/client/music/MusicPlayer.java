@@ -38,6 +38,11 @@ public class MusicPlayer {
     private Thread playbackThread;
     private final Object pauseLock = new Object();
 
+    // Bumped every time a fresh playback thread is spawned; a dying loop only
+    // closes the audio output if it still owns the current generation, so an old
+    // thread's finally block cannot clobber the output a replacement just opened.
+    private volatile int outputGeneration;
+
     private Process audioProcess;
     private OutputStream audioOutput;
     private String audioBackend;
@@ -498,6 +503,7 @@ public class MusicPlayer {
 
     private void startPlaybackThread() {
         stopPlaybackThread();
+        outputGeneration++;
         playbackThread = new Thread(this::playbackLoop, "crest-music-playback");
         playbackThread.setDaemon(true);
         playbackThread.start();
@@ -508,7 +514,9 @@ public class MusicPlayer {
         playbackThread = null;
         if (old != null) {
             old.interrupt();
-            try { old.join(3000); } catch (InterruptedException ignored) {}
+            if (old != Thread.currentThread()) {
+                try { old.join(3000); } catch (InterruptedException ignored) {}
+            }
         }
         closeOutput();
     }
@@ -581,6 +589,7 @@ public class MusicPlayer {
     }
 
     private void playbackLoop() {
+        final int gen = outputGeneration;
         int frameCount = 0;
         try {
             if (!openOutput()) {
@@ -648,7 +657,7 @@ public class MusicPlayer {
             }
         } finally {
             System.out.println("[Crest Music] Playback thread ending, frames played=" + frameCount);
-            closeOutput();
+            if (gen == outputGeneration) closeOutput();
         }
     }
 }

@@ -30,8 +30,8 @@ import java.io.File;
 @Mixin(TitleScreen.class)
 public class TitleScreenSkinMixin {
 
-    @Unique private static final int PANEL_W = 200;
-    @Unique private static final int PANEL_H = 260;
+    @Unique private int panelW = 200;
+    @Unique private int panelH = 260;
     @Unique private static final float MODEL_H = 2.125F;
     @Unique private static final float FIT = 0.97F;
     @Unique private static final float ROT_SENS = 2.5F;
@@ -62,10 +62,10 @@ public class TitleScreenSkinMixin {
     private int crest$btn(int i) {
         // button y inside panel: Upload, Search, Apply (stacked at bottom)
         int bx = panelX + 12;
-        int bw = PANEL_W - 24;
+        int bw = panelW - 24;
         int bh = 26;
         int gap = 8;
-        int baseY = panelY + PANEL_H - 12 - bh;
+        int baseY = panelY + panelH - 12 - bh;
         return baseY - i * (bh + gap);
     }
 
@@ -76,18 +76,20 @@ public class TitleScreenSkinMixin {
         Minecraft mc = Minecraft.getInstance();
         int w = g.guiWidth();
         int h = g.guiHeight();
-        panelX = w - PANEL_W - 16;
-        panelY = h - PANEL_H - 16;
+        panelW = Math.max(160, Math.min((int)(w * 0.17), 320));
+        panelH = Math.max(220, Math.min((int)(h * 0.38), 420));
+        panelX = w - panelW - 16;
+        panelY = h - panelH - 16;
 
         // 3D model area rect (computed first so the scrim can use it)
         int modelX = panelX + 10;
         int modelY = panelY + 44;
-        int modelW = PANEL_W - 20;
-        int modelH = PANEL_H - 150;
+        int modelW = panelW - 20;
+        int modelH = panelH - 184;
         if (modelH < 40) modelH = 40;
 
         // Panel: just a border (+ subtle scrim behind the model for contrast)
-        Panel.drawHollowRect(g, panelX, panelY, PANEL_W, PANEL_H, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 200));
+        Panel.drawHollowRect(g, panelX, panelY, panelW, panelH, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 200));
         g.fill(modelX, modelY, modelX + modelW, modelY + modelH, ColorUtil.withAlpha(Theme.BACKGROUND, 90));
 
         // Title
@@ -116,6 +118,27 @@ public class TitleScreenSkinMixin {
             rotY += delta * 12.0F;
         }
         rotY %= 360.0F;
+
+        float t = System.currentTimeMillis() * 0.001f;
+        float armSwing = (float) Math.sin(t * 1.5) * 0.3f;
+        float legSwing = (float) Math.sin(t * 1.5 + Math.PI) * 0.15f;
+        float headBob = (float) Math.sin(t * 0.8) * 0.1f;
+        float bodySway = (float) Math.sin(t * 0.6) * 0.05f;
+        model.head.xRot = headBob;
+        model.head.yRot = (float) Math.sin(t * 0.5) * 0.15f;
+        model.hat.xRot = model.head.xRot;
+        model.hat.yRot = model.head.yRot;
+        model.rightArm.xRot = armSwing;
+        model.leftArm.xRot = -armSwing;
+        model.rightLeg.xRot = legSwing;
+        model.leftLeg.xRot = -legSwing;
+        model.body.xRot = bodySway;
+        model.rightSleeve.xRot = model.rightArm.xRot;
+        model.leftSleeve.xRot = model.leftArm.xRot;
+        model.rightPants.xRot = model.rightLeg.xRot;
+        model.leftPants.xRot = model.leftLeg.xRot;
+        model.jacket.xRot = model.body.xRot;
+
         g.skin(model, skin.body().texturePath(), scale, rotX, rotY, -1.0625F,
                 modelX, modelY, modelX + modelW, modelY + modelH);
 
@@ -123,13 +146,14 @@ public class TitleScreenSkinMixin {
         crest$drawButton(g, "Upload Skin", crest$btn(2));
         crest$drawButton(g, "Search User", crest$btn(1));
         crest$drawButton(g, "Apply to me", crest$btn(0));
+        crest$drawButton(g, "Cosmetics", crest$btn(3));
     }
 
     @Unique
     private void crest$drawButton(GuiGraphicsExtractor g, String label, int by) {
         Minecraft mc = Minecraft.getInstance();
         int bx = panelX + 12;
-        int bw = PANEL_W - 24;
+        int bw = panelW - 24;
         int bh = 26;
         boolean h = isHover(bx, by, bw, bh);
         Panel.draw(g, bx, by, bw, bh, h ? ColorUtil.withAlpha(Theme.getAnimatedAccent(), 40) : ColorUtil.withAlpha(Theme.BACKGROUND, 120));
@@ -157,16 +181,24 @@ public class TitleScreenSkinMixin {
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void crest$click(MouseButtonEvent event, boolean doubleClick, CallbackInfoReturnable<Boolean> ci) {
-        if (event.buttonInfo().input() != 0) return;
+        int btn = event.buttonInfo().input();
+        if (btn != 0 && btn != 1) return;
         double mx = event.x(), my = event.y();
-        if (mx < panelX || mx > panelX + PANEL_W || my < panelY || my > panelY + PANEL_H) return;
+        if (mx < panelX || mx > panelX + panelW || my < panelY || my > panelY + panelH) return;
         dragging = false;
 
-        // Model drag area
+        // Model drag area - double click or right click opens cosmetics hub
         int modelX = panelX + 10, modelY = panelY + 44;
-        int modelW = PANEL_W - 20, modelH = PANEL_H - 150;
+        int modelW = panelW - 20, modelH = panelH - 184;
         if (modelH < 40) modelH = 40;
         if (mx >= modelX && mx <= modelX + modelW && my >= modelY && my <= modelY + modelH) {
+            if (doubleClick || btn == 1) {
+                // Open cosmetics hub on double-click or right-click
+                Minecraft.getInstance().setScreen(new com.crest.client.cosmetics.CosmeticsHubScreen((TitleScreen)(Object)this));
+                ci.cancel();
+                ci.setReturnValue(true);
+                return;
+            }
             dragging = true;
             lastDragX = (int) mx;
             lastDragY = (int) my;
@@ -175,22 +207,30 @@ public class TitleScreenSkinMixin {
             return;
         }
 
+        // Cosmetics button (top of the stack)
+        if (isHover(panelX + 12, crest$btn(3), panelW - 24, 26)) {
+            Minecraft.getInstance().setScreen(new com.crest.client.cosmetics.CosmeticsHubScreen((TitleScreen)(Object)this));
+            ci.cancel();
+            ci.setReturnValue(true);
+            return;
+        }
+
         // Search User button -> opens search screen
-        if (isHover(panelX + 12, crest$btn(1), PANEL_W - 24, 26)) {
+        if (isHover(panelX + 12, crest$btn(1), panelW - 24, 26)) {
             Minecraft.getInstance().setScreen(new SkinChangerScreen((TitleScreen) (Object) this));
             ci.cancel();
             ci.setReturnValue(true);
             return;
         }
         // Upload button
-        if (isHover(panelX + 12, crest$btn(2), PANEL_W - 24, 26)) {
+        if (isHover(panelX + 12, crest$btn(2), panelW - 24, 26)) {
             crest$openFilePicker();
             ci.cancel();
             ci.setReturnValue(true);
             return;
         }
         // Apply button
-        if (isHover(panelX + 12, crest$btn(0), PANEL_W - 24, 26)) {
+        if (isHover(panelX + 12, crest$btn(0), panelW - 24, 26)) {
             SkinChanger.applyToLocalPlayer();
             ci.cancel();
             ci.setReturnValue(true);

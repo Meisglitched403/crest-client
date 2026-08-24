@@ -25,6 +25,9 @@ public class ReplayBufferModule implements CrestModule {
     public boolean isEnabled() { return enabled.get(); }
 
     @Override
+    public boolean selfHandlesKeybinds() { return true; }
+
+    @Override
     public List<Setting<?>> getSettings() {
         return List.of(enabled, duration, saveKey);
     }

@@ -18,6 +18,7 @@ public class KeybindRow implements Widget {
 
     public void setOnCapture(BiConsumer<String, KeybindSetting> onCapture) { this.onCapture = onCapture; }
     public void setCapturing(boolean v) { capturing = v; }
+    public KeybindSetting getSetting() { return setting; }
 
     @Override
     public int getWidth() {

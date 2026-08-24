@@ -28,7 +28,7 @@ public class BackgroundLoadingOverlayMixin {
     @Inject(method = "isPauseScreen", at = @At("HEAD"), cancellable = true)
     private void rrls$isPauseScreen(CallbackInfoReturnable<Boolean> cir) {
         Minecraft mc = Minecraft.getInstance();
-        if (BackgroundResourceLoaderModule.isActive() && mc.level != null) {
+        if (BackgroundResourceLoaderModule.shouldHideOverlay(mc)) {
             cir.setReturnValue(false);
         }
     }
@@ -36,7 +36,7 @@ public class BackgroundLoadingOverlayMixin {
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
     private void rrls$onRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        if (!BackgroundResourceLoaderModule.isActive() || mc.level == null) return;
+        if (!BackgroundResourceLoaderModule.shouldHideOverlay(mc)) return;
 
         long window = mc.getWindow().handle();
         if (window != 0 && GLFW.glfwGetKey(window, GLFW.GLFW_KEY_ESCAPE) == GLFW.GLFW_PRESS) {
@@ -105,7 +105,7 @@ public class BackgroundLoadingOverlayMixin {
     @Inject(method = "tick", at = @At("HEAD"))
     private void rrls$onTick(CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        if (BackgroundResourceLoaderModule.isActive() && mc.level != null) {
+        if (BackgroundResourceLoaderModule.shouldHideOverlay(mc)) {
             BackgroundResourceLoaderModule.setCurrentLoading(true);
 
             if (this.rrls$createdAt == -1L) {

@@ -11,16 +11,27 @@ import net.minecraft.client.renderer.entity.TntRenderer;
 import net.minecraft.client.renderer.entity.state.TntRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Mixin(TntRenderer.class)
 public class TntTimerMixin {
+
+    // ponytail: cache the shaped text so repeated fuse values (several TNT lit
+    // together) don't re-run String.format + Component shaping per entity per frame.
+    private static final Map<String, FormattedCharSequence> TEXT_CACHE =
+        new LinkedHashMap<>(32, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, FormattedCharSequence> eldest) {
+                return size() > 64;
+            }
+        };
 
     @Inject(method = "submit", at = @At("TAIL"))
     private void crest$renderTimer(
@@ -40,7 +51,8 @@ public class TntTimerMixin {
         }
 
         int textColor = TntTimerModule.getTextColor();
-        Component comp = Component.literal(text).withStyle(s -> s.withColor(TextColor.fromRgb(textColor & 0x00FFFFFF)));
+        FormattedCharSequence seq = TEXT_CACHE.computeIfAbsent(text,
+            t -> Component.literal(t).getVisualOrderText());
 
         float yOff = 1.5f + TntTimerModule.getOffset();
 
@@ -51,7 +63,6 @@ public class TntTimerMixin {
 
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
-        FormattedCharSequence seq = comp.getVisualOrderText();
         float x = -font.width(seq) / 2.0F;
 
         int bgColor;

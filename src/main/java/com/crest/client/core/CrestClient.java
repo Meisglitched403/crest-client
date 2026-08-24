@@ -24,12 +24,14 @@ import org.lwjgl.glfw.GLFW;
 
 public class CrestClient implements ClientModInitializer {
     private static final Identifier HUD_LAYER = Identifier.fromNamespaceAndPath("crest-client", "hud_renderer");
-    private static boolean firstRunOpen = CrestModules.isFirstRun();
 
     @Override
     public void onInitializeClient() {
         CrestModules.init();
         CrestBrandManager.init();
+
+        final boolean firstRunOpen = CrestModules.isFirstRun();
+        final java.util.concurrent.atomic.AtomicBoolean welcomePending = new java.util.concurrent.atomic.AtomicBoolean(firstRunOpen);
 
         CrestModules.register(new HudAppearanceModule());
         CrestModules.register(new ZoomModule());
@@ -103,10 +105,11 @@ public class CrestClient implements ClientModInitializer {
         CrestModules.register(new ComboModule());
         CrestModules.register(new ChatTimestampModule());
         CrestModules.register(new ToggleSneakModule());
+        CrestModules.register(new FullbrightModule());
 
         CrestModules.register(new CrestNametagModule());
 
-        SkinChanger.loadPersisted();
+        ClientTickEvents.END_CLIENT_TICK.register(client -> SkinChanger.loadPersisted());
 
         MusicModule.init();
 
@@ -131,8 +134,8 @@ public class CrestClient implements ClientModInitializer {
             CpsTracker.tick();
             ComboTracker.tick();
             KeybindManager.processTick();
-            if (firstRunOpen) {
-                firstRunOpen = false;
+            if (welcomePending.get()) {
+                welcomePending.set(false);
                 if (client.player != null && client.screen == null) {
                     client.setScreen(new CrestMenu());
                     client.player.sendSystemMessage(

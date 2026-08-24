@@ -5,6 +5,7 @@ import com.crest.client.core.setting.ColorSetting;
 import com.crest.client.core.setting.IntegerSetting;
 import com.crest.client.core.setting.ModeSetting;
 import com.crest.client.core.setting.Setting;
+import com.crest.client.core.setting.SettingGroup;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.ShapeRenderer;
@@ -12,14 +13,16 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * ponytail: Hitbox + HitColor. Draws entity bounding boxes in the world via the
@@ -54,39 +57,50 @@ public class HitboxModule implements CrestModule {
         return s;
     }
 
+    @Override
+    public List<SettingGroup> getSettingGroups() {
+        return List.of(
+            new SettingGroup("Entity Types", true, 
+                showPlayers, showMobs, showAnimals),
+            new SettingGroup("Appearance", true,
+                filled, colorMode, color, lineWidth),
+            new SettingGroup("Range", true, range)
+        );
+    }
+
     public void drawWorldBoxes(PoseStack ps, MultiBufferSource.BufferSource buffer, CameraRenderState cam) {
         if (!CrestModules.isEnabled("hitbox")) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
         if (cam == null) return;
 
-        var lines = buffer.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.lines());
-        var box = filled.get()
-            ? buffer.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.debugFilledBox())
-            : null;
-
         double r2 = (double) range.get() * range.get();
 
+        List<Object[]> shapes = new ArrayList<>();
         ps.pushPose();
         for (Entity e : mc.level.getEntities(mc.player, mc.player.getBoundingBox().inflate(range.get()), e -> true)) {
             if (e == mc.player) continue;
             if (!wants(e)) continue;
             if (e.distanceToSqr(mc.player) > r2) continue;
-
-            AABB aabb = e.getBoundingBox();
-            int col = pickColor(mc, e);
-
-            VoxelShape vs = Shapes.create(aabb);
-            if (box != null) {
-                ShapeRenderer.renderShape(ps, box, vs, 0, 0, 0, (50 << 24) | (col & 0x00FFFFFF), 1.0F);
-            }
-            ShapeRenderer.renderShape(ps, lines, vs, 0, 0, 0, (0xFF << 24) | (col & 0x00FFFFFF), lineWidth.get());
+            shapes.add(new Object[]{Shapes.create(e.getBoundingBox()), pickColor(mc, e)});
         }
         ps.popPose();
-        buffer.endBatch(net.minecraft.client.renderer.rendertype.RenderTypes.lines());
-        if (box != null) {
+
+        if (filled.get()) {
+            VertexConsumer box = buffer.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.debugFilledBox());
+            for (Object[] s : shapes) {
+                ShapeRenderer.renderShape(ps, box, (VoxelShape) s[0], 0, 0, 0,
+                    (50 << 24) | ((Integer) s[1] & 0x00FFFFFF), 1.0F);
+            }
             buffer.endBatch(net.minecraft.client.renderer.rendertype.RenderTypes.debugFilledBox());
         }
+
+        VertexConsumer lines = buffer.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.lines());
+        for (Object[] s : shapes) {
+            ShapeRenderer.renderShape(ps, lines, (VoxelShape) s[0], 0, 0, 0,
+                (0xFF << 24) | ((Integer) s[1] & 0x00FFFFFF), lineWidth.get());
+        }
+        buffer.endBatch(net.minecraft.client.renderer.rendertype.RenderTypes.lines());
     }
 
     private boolean wants(Entity e) {
@@ -112,16 +126,28 @@ public class HitboxModule implements CrestModule {
     private static boolean isTeammate(Minecraft mc, Player p, LivingEntity other) {
         if (!(other instanceof Player)) return false;
         if (mc.level == null) return false;
-        var sb = mc.level.getScoreboard();
-        String a = teamOf(sb, p.getName().getString());
-        String b = teamOf(sb, other.getName().getString());
+        var map = teamMap(mc.level.getScoreboard());
+        String a = map.get(p.getName().getString());
+        String b = map.get(other.getName().getString());
         return a != null && a.equals(b);
     }
 
-    private static String teamOf(net.minecraft.world.scores.Scoreboard sb, String name) {
-        for (var t : sb.getPlayerTeams()) {
-            if (t.getPlayers().contains(name)) return t.getName();
+    // name -> team, rebuilt at most once per second. Avoids re-scanning every
+    // team's roster for every entity on every frame.
+    private static final Map<String, String> teamByName = new HashMap<>();
+    private static long lastTeamBuild;
+
+    private static Map<String, String> teamMap(net.minecraft.world.scores.Scoreboard sb) {
+        long now = System.currentTimeMillis();
+        if (lastTeamBuild == 0 || now - lastTeamBuild > 1000) {
+            teamByName.clear();
+            for (var t : sb.getPlayerTeams()) {
+                for (String name : t.getPlayers()) {
+                    teamByName.put(name, t.getName());
+                }
+            }
+            lastTeamBuild = now;
         }
-        return null;
+        return teamByName;
     }
 }

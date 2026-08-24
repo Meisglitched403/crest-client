@@ -27,6 +27,7 @@ public class NotificationToast {
     }
 
     public static void render(GuiGraphicsExtractor g, int screenW, int screenH) {
+        if (active.isEmpty()) return;
         long now = System.currentTimeMillis();
         Minecraft mc = Minecraft.getInstance();
         if (mc.font == null) return;

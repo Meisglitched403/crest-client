@@ -1,0 +1,167 @@
+package com.crest.client.core;
+
+import com.crest.client.ui.Animated;
+import com.crest.client.ui.Anim;
+import com.crest.client.ui.ColorUtil;
+import com.crest.client.ui.Panel;
+import com.crest.client.ui.Slider;
+import com.crest.client.ui.Theme;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
+
+public class AnimationsScreen extends Screen {
+    private static final String CONFIG_SECTION = "crest_client";
+    private static final String CONFIG_KEY = "menu_anim_speed";
+    private static final float MIN_SPEED = 4f;
+    private static final float MAX_SPEED = 24f;
+    private static final float DEFAULT_SPEED = 12f;
+
+    private final Screen parent;
+    private final Slider speedSlider;
+    private final Animated previewAnim = new Animated(0f, DEFAULT_SPEED);
+    private boolean previewForward = true;
+    private int mx, my;
+    private int sliderX, sliderY, sliderW;
+
+    public AnimationsScreen(Screen parent) {
+        super(Component.literal("Animations"));
+        this.parent = parent;
+        speedSlider = new Slider(MIN_SPEED, MAX_SPEED, getMenuAnimSpeed(), this::onSpeedChanged);
+    }
+
+    public static void open(Screen parent) {
+        Minecraft.getInstance().setScreen(new AnimationsScreen(parent));
+    }
+
+    public static float getMenuAnimSpeed() {
+        try {
+            float v = CrestModules.getConfigManager().getFloat(CONFIG_SECTION, CONFIG_KEY);
+            if (v >= MIN_SPEED && v <= MAX_SPEED) return v;
+        } catch (Exception ignored) {}
+        return DEFAULT_SPEED;
+    }
+
+    private void onSpeedChanged(float v) {
+        CrestModules.getConfigManager().set(CONFIG_SECTION, CONFIG_KEY, v);
+        CrestModules.getConfigManager().save();
+    }
+
+    @Override
+    protected void init() {
+        Theme.load();
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        this.mx = mx;
+        this.my = my;
+        Theme.tick(delta);
+
+        int pX = 40, pY = 40, pW = width - 80, pH = height - 80;
+
+        g.fill(0, 0, width, height, ColorUtil.withAlpha(Theme.GLASS_BG, (int) (Theme.glassOpacity * 0.9f)));
+        Panel.draw(g, pX, pY, pW, pH, Theme.GLASS_BG);
+        Panel.drawHollowRect(g, pX, pY, pW, pH, Theme.BORDER_LIGHT);
+
+        int accent = Theme.getAnimatedAccent();
+        int cx = pX + 20;
+        g.text(font, Component.literal("Animations"), cx, pY + 16, Theme.FOREGROUND);
+        g.text(font, Component.literal("Controls how the Crest menu pops in and out."),
+            cx, pY + 32, Theme.MUTED_FOREGROUND);
+
+        // --- Menu animation speed ---
+        int rowY = pY + 60;
+        g.fill(cx, rowY, cx + 3, rowY + font.lineHeight + 2, accent);
+        g.text(font, Component.literal("Menu Animation Speed"), cx + 8, rowY, Theme.FOREGROUND);
+        rowY += font.lineHeight + 10;
+
+        sliderX = cx;
+        sliderY = rowY;
+        sliderW = Math.min(pW - 160, 320);
+
+        float v = speedSlider.getValue();
+        String tier = v < 8 ? "Slow" : (v <= 16 ? "Balanced" : "Snappy");
+        String valLabel = String.format("%.1f", v) + "  (" + tier + ")";
+        speedSlider.render(g, font, sliderX, sliderY, sliderW, mx, my, delta);
+        int sliderH = speedSlider.getHeight();
+        g.text(font, Component.literal(valLabel), sliderX + sliderW + 12,
+            sliderY + (sliderH - font.lineHeight) / 2, accent);
+        rowY += sliderH + 8;
+
+        g.text(font, Component.literal("Higher values make the menu snap open faster."),
+            cx, rowY, ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 170));
+        rowY += 24;
+
+        // --- Live preview: ping-pong bar driven at the current speed ---
+        g.fill(cx, rowY, cx + 3, rowY + font.lineHeight + 2, accent);
+        g.text(font, Component.literal("Preview"), cx + 8, rowY, Theme.FOREGROUND);
+        rowY += font.lineHeight + 10;
+
+        previewAnim.setSpeed(v);
+        previewAnim.set(previewForward ? 1f : 0f);
+        previewAnim.tick(delta);
+        if (Math.abs(previewAnim.get() - previewAnim.getTarget()) < 0.02f) {
+            previewForward = !previewForward;
+        }
+        int trackW = Math.min(pW - 40, 420);
+        int trackH = 14;
+        g.fill(cx, rowY, cx + trackW, rowY + trackH, ColorUtil.withAlpha(Theme.MUTED, 120));
+        Panel.drawHollowRect(g, cx, rowY, trackW, trackH, Theme.BORDER_LIGHT);
+        int fillW = (int) ((trackW - 2) * Anim.easeOutCubic(previewAnim.get()));
+        if (fillW > 0) g.fill(cx + 1, rowY + 1, cx + 1 + fillW, rowY + trackH - 1, accent);
+
+        g.text(font, Component.literal("ESC to go back"),
+            cx, height - 56, Theme.MUTED_FOREGROUND);
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mxx = event.x(), myy = event.y();
+        int btn = event.buttonInfo().input();
+        if (btn == 0 && mxx >= sliderX && mxx <= sliderX + sliderW
+            && myy >= sliderY - 4 && myy <= sliderY + speedSlider.getHeight() + 4) {
+            speedSlider.mouseClicked(mxx, myy, btn);
+            return true;
+        }
+        return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (speedSlider.dragging) {
+            speedSlider.mouseDragged(event.x(), event.y());
+            return true;
+        }
+        return super.mouseDragged(event, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        speedSlider.stopDrag();
+        return super.mouseReleased(event);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+            onClose();
+            return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
+    public void onClose() {
+        minecraft.setScreen(parent);
+    }
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+}

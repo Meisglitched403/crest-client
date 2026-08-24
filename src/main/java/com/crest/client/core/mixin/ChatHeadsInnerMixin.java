@@ -43,7 +43,13 @@ public abstract class ChatHeadsInnerMixin {
         chatOffset.set(offset);
 
         int y = args.get(0);
-        ChatHeadsHelper.renderHead(ChatHeadsHelper.guiGraphics, 2, y, owner, headSize);
+        float opacity = args.get(1);
+        
+        // Use actual font line height for proper vertical centering
+        int textHeight = net.minecraft.client.Minecraft.getInstance().font.lineHeight;
+        int verticalOffset = Math.round((textHeight - headSize) / 2.0f);
+        
+        ChatHeadsHelper.renderHead(ChatHeadsHelper.guiGraphics, 0, y + verticalOffset, owner, headSize, opacity);
         if (ChatHeadsHelper.chatGraphicsAccess != null) {
             ChatHeadsHelper.chatGraphicsAccess.updatePose(p -> p.translate(offset, 0));
         }

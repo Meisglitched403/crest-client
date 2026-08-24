@@ -58,6 +58,22 @@ public class ScoreboardModule extends HudModule {
         return rows;
     }
 
+    // Scoreboards update only a few times per second, so cache the built rows and
+    // rebuild at most every 5 ticks instead of building + sorting 3x per frame.
+    private List<Row> cachedRows = List.of();
+    private Objective cachedObjective;
+    private int lastBuildTick = -1000;
+
+    private List<Row> rows(Objective obj) {
+        int tick = Minecraft.getInstance().gui.getGuiTicks();
+        if (obj != cachedObjective || tick - lastBuildTick >= 5) {
+            cachedObjective = obj;
+            lastBuildTick = tick;
+            cachedRows = buildRows(obj);
+        }
+        return cachedRows;
+    }
+
     @Override
     public int getWidth() {
         Minecraft mc = Minecraft.getInstance();
@@ -70,13 +86,13 @@ public class ScoreboardModule extends HudModule {
     public int getHeight() {
         Objective obj = currentObjective();
         if (obj == null) return LINE_H + PAD * 2;
-        int lines = 1 + buildRows(obj).size();
+        int lines = 1 + rows(obj).size();
         return lines * LINE_H + PAD * 2;
     }
 
     private int naturalWidth(Font font, Objective obj) {
         int w = font.width(obj.getDisplayName());
-        for (Row r : buildRows(obj)) {
+        for (Row r : rows(obj)) {
             w = Math.max(w, font.width(r.name) + font.width(" ") + font.width(r.score));
         }
         return w;
@@ -93,7 +109,7 @@ public class ScoreboardModule extends HudModule {
         int ry = y;
 
         Font font = mc.font;
-        List<Row> rows = buildRows(obj);
+        List<Row> rows = rows(obj);
 
         HudBackground.draw(g, rx, ry, boxW, boxH);
 

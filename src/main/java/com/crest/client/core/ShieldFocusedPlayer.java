@@ -21,12 +21,22 @@ import java.util.Map;
  * GUI shields always belong to the local player ({@link #setLocal()}).
  */
 public final class ShieldFocusedPlayer {
+    // Entries are per-frame ItemStackRenderState instances that are never removed,
+    // so bound the map to prevent unbounded growth over a long session.
+    private static final int MAX_OWNERS = 4096;
     private static final Map<ItemStackRenderState, Player> OWNERS = new IdentityHashMap<>();
+    private static int setsSinceClear;
     private static Player localFallback;
 
     /** Associate a held-item render state with the player that owns it. */
     public static void set(ItemStackRenderState state, Player player) {
-        if (state != null && player != null) OWNERS.put(state, player);
+        if (state != null && player != null) {
+            if (++setsSinceClear > MAX_OWNERS) {
+                OWNERS.clear();
+                setsSinceClear = 0;
+            }
+            OWNERS.put(state, player);
+        }
     }
 
     /** Resolve the player that owns the given render state, or the local player. */

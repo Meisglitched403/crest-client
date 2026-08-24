@@ -26,7 +26,8 @@ public class ToggleRow implements Widget {
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
         anim.set(setting.get() ? 1f : 0f);
         anim.tick(delta);
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        int centerY = y + (H - font.lineHeight) / 2;
+        g.text(font, Component.literal(setting.getName()), x + 2, centerY, Theme.ON_SURFACE_VARIANT);
 
         String state = setting.get() ? "ON" : "OFF";
         int stateW = font.width(state) + 8;
@@ -34,9 +35,9 @@ public class ToggleRow implements Widget {
         boolean stateHover = mx >= toggleX && mx <= toggleX + stateW && my >= y && my <= y + H;
         int stateColor = ColorUtil.lerpARGB(Theme.MUTED_FOREGROUND, Theme.TEXT_ON, anim.get());
         if (stateHover) stateColor = ColorUtil.lerpARGB(stateColor, 0xFFFFFFFF, 0.2f);
-        g.text(font, Component.literal(state), toggleX + 4, y + 4, stateColor);
+        g.text(font, Component.literal(state), toggleX + 4, centerY, stateColor);
 
-        ToggleSwitch.render(g, toggleX + stateW + 4, y + 3, setting.get(), anim.get());
+        ToggleSwitch.render(g, toggleX + stateW + 4, y + (H - ToggleSwitch.H) / 2, setting.get(), anim.get());
     }
 
     @Override

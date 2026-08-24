@@ -37,7 +37,7 @@
         "FrameCaptureMixin",
         "RenderBudgetMixin",
         "WhoamiMixin",
-        "ChatComponentAnimationMixin",
+        "ChatLineAnimationMixin",
         "ChatComponentOwnerMixin",
 
         "ChatScreenAnimationMixin",
@@ -53,6 +53,7 @@
         "ItemEntityMixin",
         "ScreenTooltipMixin",
         "LevelRendererHitboxMixin",
+        "LevelRendererWaypointsMixin",
         "ShaderManagerMixin",
         "GameRendererAccess",
         "ItemFeatureRendererMixin",

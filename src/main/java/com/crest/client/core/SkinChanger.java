@@ -29,8 +29,11 @@ public final class SkinChanger {
     private static PlayerSkin applied = null;
     private static String status = "";
     private static boolean loading = false;
+    private static boolean persistedLoaded = false;
 
     private SkinChanger() {}
+
+    private record PlayerSkinData(NativeImage image, PlayerModelType model) {}
 
     public static Supplier<PlayerSkin> supplier() {
         return SkinChanger::currentSkin;
@@ -52,6 +55,14 @@ public final class SkinChanger {
         status = s == null ? "" : s;
     }
 
+    public static String getAppliedLibraryId() {
+        String source = CrestModules.getConfigManager().getString("crest_client", "skin_source");
+        if (source != null && source.startsWith("lib:")) {
+            return source.substring(4);
+        }
+        return null;
+    }
+
     public static PlayerSkin getOverride() {
         return applied;
     }
@@ -68,18 +79,38 @@ public final class SkinChanger {
         status = "Applied to your player";
     }
 
+    public static void applySkin(PlayerSkin skin, String source) {
+        if (skin == null) {
+            status = "No skin to apply";
+            return;
+        }
+        current = skin;
+        applied = skin;
+        if (source != null) {
+            saveSource(source);
+        }
+        status = "Applied to your player";
+    }
+
     private static void saveSource(String source) {
         CrestModules.getConfigManager().set("crest_client", "skin_source", source);
         CrestModules.getConfigManager().save();
     }
 
     public static void loadPersisted() {
+        if (persistedLoaded) return;
+        persistedLoaded = true;
         String source = CrestModules.getConfigManager().getString("crest_client", "skin_source");
         if (source == null || source.isEmpty()) return;
         if (source.startsWith("path:")) {
             loadFromFile(new File(source.substring(5)));
         } else if (source.startsWith("user:")) {
             loadFromUsername(source.substring(5));
+        } else if (source.startsWith("lib:")) {
+            PlayerSkin skin = com.crest.client.cosmetics.SkinLibrary.getPlayerSkin(source.substring(4));
+            if (skin != null) {
+                applySkin(skin, null);
+            }
         }
     }
 
@@ -99,34 +130,38 @@ public final class SkinChanger {
         CompletableFuture.supplyAsync(() -> {
             try (FileInputStream in = new FileInputStream(file)) {
                 NativeImage src = NativeImage.read(in);
-                if (src == null) return (PlayerSkin) null;
+                if (src == null) return (PlayerSkinData) null;
                 int w = src.getWidth();
                 int h = src.getHeight();
                 if (w != 64 || (h != 32 && h != 64)) {
                     src.close();
-                    return (PlayerSkin) null;
+                    return (PlayerSkinData) null;
                 }
-                PlayerModelType model = detectModel(src);
+                return new PlayerSkinData(src, detectModel(src));
+            } catch (Exception e) {
+                return (PlayerSkinData) null;
+            }
+        }, Util.nonCriticalIoPool()).thenAccept(data -> Minecraft.getInstance().execute(() -> {
+            loading = false;
+            if (data == null) {
+                status = "Invalid skin (need 64x32 or 64x64 PNG)";
+                return;
+            }
+            try {
                 Identifier id = Identifier.fromNamespaceAndPath("crest-client",
                         "skin/upload/" + UUID.randomUUID().toString().replace("-", ""));
-                DynamicTexture tex = new DynamicTexture(id::toDebugFileName, src);
+                DynamicTexture tex = new DynamicTexture(id::toDebugFileName, data.image);
                 Minecraft.getInstance().getTextureManager().register(id, tex);
-                ClientAsset.Texture body = new ClientAsset.ResourceTexture(id);
-                return (PlayerSkin) PlayerSkin.insecure(body, null, null, model);
-            } catch (Exception e) {
-                return (PlayerSkin) null;
-            }
-        }, Util.nonCriticalIoPool()).thenAccept(skin -> {
-            loading = false;
-            if (skin != null) {
+                PlayerSkin skin = PlayerSkin.insecure(new ClientAsset.ResourceTexture(id), null, null, data.model);
                 current = skin;
-                status = "Loaded from file";
                 applied = skin;
+                status = "Loaded from file";
                 saveSource("path:" + file.getAbsolutePath());
-            } else {
+            } catch (Exception e) {
+                data.image.close();
                 status = "Invalid skin (need 64x32 or 64x64 PNG)";
             }
-        });
+        }));
     }
 
     public static void loadFromUsername(String name) {

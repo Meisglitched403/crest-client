@@ -37,6 +37,9 @@ public class StreamerModule implements CrestModule {
     public boolean isEnabled() { return true; }
 
     @Override
+    public boolean selfHandlesKeybinds() { return true; }
+
+    @Override
     public List<Setting<?>> getSettings() {
         return List.of(rtmpUrl, bitrate, fps, scale, encoder, encoderPreset, audioEnabled, audioDevice, recordWhileStreaming, streamKey);
     }

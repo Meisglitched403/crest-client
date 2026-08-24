@@ -43,7 +43,8 @@ public class SliderRow implements Widget {
             : (setting instanceof FloatSetting fs) ? fs.get() : 0);
         labelW = font.width(setting.getName()) + 4;
 
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        int centerY = y + (H - font.lineHeight) / 2;
+        g.text(font, Component.literal(setting.getName()), x + 2, centerY, Theme.ON_SURFACE_VARIANT);
 
         String valLabel = (setting instanceof FloatSetting)
             ? String.format("%.1f", slider.getValue())
@@ -56,8 +57,8 @@ public class SliderRow implements Widget {
         int valX = barX + barW + 6;
 
         slider.render(g, font, barX, y, barW, mx, my, delta);
-        g.fill(valX, y + 2, valX + valW, y + H - 2, ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 120));
-        g.centeredText(font, Component.literal(valLabel), valX + valW / 2, y + 4, Theme.ON_SURFACE);
+        g.fill(valX, y + 4, valX + valW, y + H - 4, ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 120));
+        g.centeredText(font, Component.literal(valLabel), valX + valW / 2, centerY, Theme.ON_SURFACE);
     }
 
     @Override

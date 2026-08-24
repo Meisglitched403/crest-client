@@ -37,9 +37,16 @@ public class ServerAddressModule extends HudModule {
         }
     }
 
+    private String cachedText;
+    private Component cachedComp;
+
     private void renderText(GuiGraphicsExtractor g, Minecraft mc, String text) {
+        if (!text.equals(cachedText)) {
+            cachedText = text;
+            cachedComp = Component.literal(text);
+        }
         int rx = x < 0 ? mc.getWindow().getGuiScaledWidth() - getRenderWidth() : x;
         HudBackground.draw(g, rx, y, getRenderWidth(), mc.font.lineHeight + 4);
-        g.text(mc.font, Component.literal(text), rx + 2, y + 2, 0xFFFFFFFF);
+        g.text(mc.font, cachedComp, rx + 2, y + 2, 0xFFFFFFFF);
     }
 }

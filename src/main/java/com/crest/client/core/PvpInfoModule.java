@@ -31,7 +31,7 @@ public class PvpInfoModule extends HudModule {
         super(-1, 200);
     }
 
-    @Override public String getId() { return "pvpingo"; }
+    @Override public String getId() { return "pvp_info"; }
     @Override public String getName() { return "PvP Info"; }
     @Override public String getDescription() { return "Shows health/armor/ping of the entity you are looking at."; }
     @Override public boolean isEnabled() { return false; }

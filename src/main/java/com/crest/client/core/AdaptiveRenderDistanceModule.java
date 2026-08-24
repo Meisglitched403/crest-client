@@ -44,6 +44,7 @@ public class AdaptiveRenderDistanceModule implements CrestModule {
 
     @Override
     public void onEnable() {
+        enabled.set(true);
         Minecraft mc = Minecraft.getInstance();
         if (mc.options != null) {
             savedDistance = mc.options.renderDistance().get();
@@ -55,6 +56,7 @@ public class AdaptiveRenderDistanceModule implements CrestModule {
 
     @Override
     public void onDisable() {
+        enabled.set(false);
         Minecraft mc = Minecraft.getInstance();
         if (mc.options != null && savedDistance >= 0) {
             mc.options.renderDistance().set(savedDistance);

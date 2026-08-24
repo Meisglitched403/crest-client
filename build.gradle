@@ -51,7 +51,9 @@ jar {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 26
+    // Mixin (sponge-mixin 0.17.x) tops out at compatibilityLevel JAVA_25 (class v69);
+    // compiling at 26 produced v70 mixins that trip its class-version check.
+    it.options.release = 25
 }
 
 java {
@@ -64,6 +66,7 @@ processResources {
 }
 
 tasks.named("runClient", JavaExec).configure {
+    jvmArgs "-Xmx${project.findProperty('mc_memory') ?: '2G'}"
     if (project.hasProperty("mc_username")) {
         args "--username", project.getProperty("mc_username")
     }

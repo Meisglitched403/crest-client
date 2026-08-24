@@ -20,7 +20,14 @@ public class ScrollContainer implements Widget {
 
     public ScrollContainer children(List<? extends Widget> children) {
         this.children = children;
-        contentH = children != null ? children.size() * rowH + 8 : 0;
+        if (children != null) {
+            contentH = 8;
+            for (Widget w : children) {
+                contentH += w.getHeight();
+            }
+        } else {
+            contentH = 0;
+        }
         return this;
     }
 
@@ -59,15 +66,22 @@ public class ScrollContainer implements Widget {
 
         g.enableScissor(x, y, x + w, y + h);
         int sy = y - (int) scrollOffset;
+        int currentY = sy;
         for (int i = 0; i < children.size(); i++) {
-            int cy = sy + i * rowH;
-            if (cy + rowH < y) continue;
-            if (cy > y + h) break;
-            boolean hover = hoverColor != 0 && mx >= x && mx <= x + w && my >= cy && my <= cy + rowH - 2;
-            if (hover) {
-                g.fill(x, cy, x + w, cy + rowH - 2, hoverColor);
+            Widget child = children.get(i);
+            int childH = child.getHeight();
+            int cy = currentY;
+            if (cy + childH < y) {
+                currentY += childH;
+                continue;
             }
-            children.get(i).render(g, font, x + 4, cy, w - 8, mx, my, delta);
+            if (cy > y + h) break;
+            boolean hover = hoverColor != 0 && mx >= x && mx <= x + w && my >= cy && my <= cy + childH - 2;
+            if (hover) {
+                g.fill(x, cy, x + w, cy + childH - 2, hoverColor);
+            }
+            child.render(g, font, x + 4, cy, w - 8, mx, my, delta);
+            currentY += childH;
         }
         g.disableScissor();
 
@@ -85,8 +99,14 @@ public class ScrollContainer implements Widget {
     }
 
     public Widget childAt(double my) {
-        int idx = (int) ((my - y + scrollOffset) / rowH);
-        if (idx >= 0 && idx < children.size()) return children.get(idx);
+        int currentY = y - (int) scrollOffset;
+        for (Widget child : children) {
+            int childH = child.getHeight();
+            if (my >= currentY && my < currentY + childH) {
+                return child;
+            }
+            currentY += childH;
+        }
         return null;
     }
 

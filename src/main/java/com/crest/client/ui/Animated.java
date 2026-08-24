@@ -1,10 +1,10 @@
 package com.crest.client.ui;
 
-/** A single animated float value that eases toward a target each frame. */
+    /** A single animated float value that eases toward a target each frame. */
 public final class Animated {
     private float value;
     private float target;
-    private final float speed;
+    private float speed;
 
     public Animated(float initial, float speed) {
         this.value = initial;
@@ -15,6 +15,8 @@ public final class Animated {
     public Animated(float initial) {
         this(initial, 14f);
     }
+
+    public void setSpeed(float speed) { this.speed = speed; }
 
     public void set(float target) {
         this.target = target;

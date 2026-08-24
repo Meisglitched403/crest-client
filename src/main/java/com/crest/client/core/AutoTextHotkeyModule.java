@@ -34,6 +34,9 @@ public class AutoTextHotkeyModule implements CrestModule {
     @Override public boolean isEnabled() { return true; }
 
     @Override
+    public boolean selfHandlesKeybinds() { return true; }
+
+    @Override
     public List<Setting<?>> getSettings() {
         List<Setting<?>> s = new ArrayList<>();
         for (int i = 0; i < SLOTS; i++) {

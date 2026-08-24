@@ -34,7 +34,9 @@ public class ModeSetting extends Setting<Integer> {
     @Override
     public void load(ConfigManager config, String moduleId) {
         if (config.has(moduleId, getName())) {
-            set(config.getInt(moduleId, getName()));
+            int idx = config.getInt(moduleId, getName());
+            if (idx < 0 || idx >= modes.length) idx = getDefault();
+            set(idx);
         }
     }
 

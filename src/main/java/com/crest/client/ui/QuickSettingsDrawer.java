@@ -50,7 +50,7 @@ public class QuickSettingsDrawer implements Widget {
         toggles.add(new QuickToggle("zoom", "Zoom"));
         toggles.add(new QuickToggle("toggle_sneak", "Toggle Sneak"));
         toggles.add(new QuickToggle("no_fog", "No Fog"));
-        toggles.add(new QuickToggle("no_hurtcam", "No Hurtcam"));
+        toggles.add(new QuickToggle("no_hurt_cam", "No Hurtcam"));
         toggles.add(new QuickToggle("low_fire", "Low Fire"));
 
         themeButtons.add(new QuickButton("Dark", () -> applyTheme("Dark")));

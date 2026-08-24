@@ -15,13 +15,15 @@ import java.util.*;
 
 public class ModuleDetailScreen extends Screen {
     private static final int HEADER_H = 48;
-    private static final int ROW_H = 26;
+    private static final int ROW_H = 32;
+    private static final int GROUP_HEADER_H = 28;
     private static final int PANEL_MIN_W = 280;
     private static final int PANEL_MAX_W = 480;
 
     private final CrestModule module;
     private final Screen parent;
     private final List<Setting<?>> settings;
+    private final List<SettingGroup> groups;
 
     private int panelX, panelY, panelW, panelH;
     private Breakpoints.Size currentSize = Breakpoints.Size.MD;
@@ -32,7 +34,7 @@ public class ModuleDetailScreen extends Screen {
     private final ScrollContainer scroll = new ScrollContainer();
 
     private boolean keybindCapture;
-    private String keybindCaptureModule;
+    private com.crest.client.core.setting.KeybindSetting keybindCaptureSetting;
 
     private ColorPicker colorPicker;
     private final Animated colorPickerAnim = new Animated(0f, 12f);
@@ -48,6 +50,7 @@ public class ModuleDetailScreen extends Screen {
         this.module = module;
         this.parent = parent;
         this.settings = module.getSettings();
+        this.groups = module.getSettingGroups();
         openAnim.setImmediate(0f);
         openAnim.set(1f);
     }
@@ -94,7 +97,7 @@ public class ModuleDetailScreen extends Screen {
                 w = cr;
             } else if (s instanceof KeybindSetting ks) {
                 KeybindRow kr = new KeybindRow(ks);
-                kr.setOnCapture((modId, ks2) -> { keybindCapture = true; keybindCaptureModule = ks2.getModuleId(); });
+                kr.setOnCapture((modId, ks2) -> { keybindCapture = true; keybindCaptureSetting = ks2; });
                 w = kr;
             } else w = null;
             return w;
@@ -104,10 +107,38 @@ public class ModuleDetailScreen extends Screen {
     private List<Widget> getVisibleWidgets() {
         String q = searchBar.getText();
         List<Widget> list = new ArrayList<>();
-        for (Setting<?> s : settings) {
-            if (!s.isVisible()) continue;
-            if (!q.isEmpty() && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
-            list.add(getWidget(s));
+        
+        if (!groups.isEmpty()) {
+            for (SettingGroup group : groups) {
+                boolean groupMatches = SearchBar.fuzzyMatch(q, group.getName());
+                boolean anyChildMatches = false;
+                
+                for (Setting<?> s : group.getSettings()) {
+                    if (!s.isVisible()) continue;
+                    if (!q.isEmpty() && !groupMatches && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
+                    anyChildMatches = true;
+                    break;
+                }
+                
+                if (!anyChildMatches && !q.isEmpty() && !groupMatches) continue;
+                
+                GroupHeaderRow header = new GroupHeaderRow(group);
+                list.add(header);
+                
+                if (group.isExpanded() || !q.isEmpty()) {
+                    for (Setting<?> s : group.getSettings()) {
+                        if (!s.isVisible()) continue;
+                        if (!q.isEmpty() && !groupMatches && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
+                        list.add(getWidget(s));
+                    }
+                }
+            }
+        } else {
+            for (Setting<?> s : settings) {
+                if (!s.isVisible()) continue;
+                if (!q.isEmpty() && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
+                list.add(getWidget(s));
+            }
         }
         return list;
     }
@@ -189,7 +220,13 @@ public class ModuleDetailScreen extends Screen {
     private void renderBody(GuiGraphicsExtractor g, int mx, int my, float delta) {
         List<Widget> widgets = getVisibleWidgets();
         int searchH = 36;
-        int contentH = widgets.size() * ROW_H + Spacing.S4;
+        
+        int contentH = 0;
+        for (Widget w : widgets) {
+            contentH += w.getHeight();
+        }
+        contentH += Spacing.S4;
+        
         int totalH = searchH + Spacing.S2 + contentH;
 
         int bh = Math.min(panelH, totalH + Spacing.S2);
@@ -207,10 +244,15 @@ public class ModuleDetailScreen extends Screen {
         scroll.rowHeight(ROW_H).children(widgets);
         scroll.hoverColor = ColorUtil.withAlpha(Theme.MUTED, 100);
 
+        int cumulativeY = 0;
         for (int i = 1; i < widgets.size(); i++) {
-            int dy = scrollY + i * ROW_H - (int) scroll.scrollOffset;
+            Widget prev = widgets.get(i - 1);
+            cumulativeY += prev.getHeight();
+            int dy = scrollY + cumulativeY - (int) scroll.scrollOffset;
             if (dy >= scrollY && dy <= scrollY + scrollH) {
-                g.fill(sx, dy - 1, sx + sw, dy, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40));
+                if (!(widgets.get(i) instanceof GroupHeaderRow)) {
+                    g.fill(sx, dy - 1, sx + sw, dy, ColorUtil.withAlpha(Theme.BORDER_LIGHT, 40));
+                }
             }
         }
 
@@ -218,20 +260,41 @@ public class ModuleDetailScreen extends Screen {
 
         Setting<?> hoveredSetting = null;
         hoveredRow = -1;
+        int yOffset = 0;
         int idx = 0;
-        for (Setting<?> s : settings) {
-            if (!s.isVisible()) continue;
-            String q = searchBar.getText();
-            if (!q.isEmpty() && !SearchBar.fuzzyMatch(q, s.getName()) && !SearchBar.fuzzyMatch(q, s.getDescription())) continue;
-            int cy = scrollY + idx * ROW_H - (int) scroll.scrollOffset;
-            if (mx >= sx && mx <= sx + sw && my >= cy && my <= cy + ROW_H) {
+        
+        for (Widget w : widgets) {
+            int cy = scrollY + yOffset - (int) scroll.scrollOffset;
+            int ch = w.getHeight();
+            
+            if (mx >= sx && mx <= sx + sw && my >= cy && my <= cy + ch) {
                 hoveredRow = idx;
-                hoveredSetting = s;
+                if (w instanceof ToggleRow || w instanceof SliderRow || w instanceof TextRow || 
+                    w instanceof ModeRow || w instanceof ColorRow || w instanceof KeybindRow) {
+                    for (Setting<?> s : settings) {
+                        if (getWidget(s) == w) {
+                            hoveredSetting = s;
+                            break;
+                        }
+                    }
+                    if (hoveredSetting == null && !groups.isEmpty()) {
+                        for (SettingGroup group : groups) {
+                            for (Setting<?> s : group.getSettings()) {
+                                if (getWidget(s) == w) {
+                                    hoveredSetting = s;
+                                    break;
+                                }
+                            }
+                            if (hoveredSetting != null) break;
+                        }
+                    }
+                }
                 break;
             }
+            yOffset += ch;
             idx++;
         }
-
+        
         if (hoveredSetting != null) {
             String sdesc = hoveredSetting.getDescription();
             if (sdesc != null && !sdesc.isEmpty()) {
@@ -262,15 +325,12 @@ public class ModuleDetailScreen extends Screen {
         if (searchBar.keyPressed(key, 0, 0)) return true;
 
         if (keybindCapture) {
-            if (key == GLFW.GLFW_KEY_ESCAPE) { keybindCapture = false; keybindCaptureModule = null; }
-            else if (keybindCaptureModule != null) {
-                CrestModule mod = CrestModules.get(keybindCaptureModule);
-                if (mod != null) {
-                    for (Setting<?> s : mod.getSettings()) {
-                        if (s instanceof KeybindSetting ks) { ks.set(key); CrestModules.getConfigManager().markDirty(); break; }
-                    }
-                }
-                keybindCapture = false; keybindCaptureModule = null;
+            if (key == GLFW.GLFW_KEY_ESCAPE) { keybindCapture = false; keybindCaptureSetting = null; }
+            else if (keybindCaptureSetting != null) {
+                keybindCaptureSetting.set(key);
+                CrestModules.getConfigManager().markDirty();
+                KeybindManager.markDirty();
+                keybindCapture = false; keybindCaptureSetting = null;
             }
             return true;
         }
@@ -324,7 +384,7 @@ public class ModuleDetailScreen extends Screen {
             if (child != null) {
                 activeWidget = child;
                 if (child instanceof KeybindRow kr) {
-                    kr.setCapturing(keybindCapture && keybindCaptureModule != null);
+                    kr.setCapturing(keybindCapture && keybindCaptureSetting == kr.getSetting());
                 }
             }
             return true;

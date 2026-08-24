@@ -24,6 +24,9 @@ public class RecorderModule implements CrestModule {
     public boolean isEnabled() { return true; }
 
     @Override
+    public boolean selfHandlesKeybinds() { return true; }
+
+    @Override
     public List<Setting<?>> getSettings() {
         return List.of(fps, audioEnabled, recordKey);
     }

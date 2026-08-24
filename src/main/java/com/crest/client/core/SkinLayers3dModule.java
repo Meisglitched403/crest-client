@@ -3,6 +3,7 @@ package com.crest.client.core;
 import com.crest.client.core.setting.BooleanSetting;
 import com.crest.client.core.setting.FloatSetting;
 import com.crest.client.core.setting.Setting;
+import com.crest.client.core.setting.SettingGroup;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.world.item.Item;
@@ -25,6 +26,8 @@ public class SkinLayers3dModule implements CrestModule {
     public static final Set<Item> HIDE_HEAD_LAYERS = Set.of(Items.ZOMBIE_HEAD, Items.CREEPER_HEAD,
             Items.DRAGON_HEAD, Items.SKELETON_SKULL, Items.WITHER_SKELETON_SKULL);
 
+    public static SkinLayers3dModule INSTANCE;
+
     @Override public String getId() { return "skin_layers_3d"; }
     @Override public String getName() { return "3D Skin Layers"; }
     @Override public String getDescription() { return "Gives player outer skin layers actual 3D thickness."; }
@@ -32,9 +35,23 @@ public class SkinLayers3dModule implements CrestModule {
     @Override public boolean isEnabled() { return true; }
 
     @Override
+    public void onInitialize() { INSTANCE = this; }
+
+    @Override
     public List<Setting<?>> getSettings() {
         return List.of(enabled, headThickness, bodyThickness, armsThickness, legsThickness,
                 hat, jacket, leftSleeve, rightSleeve, leftPants, rightPants);
+    }
+
+    @Override
+    public List<SettingGroup> getSettingGroups() {
+        return List.of(
+            new SettingGroup("General", true, enabled),
+            new SettingGroup("Layer Thickness", true, 
+                headThickness, bodyThickness, armsThickness, legsThickness),
+            new SettingGroup("Layer Visibility", false,
+                hat, jacket, leftSleeve, rightSleeve, leftPants, rightPants)
+        );
     }
 
     public boolean isLayerEnabled(String layer) {
@@ -54,26 +71,22 @@ public class SkinLayers3dModule implements CrestModule {
     }
 
     public static float getHeadThickness() {
-        var m = CrestModules.get("skin_layers_3d");
-        if (!(m instanceof SkinLayers3dModule mod)) return 0.4f;
-        return mod.headThickness.get();
+        var m = INSTANCE;
+        return m != null ? m.headThickness.get() : 0.4f;
     }
 
     public static float getBodyThickness() {
-        var m = CrestModules.get("skin_layers_3d");
-        if (!(m instanceof SkinLayers3dModule mod)) return 0.5f;
-        return mod.bodyThickness.get();
+        var m = INSTANCE;
+        return m != null ? m.bodyThickness.get() : 0.5f;
     }
 
     public static float getArmsThickness() {
-        var m = CrestModules.get("skin_layers_3d");
-        if (!(m instanceof SkinLayers3dModule mod)) return 0.3f;
-        return mod.armsThickness.get();
+        var m = INSTANCE;
+        return m != null ? m.armsThickness.get() : 0.3f;
     }
 
     public static float getLegsThickness() {
-        var m = CrestModules.get("skin_layers_3d");
-        if (!(m instanceof SkinLayers3dModule mod)) return 0.3f;
-        return mod.legsThickness.get();
+        var m = INSTANCE;
+        return m != null ? m.legsThickness.get() : 0.3f;
     }
 }

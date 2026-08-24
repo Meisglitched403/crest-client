@@ -7,6 +7,7 @@ public final class ThemePresets {
     public static final ThemeData DARK;
     public static final ThemeData LIGHT;
     public static final ThemeData AMOLED;
+    public static final ThemeData LUNAR;
 
     static {
         DARK = new ThemeData();
@@ -71,6 +72,29 @@ public final class ThemePresets {
         AMOLED.fontScale = 1f;
         AMOLED.density = Theme.Density.NORMAL;
         AMOLED.preset = "Amoled";
+
+        LUNAR = new ThemeData();
+        LUNAR.accent = 0xFF7C3AED;
+        LUNAR.background = 0xFF0A0A0F;
+        LUNAR.foreground = 0xFFF5F5F7;
+        LUNAR.card = 0xFF14141A;
+        LUNAR.cardForeground = 0xFFF5F5F7;
+        LUNAR.popover = 0xFF1C1C24;
+        LUNAR.popoverForeground = 0xFF9AA0B5;
+        LUNAR.secondary = 0xFF9AA0B5;
+        LUNAR.muted = 0xFF16161E;
+        LUNAR.mutedForeground = 0xFF6B7088;
+        LUNAR.destructive = 0xFFFF5B6E;
+        LUNAR.border = 0x1FFFFFFF;
+        LUNAR.glassBg = 0xFF0A0A0F;
+        LUNAR.sidebarBg = 0x1F000000;
+        LUNAR.radius = 8;
+        LUNAR.glassOpacity = 255;
+        LUNAR.menuBlur = false;
+        LUNAR.fontScale = 1f;
+        LUNAR.density = Theme.Density.NORMAL;
+        LUNAR.accentAnim = false;
+        LUNAR.preset = "Lunar";
     }
 
     public static ThemeData fromName(String name) {
@@ -78,6 +102,7 @@ public final class ThemePresets {
         return switch (name.toLowerCase()) {
             case "light" -> LIGHT.clone();
             case "amoled" -> AMOLED.clone();
+            case "lunar" -> LUNAR.clone();
             default -> DARK.clone();
         };
     }

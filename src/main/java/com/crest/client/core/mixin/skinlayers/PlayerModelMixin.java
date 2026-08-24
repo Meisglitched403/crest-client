@@ -53,9 +53,9 @@ public class PlayerModelMixin extends HumanoidModel<AvatarRenderState> implement
 
     @Inject(method = "setupAnim", at = @At("TAIL"), cancellable = true)
     public void setupAnim(AvatarRenderState playerRenderState, CallbackInfo ci) {
-        CrestSkinConfig.refresh();
         if (!com.crest.client.core.CrestModules.isEnabled("skin_layers_3d"))
             return;
+        CrestSkinConfig.refresh();
 
         Avatar abstractClientPlayer = null;
         Level level = Minecraft.getInstance().level;

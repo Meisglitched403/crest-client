@@ -4,7 +4,9 @@ import com.crest.client.core.CrestMenu;
 import com.crest.client.core.ResourcePackBrowserScreen;
 import com.crest.client.core.StreamerSettingsScreen;
 import com.crest.client.ui.ColorUtil;
+import com.crest.client.ui.Panel;
 import com.crest.client.ui.Theme;
+import com.crest.client.ui.UiSounds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -18,8 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(TitleScreen.class)
 public class TitleScreenMixin {
-    @Unique private static final int BTN_W = 56;
-    @Unique private static final int BTN_H = 20;
+    @Unique private static final int BTN_W = 88;
+    @Unique private static final int BTN_H = 28;
 
     @Unique private boolean modulesHovered;
     @Unique private boolean crestHovered;
@@ -34,35 +36,44 @@ public class TitleScreenMixin {
         int w = g.guiWidth();
         int h = g.guiHeight();
 
-        int modulesX = w / 2 - BTN_W * 3 / 2 - 4;
-        int packsX = w / 2 - BTN_W / 2;
-        int crestX = w / 2 + BTN_W / 2 + 4;
-        int y = h - 24;
+        int gap = 8;
+        int totalW = BTN_W * 3 + gap * 2;
+        int modulesX = w / 2 - totalW / 2;
+        int packsX = modulesX + BTN_W + gap;
+        int crestX = packsX + BTN_W + gap;
+        int y = h - 40;
 
         modulesHovered = mx >= modulesX && mx <= modulesX + BTN_W && my >= y && my <= y + BTN_H;
         packsHovered = mx >= packsX && mx <= packsX + BTN_W && my >= y && my <= y + BTN_H;
         crestHovered = mx >= crestX && mx <= crestX + BTN_W && my >= y && my <= y + BTN_H;
 
-        if (modulesHovered && !lastModulesHovered) com.crest.client.ui.UiSounds.hover();
-        if (packsHovered && !lastPacksHovered) com.crest.client.ui.UiSounds.hover();
-        if (crestHovered && !lastCrestHovered) com.crest.client.ui.UiSounds.hover();
+        if (modulesHovered && !lastModulesHovered) UiSounds.hover();
+        if (packsHovered && !lastPacksHovered) UiSounds.hover();
+        if (crestHovered && !lastCrestHovered) UiSounds.hover();
         lastModulesHovered = modulesHovered;
         lastPacksHovered = packsHovered;
         lastCrestHovered = crestHovered;
 
-        int btnBase = ColorUtil.lerpARGB(Theme.BACKGROUND, Theme.FOREGROUND, 0.10f);
-        int btnHover = ColorUtil.lerpARGB(Theme.BACKGROUND, Theme.FOREGROUND, 0.22f);
-        g.fill(modulesX, y, modulesX + BTN_W, y + BTN_H, modulesHovered ? btnHover : btnBase);
-        g.centeredText(mc.font, Component.literal("Modules"), modulesX + BTN_W / 2, y + (BTN_H - 8) / 2,
-            modulesHovered ? Theme.getAnimatedAccent() : Theme.FOREGROUND);
+        int accent = Theme.getAnimatedAccent();
+        drawButton(g, mc, "Modules", modulesX, y, modulesHovered, accent);
+        drawButton(g, mc, "Packs", packsX, y, packsHovered, accent);
+        drawButton(g, mc, "Crest", crestX, y, crestHovered, accent);
 
-        g.fill(packsX, y, packsX + BTN_W, y + BTN_H, packsHovered ? btnHover : btnBase);
-        g.centeredText(mc.font, Component.literal("Packs"), packsX + BTN_W / 2, y + (BTN_H - 8) / 2,
-            packsHovered ? Theme.getAnimatedAccent() : Theme.FOREGROUND);
+        String brand = "Crest";
+        g.text(mc.font, Component.literal(brand), w - 16 - mc.font.width(brand), 12,
+            ColorUtil.withAlpha(Theme.MUTED_FOREGROUND, 140));
+        int bx = w - 16;
+        g.text(mc.font, Component.literal("."), bx, 12, accent);
+    }
 
-        g.fill(crestX, y, crestX + BTN_W, y + BTN_H, crestHovered ? btnHover : btnBase);
-        g.centeredText(mc.font, Component.literal("Crest"), crestX + BTN_W / 2, y + (BTN_H - 8) / 2,
-            crestHovered ? Theme.getAnimatedAccent() : Theme.FOREGROUND);
+    @Unique private void drawButton(GuiGraphicsExtractor g, Minecraft mc, String label, int x, int y, boolean hovered, int accent) {
+        int fill = hovered
+            ? ColorUtil.withAlpha(accent, 215)
+            : ColorUtil.withAlpha(Theme.CARD, 225);
+        Panel.draw(g, x, y, BTN_W, BTN_H, fill);
+        Panel.drawHollowRect(g, x, y, BTN_W, BTN_H, hovered ? accent : Theme.BORDER_LIGHT);
+        g.centeredText(mc.font, Component.literal(label), x + BTN_W / 2, y + (BTN_H - 8) / 2,
+            hovered ? 0xFFFFFFFF : Theme.FOREGROUND);
     }
 
     @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)

@@ -47,9 +47,8 @@ public class SearchBar implements Widget {
         cursorTimer += delta;
 
         int sbH = getHeight();
-        g.fillGradient(x, y, x + w, y + sbH,
-            ColorUtil.withAlpha(Theme.SIDEBAR_BG, 200), ColorUtil.withAlpha(Theme.SIDEBAR_BG, 110));
-        Panel.drawHollowRect(g, x, y, w, sbH, Theme.BORDER_LIGHT);
+        g.fill(x, y, x + w, y + sbH, ColorUtil.withAlpha(Theme.SIDEBAR_BG, focused ? 230 : 190));
+        Panel.drawHollowRect(g, x, y, w, sbH, focused ? Theme.getAnimatedAccent() : Theme.BORDER_LIGHT);
 
         String display = text.isEmpty() ? placeholder : text;
         int fg = text.isEmpty() ? Theme.MUTED_FOREGROUND : Theme.FOREGROUND;

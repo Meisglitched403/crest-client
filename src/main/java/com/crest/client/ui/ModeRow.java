@@ -22,7 +22,8 @@ public class ModeRow implements Widget {
 
     @Override
     public void render(GuiGraphicsExtractor g, Font font, int x, int y, int w, int mx, int my, float delta) {
-        g.text(font, Component.literal(setting.getName()), x + 2, y + 4, Theme.ON_SURFACE_VARIANT);
+        int centerY = y + (H - font.lineHeight) / 2;
+        g.text(font, Component.literal(setting.getName()), x + 2, centerY, Theme.ON_SURFACE_VARIANT);
 
         String mode = setting.getMode();
         int modeW = font.width(mode) + 22;
@@ -30,12 +31,12 @@ public class ModeRow implements Widget {
 
         boolean hover = mx >= modeX && mx <= modeX + modeW && my >= y && my <= y + H;
         int bg = ColorUtil.withAlpha(hover ? Theme.BG_HOVER : Theme.SURFACE_VARIANT, 220);
-        g.fill(modeX, y + 2, modeX + modeW, y + H - 2, bg);
+        g.fill(modeX, y + 4, modeX + modeW, y + H - 4, bg);
 
         String arrow = "\u25BC";
         int arrowW = font.width(arrow);
-        g.text(font, Component.literal(mode), modeX + 6, y + 4, hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
-        g.text(font, Component.literal(arrow), modeX + modeW - arrowW - 6, y + 4,
+        g.text(font, Component.literal(mode), modeX + 6, centerY, hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
+        g.text(font, Component.literal(arrow), modeX + modeW - arrowW - 6, centerY,
             ColorUtil.withAlpha(hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT, 150));
     }
 
