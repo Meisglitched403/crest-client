@@ -69,6 +69,8 @@ public class CrestMenu extends Screen {
     private boolean lastGearHover;
     private final Map<String, Animated> toggleAnims = new HashMap<>();
     private final Map<String, Animated> rowHoverAnims = new HashMap<>();
+    private int cascadeCardIndex;
+    private int cascadeCardTotal;
     private boolean draggingScrollbar;
     private int scrollbarDragStartY;
     private float scrollbarDragStartOffset;
@@ -390,6 +392,9 @@ public class CrestMenu extends Screen {
         int accent = Theme.getAnimatedAccent();
         hoveredSection = -1;
         hoveredModInSection = -1;
+        cascadeCardIndex = 0;
+        cascadeCardTotal = 0;
+        for (ModGroup grp : groups) cascadeCardTotal += grp.mods.size();
         int y = gridTop - (int) scrollOffset;
         int sectionIdx = 0;
         for (ModGroup group : groups) {
@@ -542,6 +547,22 @@ public class CrestMenu extends Screen {
     private void renderModuleCard(GuiGraphicsExtractor g, CrestModule mod, int cx, int cy, int cw, int accent, float delta) {
         String id = mod.getId();
         boolean enabled = CrestModules.isEnabled(id);
+
+        float open = openAnim.get();
+        float staggerPerCard = cascadeCardTotal > 0 ? Math.min(0.04f, 0.55f / cascadeCardTotal) : 0;
+        float cardStart = cascadeCardIndex * staggerPerCard;
+        float cardProgress = Anim.clamp((open - cardStart) / 0.18f, 0, 1);
+        cascadeCardIndex++;
+        if (!animEnabled || cardProgress < 0.01f) return;
+
+        float scale = 0.95f + 0.05f * Anim.easeOutBack(cardProgress);
+        float ccx = cx + cw / 2f;
+        float ccy = cy + MODULE_CARD_H / 2f;
+        g.pose().pushMatrix();
+        g.pose().translate(ccx, ccy);
+        g.pose().scale(scale, scale);
+        g.pose().translate(-ccx, -ccy);
+
         boolean hover = mx >= cx && mx <= cx + cw && my >= cy && my <= cy + MODULE_CARD_H;
 
         Animated ha = rowHoverAnims.computeIfAbsent(id, k -> new Animated(0f, 12f));
@@ -590,6 +611,8 @@ public class CrestMenu extends Screen {
         int toggleX = cx + cw - TOGGLE_W - 4;
         int toggleY = cy + MODULE_CARD_H - TOGGLE_H - 6;
         drawToggle(g, toggleX, toggleY, enabled, ta.get());
+
+        g.pose().popMatrix();
     }
 
     private void drawToggle(GuiGraphicsExtractor g, int x, int y, boolean on, float anim) {
