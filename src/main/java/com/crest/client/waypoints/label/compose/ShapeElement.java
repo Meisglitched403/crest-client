@@ -1,0 +1,26 @@
+package com.crest.client.waypoints.label.compose;
+
+import com.google.gson.annotations.Expose;
+
+public class ShapeElement implements LabelElement {
+    public enum Type { RECT, ROUNDED_RECT, CIRCLE, TRIANGLE, DIAMOND, CHEVRON }
+
+    @Expose public Type type = Type.ROUNDED_RECT;
+    @Expose public int fillColor = 0xFF222222;
+    @Expose public int fillOpacityPercent = 70;
+    @Expose public float outlinePx = 1.5f;
+    @Expose public int outlineColor = 0xFFFFFFFF;
+    @Expose public float offsetX = 0f;
+    @Expose public float offsetY = 0f;
+    @Expose public ElementStyle style = new ElementStyle();
+    @Expose public boolean hideWhenNear = false;
+    @Expose public boolean showOnlyWhenFacing = false;
+    @Expose public AngleVisibility angleVisibility = AngleVisibility.ALWAYS;
+
+    @Override public ElementStyle getStyle() { return style; }
+    @Override public boolean isHideWhenNear() { return hideWhenNear; }
+    @Override public boolean isShowOnlyWhenFacing() { return showOnlyWhenFacing; }
+    @Override public float getOffsetX() { return offsetX; }
+    @Override public float getOffsetY() { return offsetY; }
+    @Override public AngleVisibility getAngleVisibility() { return angleVisibility; }
+}

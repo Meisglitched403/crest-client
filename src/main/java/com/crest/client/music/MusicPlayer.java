@@ -50,6 +50,12 @@ public class MusicPlayer {
     private volatile boolean backendAvailable;
     private final Object outputLock = new Object();
 
+    private enum OutputKind { JAVASOUND, SYSTEM, NONE }
+    private OutputKind outputKind = OutputKind.NONE;
+    private final JavaSoundOutput javaSound = new JavaSoundOutput();
+    private int outChannels = 2;
+    private int outRate = 48000;
+
     private volatile OnStateChange onTrackStart;
     private volatile OnStateChange onTrackEnd;
     private volatile OnStateChange onQueueChange;
@@ -130,12 +136,26 @@ public class MusicPlayer {
     }
 
     private void selectBackend() {
+        // 1) Self-contained JDK audio (javax.sound.sampled) — no system CLI, no
+        //    separate OpenAL context. SourceDataLine.write() blocks to the device
+        //    buffer and naturally paces playback to real time.
+        if (javaSound.init()) {
+            outputKind = OutputKind.JAVASOUND;
+            audioBackend = "javasound";
+            audioBackendPath = null;
+            backendAvailable = true;
+            System.out.println("[Crest Music] Audio backend: JavaSound (self-contained)");
+            return;
+        }
+
+        // 2) Fallback: system audio CLI (pulseaudio / pipewire / alsa). LavaPlayer's
+        //    COMMON_PCM_S16_LE output is 48000 Hz, so the raw stream must be 48k.
         String[] backends = {"paplay", "pw-play", "aplay", "ffplay"};
         String[][] args = {
-            {"paplay", "--raw", "--rate=44100", "--channels=2", "--format=s16le"},
-            {"pw-play", "--raw", "--rate=44100", "--channels=2", "--format=s16le"},
-            {"aplay", "-f", "S16_LE", "-r", "44100", "-c", "2"},
-            {"ffplay", "-f", "s16le", "-ar", "44100", "-ac", "2", "-nodisp", "-autoexit", "-"}
+            {"paplay", "--raw", "--rate=48000", "--channels=2", "--format=s16le"},
+            {"pw-play", "--raw", "--rate=48000", "--channels=2", "--format=s16le"},
+            {"aplay", "-f", "S16_LE", "-r", "48000", "-c", "2"},
+            {"ffplay", "-f", "s16le", "-ar", "48000", "-ac", "2", "-nodisp", "-autoexit", "-"}
         };
         String[] candidates = {
             "/usr/bin/paplay", "/bin/paplay",
@@ -158,6 +178,7 @@ public class MusicPlayer {
                 Process p = new ProcessBuilder(resolved, args[i][1], args[i][2], args[i][3], args[i][4], args[i][5]).start();
                 if (p.isAlive()) {
                     p.destroy();
+                    outputKind = OutputKind.SYSTEM;
                     audioBackend = backends[i];
                     audioBackendPath = resolved;
                     backendAvailable = true;
@@ -169,6 +190,7 @@ public class MusicPlayer {
             }
         }
         System.err.println("[Crest Music] No audio backend found!");
+        outputKind = OutputKind.NONE;
         audioBackend = null;
         audioBackendPath = null;
         backendAvailable = false;
@@ -446,6 +468,7 @@ public class MusicPlayer {
 
     public void seek(long positionMs) {
         if (currentTrack != null) {
+            flushOutput();
             currentTrack.setPosition(positionMs);
         }
     }
@@ -498,6 +521,7 @@ public class MusicPlayer {
 
     public void destroy() {
         stop();
+        javaSound.destroy();
         player.destroy();
     }
 
@@ -524,45 +548,52 @@ public class MusicPlayer {
     private boolean openOutput() {
         synchronized (outputLock) {
             closeOutput();
-            if (audioBackendPath == null) {
-                System.err.println("[Crest Music] No audio backend available");
-                return false;
+            if (outputKind == OutputKind.JAVASOUND) {
+                return javaSound.open();
+            } else if (outputKind == OutputKind.SYSTEM) {
+                if (audioBackendPath == null) {
+                    System.err.println("[Crest Music] No audio backend available");
+                    return false;
+                }
+                try {
+                    String[][] cmds = {
+                        {"--raw", "--rate=48000", "--channels=2", "--format=s16le"},
+                        {"--raw", "--rate=48000", "--channels=2", "--format=s16le"},
+                        {"-f", "S16_LE", "-r", "48000", "-c", "2"},
+                        {"-f", "s16le", "-ar", "48000", "-ac", "2", "-nodisp", "-autoexit", "-"}
+                    };
+                    int idx = switch (audioBackend) {
+                        case "paplay" -> 0;
+                        case "pw-play" -> 1;
+                        case "aplay" -> 2;
+                        case "ffplay" -> 3;
+                        default -> -1;
+                    };
+                    if (idx < 0) return false;
+                    String[] base = {audioBackendPath, cmds[idx][0], cmds[idx][1], cmds[idx][2], cmds[idx][3]};
+                    ProcessBuilder pb = new ProcessBuilder(base);
+                    pb.redirectErrorStream(false);
+                    audioProcess = pb.start();
+                    audioOutput = audioProcess.getOutputStream();
+                    System.out.println("[Crest Music] Audio output opened via " + audioBackend);
+                    return true;
+                } catch (Exception e) {
+                    System.err.println("[Crest Music] Failed to open audio output: " + e);
+                    return false;
+                }
             }
-            try {
-                String[][] cmds = {
-                    {"--raw", "--rate=44100", "--channels=2", "--format=s16le"},
-                    {"--raw", "--rate=44100", "--channels=2", "--format=s16le"},
-                    {"-f", "S16_LE", "-r", "44100", "-c", "2"},
-                    {"-f", "s16le", "-ar", "44100", "-ac", "2", "-nodisp", "-autoexit", "-"}
-                };
-                int idx = switch (audioBackend) {
-                    case "paplay" -> 0;
-                    case "pw-play" -> 1;
-                    case "aplay" -> 2;
-                    case "ffplay" -> 3;
-                    default -> -1;
-                };
-                if (idx < 0) return false;
-                String[] base = {audioBackendPath, cmds[idx][0], cmds[idx][1], cmds[idx][2], cmds[idx][3]};
-                ProcessBuilder pb = new ProcessBuilder(base);
-                pb.redirectErrorStream(false);
-                audioProcess = pb.start();
-                audioOutput = audioProcess.getOutputStream();
-                System.out.println("[Crest Music] Audio output opened via " + audioBackend);
-                return true;
-            } catch (Exception e) {
-                System.err.println("[Crest Music] Failed to open audio output: " + e);
-                return false;
-            }
+            return false;
         }
     }
 
     private void writeOutput(byte[] data) {
+        if (data == null || data.length == 0) return;
         synchronized (outputLock) {
-            OutputStream out = audioOutput;
-            if (out != null && data != null) {
+            if (outputKind == OutputKind.JAVASOUND) {
+                javaSound.write(data, outChannels, outRate);
+            } else if (outputKind == OutputKind.SYSTEM && audioOutput != null) {
                 try {
-                    out.write(data);
+                    audioOutput.write(data);
                 } catch (Exception e) {
                     if (!Thread.interrupted()) {
                         System.err.println("[Crest Music] Write error: " + e);
@@ -574,17 +605,27 @@ public class MusicPlayer {
 
     private void closeOutput() {
         synchronized (outputLock) {
-            try {
-                if (audioOutput != null) {
-                    audioOutput.flush();
-                    audioOutput.close();
+            if (outputKind == OutputKind.JAVASOUND) {
+                javaSound.close();
+            } else {
+                try {
+                    if (audioOutput != null) {
+                        audioOutput.flush();
+                        audioOutput.close();
+                    }
+                } catch (Exception e) { }
+                audioOutput = null;
+                if (audioProcess != null) {
+                    try { audioProcess.destroy(); } catch (Exception e) { }
+                    audioProcess = null;
                 }
-            } catch (Exception e) { }
-            audioOutput = null;
-            if (audioProcess != null) {
-                try { audioProcess.destroy(); } catch (Exception e) { }
-                audioProcess = null;
             }
+        }
+    }
+
+    private void flushOutput() {
+        synchronized (outputLock) {
+            if (outputKind == OutputKind.JAVASOUND) javaSound.flush();
         }
     }
 
@@ -603,12 +644,15 @@ public class MusicPlayer {
 
             long lastLog = 0;
             int nullCount = 0;
+            long nextFrameTime = 0; // real-time pacer: target wall-clock time for the next frame
 
             while (!Thread.interrupted()) {
                 if (player.isPaused()) {
                     synchronized (pauseLock) {
                         try { pauseLock.wait(100); } catch (InterruptedException e) { return; }
                     }
+                    // Reset pacer so resuming doesn't try to "catch up" the gap.
+                    nextFrameTime = 0;
                     continue;
                 }
 
@@ -635,14 +679,40 @@ public class MusicPlayer {
 
                 byte[] data = frame.getData();
                 if (data != null && data.length > 0) {
-                    frameCount++;
-                    if (frameCount == 1) {
-                        AudioDataFormat fmt = frame.getFormat();
-                        System.out.println("[Crest Music] First frame: " + data.length + " bytes, format="
-                            + fmt.channelCount + "ch " + fmt.sampleRate + "Hz "
-                            + fmt.codecName() + " chunk=" + fmt.chunkSampleCount);
+                    AudioDataFormat fmt = frame.getFormat();
+                    if (fmt != null) {
+                        outChannels = fmt.channelCount;
+                        outRate = fmt.sampleRate;
+                        if (frameCount == 0) {
+                            System.out.println("[Crest Music] First frame: " + data.length + " bytes, format="
+                                + fmt.channelCount + "ch " + fmt.sampleRate + "Hz "
+                                + fmt.codecName() + " chunk=" + fmt.chunkSampleCount);
+                        }
                     }
+                    frameCount++;
                     writeOutput(data);
+
+                    // Pace consumption to real time so the player's track-completion
+                    // and progress stay in sync with actual audio. Each frame is
+                    // chunkSampleCount / sampleRate seconds of audio; sleep until that
+                    // much wall-clock time has elapsed since the previous frame.
+                    double frameMs = (fmt != null && fmt.sampleRate > 0)
+                        ? (fmt.chunkSampleCount * 1000.0 / fmt.sampleRate)
+                        : 20.0;
+                    long now = System.currentTimeMillis();
+                    if (nextFrameTime == 0) {
+                        nextFrameTime = now + (long) frameMs;
+                    } else {
+                        long sleep = nextFrameTime - now;
+                        if (sleep > 0) {
+                            try { Thread.sleep(sleep); } catch (InterruptedException e) { return; }
+                        }
+                        nextFrameTime += (long) frameMs;
+                        // Avoid runaway drift if we ever fell behind.
+                        if (nextFrameTime < System.currentTimeMillis()) {
+                            nextFrameTime = System.currentTimeMillis() + (long) frameMs;
+                        }
+                    }
                 }
 
                 if (frameCount % 100 == 1 && frameCount > 1) {

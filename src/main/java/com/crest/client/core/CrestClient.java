@@ -61,6 +61,8 @@ public class CrestClient implements ClientModInitializer {
 
         CrestModules.register(new FreelookModule());
         CrestModules.register(new WaypointsModule());
+        CrestModules.register(new MouseTracesModule());
+        CrestModules.register(new DynamicLightsModule());
         CrestModules.register(new AntiAfkModule());
         CrestModules.register(new CrestThemeModule());
         CrestModules.register(new RecorderModule());
@@ -124,7 +126,7 @@ public class CrestClient implements ClientModInitializer {
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen instanceof MusicScreen) {
                 mc.screen.onClose();
-            } else if (mc.screen == null) {
+            } else {
                 mc.setScreen(new MusicScreen(MusicModule.getPlayer()));
             }
         });
@@ -134,6 +136,7 @@ public class CrestClient implements ClientModInitializer {
             CpsTracker.tick();
             ComboTracker.tick();
             KeybindManager.processTick();
+            com.crest.client.core.dynlight.DynamicLightEngine.get().tick(client);
             if (welcomePending.get()) {
                 welcomePending.set(false);
                 if (client.player != null && client.screen == null) {

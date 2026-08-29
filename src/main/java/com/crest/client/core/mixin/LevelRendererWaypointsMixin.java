@@ -1,7 +1,9 @@
 package com.crest.client.core.mixin;
 
 import com.crest.client.core.CrestModules;
+import com.crest.client.core.DynamicLightsModule;
 import com.crest.client.core.WaypointsModule;
+import org.joml.Matrix4fc;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -15,6 +17,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Draws waypoint markers in the world. WorldRenderEvents does not exist in this
  * MC version, so this hooks LevelRenderer.renderLevel like HitboxModule does.
+ * The projection matrix is explicitly restored so markers track the world
+ * instead of floating on the (ortho) HUD projection.
  */
 @Mixin(LevelRenderer.class)
 public class LevelRendererWaypointsMixin {
@@ -25,7 +29,7 @@ public class LevelRendererWaypointsMixin {
         net.minecraft.client.DeltaTracker delta,
         boolean bl,
         CameraRenderState cameraRenderState,
-        org.joml.Matrix4fc projection,
+        Matrix4fc projection,
         com.mojang.blaze3d.buffers.GpuBufferSlice slice,
         org.joml.Vector4f vec,
         boolean bl2,
@@ -45,5 +49,10 @@ public class LevelRendererWaypointsMixin {
 
         MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
         mod.renderWorld(ps, buffer, cameraRenderState);
+
+        if (CrestModules.isEnabled("dynamic_lights")) {
+            DynamicLightsModule dl = (DynamicLightsModule) CrestModules.get("dynamic_lights");
+            if (dl != null) dl.renderWorld(ps, buffer, cameraRenderState);
+        }
     }
 }

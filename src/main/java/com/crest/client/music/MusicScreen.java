@@ -263,7 +263,7 @@ public class MusicScreen extends Screen {
             g.text(font, Component.literal("No track loaded"), m + Spacing.S2, ny, Theme.TEXT_DIM);
             if (!player.isBackendAvailable()) {
                 int ey = ny + Spacing.S3;
-                g.text(font, Component.literal("\u26A0 No audio backend — install pulseaudio / pipewire / alsa"),
+                g.text(font, Component.literal("\u26A0 No audio device available for playback"),
                     m + Spacing.S2, ey, Theme.DESTRUCTIVE);
             }
         }

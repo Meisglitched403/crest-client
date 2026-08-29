@@ -25,6 +25,7 @@
         "input/KeyboardHandlerMixin",
         "input/MouseInputMixin",
         "gui/ScreenBackgroundMixin",
+        "gui/MouseTracesScreenMixin",
         "gui/ContainerPanelMixin",
         "gui/ContainerCornerTextMixin",
         "gui/RecipeBookCornerTextMixin",
@@ -54,6 +55,7 @@
         "ScreenTooltipMixin",
         "LevelRendererHitboxMixin",
         "LevelRendererWaypointsMixin",
+        "DynamicLightRawMixin",
         "ShaderManagerMixin",
         "GameRendererAccess",
         "ItemFeatureRendererMixin",
@@ -77,7 +79,8 @@
         "PlayerItemInHandLayerMixin",
         "GuiRendererShieldMixin",
         "BackgroundLoadingOverlayMixin",
-        "CrestNametagMixin"
+        "CrestNametagMixin",
+        "ChatWaypointMixin"
     ],
     "injectors": {
         "defaultRequire": 1
