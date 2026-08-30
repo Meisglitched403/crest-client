@@ -3,6 +3,7 @@ package com.crest.client.core;
 import com.crest.client.core.setting.KeybindSetting;
 import com.crest.client.core.setting.Setting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -62,8 +63,20 @@ public class KeybindManager {
             }
         });
 
+        // Action keybinds (open screens, toggles) must not run while the user is
+        // typing into a text field, otherwise keys like M get eaten instead of
+        // inserted into the focused input. We still track the key's up/down edge
+        // every tick so the action can't fire retroactively when focus leaves.
+        boolean typing = mc.screen instanceof ChatScreen
+            || (mc.screen instanceof TextCapturingScreen && ((TextCapturingScreen) mc.screen).isCapturingText());
         for (var entry : actionKeybinds.entrySet()) {
-            checkKey(entry.getKey(), entry.getValue());
+            int key = entry.getKey();
+            boolean pressed = GLFW.glfwGetKey(window, key) == GLFW.GLFW_PRESS;
+            boolean prev = wasDown.getOrDefault(key, false);
+            if (pressed && !prev && !typing) {
+                entry.getValue().run();
+            }
+            wasDown.put(key, pressed);
         }
     }
 

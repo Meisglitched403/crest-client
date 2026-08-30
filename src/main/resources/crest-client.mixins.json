@@ -31,6 +31,7 @@
         "gui/RecipeBookCornerTextMixin",
         "gui/TitleScreenMixin",
         "gui/TitleScreenSkinMixin",
+        "gui/PauseScreenMixin",
         "gui/ScoreboardMixin",
         "ItemInHandRendererMixin",
         "LivingEntityMixin",

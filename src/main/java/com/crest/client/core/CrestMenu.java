@@ -1,5 +1,6 @@
 package com.crest.client.core;
 
+import com.crest.client.music.MusicMiniPlayer;
 import com.crest.client.music.MusicModule;
 import com.crest.client.music.MusicScreen;
 import com.crest.client.ui.*;
@@ -25,6 +26,8 @@ public class CrestMenu extends Screen {
 
     private static final int MARGIN = 20;
     private static final int TOPBAR_H = 56;
+    private static final int MINI_H = 80;
+    private static final int MINI_M = 12;
     private static final int SEARCH_H = 36;
     private static final int CHIP_H = 28;
     private static final int MODULE_CARD_H = 80;
@@ -44,6 +47,7 @@ public class CrestMenu extends Screen {
     private int mx, my;
     private int pX, pY, pW, pH;
     private int contentX, contentY, contentW, contentH;
+    private int miniX, miniY, miniW, miniH;
 
     // --- Mods tab state ---
     private final SearchBar searchBar = new SearchBar(q -> {
@@ -99,6 +103,7 @@ public class CrestMenu extends Screen {
     private String animEasing = "Back";
     private final Animated[] tabAnims = new Animated[Tab.values().length];
     private final QuickSettingsDrawer quickSettings = new QuickSettingsDrawer();
+    private final MusicMiniPlayer miniPlayer = new MusicMiniPlayer();
     private Breakpoints.Size currentSize = Breakpoints.Size.MD;
 
     protected CrestMenu() {
@@ -170,7 +175,11 @@ public class CrestMenu extends Screen {
         contentX = pX + 16;
         contentW = pW - 32;
         contentY = pY + TOPBAR_H + 4;
-        contentH = pH - (contentY - pY) - 8;
+        miniX = contentX;
+        miniW = contentW;
+        miniH = MINI_H;
+        miniY = pY + pH - MINI_H - MINI_M;
+        contentH = pH - (contentY - pY) - 8 - MINI_H - MINI_M;
     }
 
     private int modsGridY() {
@@ -230,6 +239,8 @@ public class CrestMenu extends Screen {
         }
 
         quickSettings.render(g, font, pX, pY, pW, mx, my, delta);
+
+        miniPlayer.render(g, font, miniX, miniY, miniW, miniH, mx, my, delta);
 
         g.pose().popMatrix();
     }
@@ -936,6 +947,8 @@ public class CrestMenu extends Screen {
             UiSounds.click();
             return true;
         }
+
+        if (miniPlayer.mouseClicked(mxx, myy)) return true;
         return super.mouseClicked(event, doubleClick);
     }
 
@@ -1101,7 +1114,7 @@ public class CrestMenu extends Screen {
             case 1 -> minecraft.setScreen(new ThemeEditorScreen(this));
             case 2 -> AnimationsScreen.open(this);
             case 3 -> minecraft.setScreen(new ProfileScreen(this));
-            case 4 -> minecraft.setScreen(new MusicScreen(MusicModule.getPlayer()));
+            case 4 -> minecraft.setScreen(new MusicScreen(MusicModule.getPlayer(), this));
             case 5 -> minecraft.setScreen(new ResourcePackBrowserScreen(this));
             case 6 -> minecraft.setScreen(new StreamerSettingsScreen(this));
         }

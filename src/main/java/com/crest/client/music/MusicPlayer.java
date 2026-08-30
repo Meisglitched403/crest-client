@@ -38,10 +38,11 @@ public class MusicPlayer {
     private Thread playbackThread;
     private final Object pauseLock = new Object();
 
-    // Bumped every time a fresh playback thread is spawned; a dying loop only
-    // closes the audio output if it still owns the current generation, so an old
-    // thread's finally block cannot clobber the output a replacement just opened.
-    private volatile int outputGeneration;
+    // Single persistent playback thread lives for the life of the player and
+    // simply keeps pulling frames; track changes are sequenced by Lavaplayer
+    // itself (onTrackEnd advances the queue), so we never spawn/kill per track.
+    private volatile boolean running = true;
+    private boolean outputOpen = false;
 
     private Process audioProcess;
     private OutputStream audioOutput;
@@ -97,7 +98,7 @@ public class MusicPlayer {
                 System.out.println("[Crest Music] Track started: " + track.getInfo().title + " by " + track.getInfo().author);
                 currentTrack = track;
                 paused = false;
-                startPlaybackThread();
+                startLoop();
                 if (onTrackStart != null) onTrackStart.run(MusicPlayer.this);
             }
 
@@ -105,7 +106,6 @@ public class MusicPlayer {
             public void onTrackEnd(AudioPlayer p, AudioTrack track, AudioTrackEndReason reason) {
                 System.out.println("[Crest Music] Track ended: " + reason);
                 currentTrack = null;
-                stopPlaybackThread();
                 if (reason == AudioTrackEndReason.FINISHED) {
                     // Auto-advance unless we're on repeat-one (handled below) or stopped.
                     if (repeatMode == RepeatMode.ONE && queueIndex >= 0) {
@@ -133,6 +133,7 @@ public class MusicPlayer {
         });
 
         selectBackend();
+        startLoop();
     }
 
     private void selectBackend() {
@@ -337,7 +338,6 @@ public class MusicPlayer {
     public void playList(List<AudioTrack> tracks, int startIndex) {
         if (tracks == null || tracks.isEmpty()) return;
         player.stopTrack();
-        stopPlaybackThread();
         currentPlaylist = null;
         List<AudioTrack> list = new ArrayList<>(tracks);
         if (shuffle) shuffleQueue(list);
@@ -456,7 +456,7 @@ public class MusicPlayer {
     public void stop() {
         paused = false;
         player.stopTrack();
-        stopPlaybackThread();
+        stopLoop();
         closeOutput();
     }
 
@@ -525,31 +525,29 @@ public class MusicPlayer {
         player.destroy();
     }
 
-    private void startPlaybackThread() {
-        stopPlaybackThread();
-        outputGeneration++;
+    private void startLoop() {
+        // If a healthy loop is already running, do nothing. Otherwise (fresh start
+        // or restart after stop) spawn a new one. We never join here so we don't
+        // block the Lavaplayer audio thread.
+        if (playbackThread != null && playbackThread.isAlive() && running) return;
+        running = true;
         playbackThread = new Thread(this::playbackLoop, "crest-music-playback");
         playbackThread.setDaemon(true);
         playbackThread.start();
     }
 
-    private void stopPlaybackThread() {
-        Thread old = playbackThread;
-        playbackThread = null;
-        if (old != null) {
-            old.interrupt();
-            if (old != Thread.currentThread()) {
-                try { old.join(3000); } catch (InterruptedException ignored) {}
-            }
-        }
-        closeOutput();
+    private void stopLoop() {
+        running = false;
+        Thread t = playbackThread;
+        if (t != null) t.interrupt();
     }
 
     private boolean openOutput() {
         synchronized (outputLock) {
             closeOutput();
             if (outputKind == OutputKind.JAVASOUND) {
-                return javaSound.open();
+                outputOpen = javaSound.open();
+                return outputOpen;
             } else if (outputKind == OutputKind.SYSTEM) {
                 if (audioBackendPath == null) {
                     System.err.println("[Crest Music] No audio backend available");
@@ -576,6 +574,7 @@ public class MusicPlayer {
                     audioProcess = pb.start();
                     audioOutput = audioProcess.getOutputStream();
                     System.out.println("[Crest Music] Audio output opened via " + audioBackend);
+                    outputOpen = true;
                     return true;
                 } catch (Exception e) {
                     System.err.println("[Crest Music] Failed to open audio output: " + e);
@@ -620,6 +619,7 @@ public class MusicPlayer {
                     audioProcess = null;
                 }
             }
+            outputOpen = false;
         }
     }
 
@@ -630,26 +630,15 @@ public class MusicPlayer {
     }
 
     private void playbackLoop() {
-        final int gen = outputGeneration;
         int frameCount = 0;
+        int nullCount = 0;
+        long lastLog = 0;
         try {
-            if (!openOutput()) {
-                System.err.println("[Crest Music] Failed to open audio output");
-                return;
-            }
-            if (currentTrack != null) {
-                System.out.println("[Crest Music] Playback thread started, track=" + currentTrack.getInfo().title
-                    + ", duration=" + currentTrack.getDuration() + "ms");
-            }
-
-            long lastLog = 0;
-            int nullCount = 0;
             long nextFrameTime = 0; // real-time pacer: target wall-clock time for the next frame
-
-            while (!Thread.interrupted()) {
+            while (running && !Thread.interrupted()) {
                 if (player.isPaused()) {
                     synchronized (pauseLock) {
-                        try { pauseLock.wait(100); } catch (InterruptedException e) { return; }
+                        try { pauseLock.wait(100); } catch (InterruptedException e) { break; }
                     }
                     // Reset pacer so resuming doesn't try to "catch up" the gap.
                     nextFrameTime = 0;
@@ -661,57 +650,64 @@ public class MusicPlayer {
                     nullCount++;
                     long now = System.currentTimeMillis();
                     if (now - lastLog > 2000) {
-                        long pos = currentTrack != null ? currentTrack.getPosition() : 0;
                         System.out.println("[Crest Music] provide() null x" + nullCount
-                            + ", pos=" + pos + "/" + (currentTrack != null ? currentTrack.getDuration() : 0)
                             + ", paused=" + player.isPaused()
                             + ", activeTrack=" + (player.getPlayingTrack() != null ? player.getPlayingTrack().getInfo().title : "null"));
                         lastLog = now;
                     }
-                    try { Thread.sleep(5); } catch (InterruptedException e) { return; }
+                    try { Thread.sleep(5); } catch (InterruptedException e) { break; }
                     continue;
                 }
 
+                // A track ended; onTrackEnd has already sequenced the next one (or
+                // not). Keep the loop alive and just wait for the next frame.
                 if (frame.isTerminator()) {
-                    System.out.println("[Crest Music] Terminator frame received");
-                    break;
+                    try { Thread.sleep(10); } catch (InterruptedException e) { break; }
+                    continue;
                 }
 
                 byte[] data = frame.getData();
-                if (data != null && data.length > 0) {
-                    AudioDataFormat fmt = frame.getFormat();
-                    if (fmt != null) {
-                        outChannels = fmt.channelCount;
-                        outRate = fmt.sampleRate;
-                        if (frameCount == 0) {
-                            System.out.println("[Crest Music] First frame: " + data.length + " bytes, format="
-                                + fmt.channelCount + "ch " + fmt.sampleRate + "Hz "
-                                + fmt.codecName() + " chunk=" + fmt.chunkSampleCount);
-                        }
-                    }
-                    frameCount++;
-                    writeOutput(data);
+                if (data == null || data.length == 0) continue;
 
-                    // Pace consumption to real time so the player's track-completion
-                    // and progress stay in sync with actual audio. Each frame is
-                    // chunkSampleCount / sampleRate seconds of audio; sleep until that
-                    // much wall-clock time has elapsed since the previous frame.
-                    double frameMs = (fmt != null && fmt.sampleRate > 0)
-                        ? (fmt.chunkSampleCount * 1000.0 / fmt.sampleRate)
-                        : 20.0;
-                    long now = System.currentTimeMillis();
-                    if (nextFrameTime == 0) {
-                        nextFrameTime = now + (long) frameMs;
-                    } else {
-                        long sleep = nextFrameTime - now;
-                        if (sleep > 0) {
-                            try { Thread.sleep(sleep); } catch (InterruptedException e) { return; }
-                        }
-                        nextFrameTime += (long) frameMs;
-                        // Avoid runaway drift if we ever fell behind.
-                        if (nextFrameTime < System.currentTimeMillis()) {
-                            nextFrameTime = System.currentTimeMillis() + (long) frameMs;
-                        }
+                // Open the output lazily on first real audio (don't grab the
+                // device until something actually plays).
+                if (!outputOpen && !openOutput()) {
+                    try { Thread.sleep(50); } catch (InterruptedException e) { break; }
+                    continue;
+                }
+
+                AudioDataFormat fmt = frame.getFormat();
+                if (fmt != null) {
+                    outChannels = fmt.channelCount;
+                    outRate = fmt.sampleRate;
+                    if (frameCount == 0) {
+                        System.out.println("[Crest Music] First frame: " + data.length + " bytes, format="
+                            + fmt.channelCount + "ch " + fmt.sampleRate + "Hz "
+                            + fmt.codecName() + " chunk=" + fmt.chunkSampleCount);
+                    }
+                }
+                frameCount++;
+                writeOutput(data);
+
+                // Pace consumption to real time so the player's track-completion
+                // and progress stay in sync with actual audio. Each frame is
+                // chunkSampleCount / sampleRate seconds of audio; sleep until that
+                // much wall-clock time has elapsed since the previous frame.
+                double frameMs = (fmt != null && fmt.sampleRate > 0)
+                    ? (fmt.chunkSampleCount * 1000.0 / fmt.sampleRate)
+                    : 20.0;
+                long now = System.currentTimeMillis();
+                if (nextFrameTime == 0) {
+                    nextFrameTime = now + (long) frameMs;
+                } else {
+                    long sleep = nextFrameTime - now;
+                    if (sleep > 0) {
+                        try { Thread.sleep(sleep); } catch (InterruptedException e) { break; }
+                    }
+                    nextFrameTime += (long) frameMs;
+                    // Avoid runaway drift if we ever fell behind.
+                    if (nextFrameTime < System.currentTimeMillis()) {
+                        nextFrameTime = System.currentTimeMillis() + (long) frameMs;
                     }
                 }
 
@@ -727,7 +723,6 @@ public class MusicPlayer {
             }
         } finally {
             System.out.println("[Crest Music] Playback thread ending, frames played=" + frameCount);
-            if (gen == outputGeneration) closeOutput();
         }
     }
 }
