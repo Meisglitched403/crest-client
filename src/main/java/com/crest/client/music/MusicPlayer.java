@@ -31,6 +31,9 @@ public class MusicPlayer {
     private volatile int queueIndex = -1;
     private volatile boolean paused;
     private volatile float sliderVolume = 100f;
+    // Extra multiplier applied on top of the slider volume (used for ducking);
+    // never persisted, so ducking never clobbers the user's actual volume.
+    private volatile float volumeFactor = 1f;
 
     private volatile RepeatMode repeatMode = RepeatMode.OFF;
     private volatile boolean shuffle = false;
@@ -508,11 +511,97 @@ public class MusicPlayer {
 
     public void setSliderVolume(float vol) {
         sliderVolume = Math.max(0, Math.min(100, vol));
-        player.setVolume((int) sliderVolume);
+        player.setVolume((int) (sliderVolume * volumeFactor));
     }
 
     public float getSliderVolume() {
         return sliderVolume;
+    }
+
+    /** Multiplier applied on top of {@link #getSliderVolume()} (ducking). */
+    public void setVolumeFactor(float factor) {
+        volumeFactor = Math.max(0f, Math.min(1f, factor));
+        player.setVolume((int) (sliderVolume * volumeFactor));
+    }
+
+    public float getVolumeFactor() {
+        return volumeFactor;
+    }
+
+    public List<String> getQueueUris() {
+        List<String> uris = new ArrayList<>(queue.size());
+        for (AudioTrack t : queue) {
+            if (t != null && t.getInfo() != null && t.getInfo().uri != null) uris.add(t.getInfo().uri);
+        }
+        return uris;
+    }
+
+    /**
+     * Asynchronously re-load a previously saved queue and start playing at
+     * {@code startIndex}. No-ops if audio is already loaded/playing, so a fresh
+     * manual load can never be clobbered. Failed/blocked URIs are skipped.
+     */
+    public void restoreQueue(List<String> uris, int startIndex) {
+        if (uris == null || uris.isEmpty()) return;
+        if (currentTrack != null || !queue.isEmpty()) return;
+
+        int n = uris.size();
+        final AudioTrack[] slots = new AudioTrack[n];
+        final int[] pending = {n};
+        for (int i = 0; i < n; i++) {
+            String uri = uris.get(i);
+            if (uri == null || uri.isBlank() || !isUrlAllowed(uri)) {
+                synchronized (pending) { finishRestore(slots, pending, startIndex); }
+                continue;
+            }
+            final int index = i;
+            try {
+                manager.loadItem(uri, new AudioLoadResultHandler() {
+                    @Override
+                    public void trackLoaded(AudioTrack track) {
+                        slots[index] = track.makeClone();
+                        finishRestore(slots, pending, startIndex);
+                    }
+
+                    @Override
+                    public void playlistLoaded(AudioPlaylist playlist) {
+                        if (!playlist.getTracks().isEmpty()) {
+                            slots[index] = playlist.getTracks().get(0).makeClone();
+                        }
+                        finishRestore(slots, pending, startIndex);
+                    }
+
+                    @Override
+                    public void noMatches() {
+                        finishRestore(slots, pending, startIndex);
+                    }
+
+                    @Override
+                    public void loadFailed(FriendlyException ex) {
+                        System.err.println("[Crest Music] Restore failed for " + uri + ": " + ex.getMessage());
+                        finishRestore(slots, pending, startIndex);
+                    }
+                });
+            } catch (Exception e) {
+                synchronized (pending) { finishRestore(slots, pending, startIndex); }
+            }
+        }
+    }
+
+    private void finishRestore(AudioTrack[] slots, int[] pending, int startIndex) {
+        if (--pending[0] > 0) return;
+        // Only apply if nothing else has started in the meantime.
+        if (currentTrack != null || !queue.isEmpty()) return;
+        List<AudioTrack> tracks = new ArrayList<>();
+        for (AudioTrack t : slots) {
+            if (t != null) tracks.add(t);
+        }
+        if (tracks.isEmpty()) {
+            System.out.println("[Crest Music] Nothing restored from saved queue");
+            return;
+        }
+        System.out.println("[Crest Music] Restoring " + tracks.size() + " queued tracks");
+        playList(tracks, Math.max(0, Math.min(startIndex, tracks.size() - 1)));
     }
 
     public void setOnTrackStart(OnStateChange cb) { onTrackStart = cb; }

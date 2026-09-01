@@ -42,6 +42,7 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
 
     private boolean draggingVolume;
     private boolean draggingProgress;
+    private boolean draggingDuck;
 
     private int queueScroll;
     private int queueRowH = 22;
@@ -64,6 +65,11 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
     private int volBarX, volBarW, volBarY;
     private int nowPlayingBarX, nowPlayingBarW, nowPlayingBarY;
     private int shuffleBtnX, shuffleBtnY, shuffleBtnW, shuffleBtnH;
+    private int toggChipY, toggChipH;
+    private final int[] toggChipX = new int[3];
+    private final int[] toggChipW = new int[3];
+    private int duckBarX, duckBarW, duckBarY;
+    private int libSetY, libSetH, libLoadY, libLoadH;
 
     public MusicScreen(MusicPlayer player) {
         this(player, null);
@@ -88,7 +94,9 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
         int panelX, panelY, panelW, panelH;
         int closeX, closeY, closeW, closeH;
         int searchX, searchY, searchW, searchH, fieldX, fieldW, goX, goW, folderX, folderW;
-        int leftX, leftW, rightX, rightW, colTop, colBottom;
+        int libX, libW, libY, libH, libRowA, libRowB;
+        int setX, setY, setW, setH, loadX, loadY, loadW, loadH;
+        int leftX, leftW, rightX, rightW, colTop, colTop2, colBottom;
         int resX, resY, resW, resH, resRowH, resHeaderH;
         int npX, npY, npW, npH, npTitleY, npBarX, npBarY, npBarW, npBarH;
         int npControlsY, npBtnW, npBtnH, npBtnGap;
@@ -126,20 +134,38 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
             l.colBottom = l.panelY + l.panelH - Spacing.S2;
             int colGap = Spacing.S3;
             int inner = l.panelW - Spacing.S4;
+
+            // Library & playback behavior strip between the search row and the columns.
+            l.libX = l.panelX + Spacing.S2;
+            l.libW = l.panelW - Spacing.S4;
+            l.libY = l.colTop;
+            l.libH = 56;
+            l.libRowA = l.libY + 4;
+            l.libRowB = l.libY + 28;
+            l.setH = BTN_H;
+            l.setW = 42;
+            l.loadH = BTN_H;
+            l.loadW = 50;
+            l.loadX = l.libX + l.libW - l.loadW;
+            l.setX = l.loadX - l.setW - BTN_GAP;
+            l.setY = l.libRowA;
+            l.loadY = l.libRowA;
+            l.colTop2 = l.libY + l.libH + Spacing.S2;
+
             l.leftW = (int) ((inner - colGap) * 0.56);
             l.rightW = inner - colGap - l.leftW;
             l.leftX = l.panelX + Spacing.S2;
             l.rightX = l.leftX + l.leftW + colGap;
 
             l.resX = l.leftX;
-            l.resY = l.colTop;
+            l.resY = l.colTop2;
             l.resW = l.leftW;
-            l.resH = (l.colBottom - l.colTop) - Spacing.S1;
+            l.resH = (l.colBottom - l.colTop2) - Spacing.S1;
             l.resRowH = 22;
             l.resHeaderH = 22;
 
             l.npX = l.rightX;
-            l.npY = l.colTop;
+            l.npY = l.colTop2;
             l.npW = l.rightW;
             l.npTitleY = l.npY + Spacing.S2;
             l.npBarY = l.npTitleY + Spacing.S3 + 9;
@@ -220,6 +246,7 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
         g.text(font, Component.literal("✕"), l.closeX, l.closeY, closeHover ? Theme.DESTRUCTIVE : Theme.MUTED_FOREGROUND);
 
         renderSearchBar(g, mx, my, l, accent, delta);
+        renderLibraryBehavior(g, mx, my, l, accent, delta);
         renderResults(g, mx, my, l, accent, delta);
         renderNowPlaying(g, mx, my, l, accent, delta);
 
@@ -253,6 +280,74 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
 
         drawActionButton(g, l.goX, l.searchY, l.goW, l.searchH, "Go", "go", mx, my, false, delta);
         drawActionButton(g, l.folderX, l.searchY, l.folderW, l.searchH, "Folder", "folder", mx, my, false, delta);
+    }
+
+    private void renderLibraryBehavior(GuiGraphicsExtractor g, int mx, int my, L l, int accent, float delta) {
+        MusicPlayerPrefs prefs = MusicPlayerPrefs.get();
+
+        // Row A: library folder path + Set/Load buttons.
+        g.text(font, Component.literal("Library:"), l.libX, l.libRowA + 6, Theme.MUTED_FOREGROUND);
+        String path = prefs.getLibraryFolder();
+        boolean hasPath = !path.isBlank();
+        String shown = hasPath ? path : "Not set — type a folder path into the search field and press Set";
+        int maxW = l.libW - 52 - l.setW - l.loadW - BTN_GAP * 2 - 8;
+        if (font.width(shown) > maxW && maxW > 0) shown = font.plainSubstrByWidth(shown, maxW - 4) + "...";
+        g.text(font, Component.literal(shown), l.libX + 52, l.libRowA + 6,
+            hasPath ? Theme.TEXT_DIM : Theme.TEXT_FAINT);
+
+        libSetY = l.setY; libSetH = l.setH;
+        libLoadY = l.loadY; libLoadH = l.loadH;
+        drawActionButton(g, l.loadX, l.loadY, l.loadW, l.loadH, "Load", "library_load", mx, my, hasPath, delta);
+        drawActionButton(g, l.setX, l.setY, l.setW, l.setH, "Set", "library_set", mx, my, false, delta);
+
+        // Row B: behavior chips + duck level slider.
+        String[] labels = {" Pause with game ", " Duck on pause ", " Restore queue "};
+        boolean[] active = {prefs.isPauseWithGame(), prefs.isDucking(), prefs.isRestoreQueue()};
+        int cx = l.libX;
+        toggChipY = l.libRowB; toggChipH = BTN_H;
+        for (int i = 0; i < 3; i++) {
+            int cw = font.width(labels[i]) + 16;
+            toggChipX[i] = cx; toggChipW[i] = cw;
+            drawToggleChip(g, cx, toggChipY, cw, toggChipH, labels[i], active[i], accent, mx, my, "chip" + i, delta);
+            cx += cw + BTN_GAP;
+        }
+
+        // Duck slider at the right end of the row (when there is room).
+        int sliderEnd = l.libX + l.libW;
+        int pctW = font.width("100%") + 2;
+        int labW = font.width("Duck") + 6;
+        int barAreaW = sliderEnd - cx - pctW;
+        if (barAreaW >= labW + 24) {
+            int trackX = cx + labW;
+            int trackW = barAreaW - labW;
+            int by = toggChipY + (toggChipH - BAR_H) / 2;
+            g.text(font, Component.literal("Duck"), cx, toggChipY + 6, Theme.MUTED_FOREGROUND);
+            g.fill(trackX, by, trackX + trackW, by + BAR_H, Theme.MUTED);
+            float v = prefs.getDuckVolume() / 100f;
+            int fillW = Math.max(BAR_H, (int) (trackW * v));
+            g.fill(trackX, by, trackX + fillW, by + BAR_H, accent);
+            int kx = trackX + (int) (trackW * v) - BAR_H / 2;
+            g.fill(kx, by - 1, kx + BAR_H, by + BAR_H + 1, Theme.FOREGROUND);
+            duckBarX = trackX; duckBarW = trackW; duckBarY = by;
+            String pct = (int) prefs.getDuckVolume() + "%";
+            g.text(font, Component.literal(pct), sliderEnd - pctW + Math.max(0, (pctW - font.width(pct)) / 2), toggChipY + 6, Theme.TEXT_DIM);
+        } else {
+            duckBarW = 0;
+            g.text(font, Component.literal("Duck " + (int) prefs.getDuckVolume() + "%"), cx, toggChipY + 6, Theme.TEXT_DIM);
+        }
+    }
+
+    private void drawToggleChip(GuiGraphicsExtractor g, int x, int y, int w, int h, String label,
+                                boolean active, int accent, int mx, int my, String key, float delta) {
+        boolean hover = mx >= x && mx <= x + w && my >= y && my <= y + h;
+        float hv = hoverValue(key, hover, delta);
+        int base = active ? ColorUtil.withAlpha(Theme.PRIMARY, 170) : ColorUtil.withAlpha(Theme.SURFACE_VARIANT, 200);
+        int hov = ColorUtil.withAlpha(Theme.BG_HOVER, 220);
+        Panel.draw(g, x, y, w, h, ColorUtil.lerpARGB(base, hov, hv));
+        int border = active ? accent : ColorUtil.lerpARGB(Theme.BORDER_LIGHT, accent, hv);
+        Panel.drawHollowRect(g, x, y, w, h, ColorUtil.withAlpha(border, active ? 170 : (hover ? 200 : 90)));
+        int fg = active ? Theme.PRIMARY_FOREGROUND : (hover ? Theme.ON_SURFACE : Theme.ON_SURFACE_VARIANT);
+        g.centeredText(font, Component.literal(label), x + w / 2, y + (h - font.lineHeight) / 2, fg);
     }
 
     private void drawActionButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String label,
@@ -598,6 +693,43 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
         if (mx >= l.folderX && mx <= l.folderX + l.folderW && my >= l.searchY && my <= l.searchY + l.searchH) { UiSounds.click(); loadFolderAction(); return true; }
         urlFocused = false;
 
+        // Library strip
+        if (mx >= l.setX && mx <= l.setX + l.setW && my >= libSetY && my <= libSetY + libSetH) {
+            UiSounds.click();
+            String path = urlText.toString().trim();
+            if (path.isEmpty()) {
+                setStatus("Type a folder path into the search field first");
+            } else {
+                MusicPlayerPrefs.get().setLibraryFolder(path);
+                setStatus("Library set: " + path);
+            }
+            return true;
+        }
+        if (mx >= l.loadX && mx <= l.loadX + l.loadW && my >= libLoadY && my <= libLoadY + libLoadH) {
+            UiSounds.click(); loadLibraryAction(); return true;
+        }
+        for (int i = 0; i < 3; i++) {
+            if (toggChipW[i] > 0 && mx >= toggChipX[i] && mx <= toggChipX[i] + toggChipW[i]
+                && my >= toggChipY && my <= toggChipY + toggChipH) {
+                UiSounds.click();
+                MusicPlayerPrefs p = MusicPlayerPrefs.get();
+                switch (i) {
+                    case 0 -> { p.setPauseWithGame(!p.isPauseWithGame()); setStatus("Pause with game: " + p.isPauseWithGame()); }
+                    case 1 -> { p.setDucking(!p.isDucking()); setStatus("Duck on pause: " + p.isDucking()); }
+                    case 2 -> { p.setRestoreQueue(!p.isRestoreQueue()); setStatus("Restore queue: " + p.isRestoreQueue()); }
+                }
+                MusicModule.refreshIdleState();
+                return true;
+            }
+        }
+        if (duckBarW > 0 && mx >= duckBarX - 2 && mx <= duckBarX + duckBarW + 2 && my >= duckBarY - 4 && my <= duckBarY + BAR_H + 4) {
+            UiSounds.click();
+            float pct = (float) ((mx - duckBarX) / Math.max(1, duckBarW));
+            MusicPlayerPrefs.get().setDuckVolume(Mth.clamp(pct * 100, 0, 100));
+            draggingDuck = true;
+            return true;
+        }
+
         // Results
         if (hasResults()) {
             int rowH = l.resRowH;
@@ -623,13 +755,13 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
                         case 1 -> player.togglePause();
                         case 2 -> { player.stop(); setStatus("Stopped"); }
                         case 3 -> player.next();
-                        case 4 -> player.cycleRepeatMode();
+                        case 4 -> { player.cycleRepeatMode(); MusicModule.syncPrefs(); }
                     }
                     return true;
                 }
             }
             if (mx >= l.shuffleX && mx <= l.shuffleX + l.shuffleW && my >= l.shuffleY && my <= l.shuffleY + l.shuffleH) {
-                UiSounds.click(); player.setShuffle(!player.isShuffle()); return true;
+                UiSounds.click(); player.setShuffle(!player.isShuffle()); MusicModule.syncPrefs(); return true;
             }
 
             // Seek (click + begin drag)
@@ -702,6 +834,12 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
             player.seek((long) (player.getDuration() * pct));
             return true;
         }
+        if (draggingDuck && duckBarW > 0) {
+            float pct = (float) ((mx - duckBarX) / duckBarW);
+            MusicPlayerPrefs.get().setDuckVolume(Mth.clamp(pct * 100, 0, 100));
+            MusicModule.refreshIdleState();
+            return true;
+        }
         return super.mouseDragged(event, dx, dy);
     }
 
@@ -709,6 +847,8 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
     public boolean mouseReleased(MouseButtonEvent event) {
         draggingVolume = false;
         draggingProgress = false;
+        draggingDuck = false;
+        MusicModule.syncPrefs();
         return super.mouseReleased(event);
     }
 
@@ -770,9 +910,17 @@ public class MusicScreen extends Screen implements TextCapturingScreen {
 
     private void loadFolderAction() {
         String input = urlText.toString().trim();
-        if (input.isEmpty()) { setStatus("Paste a folder path first"); return; }
+        if (input.isEmpty()) input = MusicPlayerPrefs.get().getLibraryFolder();
+        if (input.isEmpty()) { setStatus("Paste a folder path (or set your library)"); return; }
         setStatus("Loading folder...");
         player.loadLocalFolder(input);
+    }
+
+    private void loadLibraryAction() {
+        String dir = MusicPlayerPrefs.get().getLibraryFolder();
+        if (dir.isBlank()) { setStatus("No library set — type a path into the search field and press Set"); return; }
+        setStatus("Loading library: " + dir);
+        player.loadLocalFolder(dir);
     }
 
     private void playResult(int index) {

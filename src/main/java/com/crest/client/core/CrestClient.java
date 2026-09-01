@@ -151,6 +151,7 @@ public class CrestClient implements ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             CrestModules.getConfigManager().save();
             HudSettings.save();
+            MusicModule.saveNow();
         });
 
         HudElementRegistry.attachElementBefore(
